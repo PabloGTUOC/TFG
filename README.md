@@ -74,3 +74,63 @@ Deployment:The application will be containerized using Docker with following con
 2.	Node/Express backend.
 3.	PostgreSQL.
 All services will run on a home server and will be securely exposed to the internet using Cloudflare Tunnel, avoiding direct port exposure and improving security
+
+---
+
+## Backend bootstrap implemented
+
+This repository now includes an initial Node.js + Express backend focused on the core invariants described above.
+
+### Implemented
+
+- PostgreSQL schema with transactional-friendly tables:
+  - `users`
+  - `families`
+  - `family_members`
+  - `activities`
+  - `coin_ledger`
+- Firebase token verification middleware (`Authorization: Bearer <token>`).
+- Family APIs:
+  - `GET /api/families`
+  - `POST /api/families`
+  - `POST /api/families/:familyId/join`
+- Activity APIs:
+  - `GET /api/activities?familyId=...`
+  - `POST /api/activities`
+  - `POST /api/activities/:activityId/approve`
+- Business rules already enforced:
+  - minimum 15-minute duration
+  - overlap prevention for assigned users
+  - only `main_caregiver` can approve pending activities
+  - coin balance + ledger updates happen in the same DB transaction
+
+### Local setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Copy env file and fill values:
+
+```bash
+cp .env.example .env
+```
+
+3. Initialize database schema:
+
+```bash
+npm run db:init
+```
+
+4. Start backend:
+
+```bash
+npm run dev
+```
+
+### Notes
+
+- Authentication requires Firebase service credentials available to `firebase-admin` plus `FIREBASE_PROJECT_ID`.
+- A simple health route is available at `GET /health`.
