@@ -1,8 +1,12 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import { requireAuth } from './middleware/auth.js';
+import { logLoginHistory } from './middleware/audit.js';
 import { familiesRouter } from './routes/families.js';
 import { activitiesRouter } from './routes/activities.js';
+import { meRouter } from './routes/me.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { marketplaceRouter } from './routes/marketplace.js';
 
 dotenv.config();
 
@@ -14,8 +18,12 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
 });
 
+app.use('/api', requireAuth, logLoginHistory);
+app.use('/api/me', requireAuth, meRouter);
 app.use('/api/families', requireAuth, familiesRouter);
 app.use('/api/activities', requireAuth, activitiesRouter);
+app.use('/api/dashboard', requireAuth, dashboardRouter);
+app.use('/api/marketplace', requireAuth, marketplaceRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

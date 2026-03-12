@@ -64,3 +64,13 @@ button {
   color: #b00020;
   font-weight: 600;
 }
+
+.grid.three {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+pre {
+  overflow: auto;
+  background: #f3f4f6;
+  padding: 0.6rem;
+}

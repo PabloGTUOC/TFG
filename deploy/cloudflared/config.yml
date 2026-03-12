@@ -1,0 +1,9 @@
+tunnel: carecoins-tunnel
+credentials-file: /etc/cloudflared/carecoins.json
+
+ingress:
+  - hostname: carecoins.example.com
+    service: http://frontend:80
+  - hostname: api-carecoins.example.com
+    service: http://backend:3000
+  - service: http_status:404

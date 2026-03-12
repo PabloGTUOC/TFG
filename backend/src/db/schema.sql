@@ -14,6 +14,15 @@ CREATE TABLE IF NOT EXISTS families (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS actors (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  actor_type TEXT NOT NULL DEFAULT 'person',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (family_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS family_members (
   id BIGSERIAL PRIMARY KEY,
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
@@ -52,5 +61,26 @@ CREATE TABLE IF NOT EXISTS coin_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS login_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ip_address TEXT,
+  user_agent TEXT
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_offers (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  created_by BIGINT NOT NULL REFERENCES users(id),
+  title TEXT NOT NULL,
+  coin_cost INTEGER NOT NULL CHECK (coin_cost > 0),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'redeemed', 'cancelled')),
+  redeemed_by BIGINT REFERENCES users(id),
+  redeemed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_activities_assignee_period ON activities (assigned_to, starts_at, ends_at);
 CREATE INDEX IF NOT EXISTS idx_activities_family_status ON activities (family_id, status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_family_status ON marketplace_offers (family_id, status);
