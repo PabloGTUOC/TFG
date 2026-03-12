@@ -1,0 +1,66 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+body {
+  margin: 0;
+  background: #f7f7f9;
+}
+
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.row {
+  margin-bottom: 0.7rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.7rem;
+}
+
+input,
+select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.3rem;
+  padding: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  margin-bottom: 0.8rem;
+}
+
+.success {
+  color: #0a6a22;
+  font-weight: 600;
+}
+
+.error {
+  color: #b00020;
+  font-weight: 600;
+}
