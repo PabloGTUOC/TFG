@@ -1,13 +1,58 @@
 import { defineStore } from 'pinia';
+import { auth } from '../firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onIdTokenChanged
+} from 'firebase/auth';
 
 export const useAppStore = defineStore('app', {
   state: () => ({
-    apiBase: 'http://localhost:3000',
+    apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:3000',
+    user: null, // Firebase user object
     token: '',
     success: '',
-    error: ''
+    error: '',
+    authReady: false // Wait for initial auth state before rendering logic
   }),
   actions: {
+    initAuthListener() {
+      // Firebase automatically manages token refresh, so we listen to changes
+      onIdTokenChanged(auth, async (user) => {
+        this.user = user;
+        if (user) {
+          this.token = await user.getIdToken();
+        } else {
+          this.token = '';
+        }
+        this.authReady = true;
+      });
+    },
+    async login(email, password) {
+      this.clearMessages();
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        this.setSuccess('Logged in successfully!');
+      } catch (err) {
+        this.setError(err.message);
+        throw err;
+      }
+    },
+    async register(email, password) {
+      this.clearMessages();
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        this.setSuccess('Account created successfully!');
+      } catch (err) {
+        this.setError(err.message);
+        throw err;
+      }
+    },
+    async logout() {
+      this.clearMessages();
+      await signOut(auth);
+    },
     setSuccess(message) {
       this.success = message;
       this.error = '';
@@ -19,6 +64,24 @@ export const useAppStore = defineStore('app', {
     clearMessages() {
       this.success = '';
       this.error = '';
+    },
+    authHeaders() {
+      return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` };
+    },
+    async request(path, options = {}) {
+      const response = await fetch(`${this.apiBase}${path}`, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      return data;
+    },
+    async runAction(fn, okMessage) {
+      this.clearMessages();
+      try {
+        await fn();
+        if (okMessage) this.setSuccess(okMessage);
+      } catch (err) {
+        this.setError(err.message);
+      }
     }
   }
 });
