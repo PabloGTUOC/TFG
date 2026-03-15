@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 
 const appStore = useAppStore();
 const router = useRouter();
-const { success, error, user, authReady } = storeToRefs(appStore);
+const { success, error, user, families, authReady } = storeToRefs(appStore);
 
 const handleLogout = async () => {
   await appStore.logout();
@@ -20,13 +20,16 @@ const handleLogout = async () => {
   <div v-else class="app-layout">
     <header class="app-header">
       <h1>CareCoins</h1>
-      <nav class="navbar" v-if="user">
-        <router-link to="/">Settings</router-link>
+      <nav class="navbar" v-if="user && families && families.length > 0">
         <router-link to="/profile">Profile</router-link>
         <router-link to="/families">Families</router-link>
         <router-link to="/activities">Activities</router-link>
         <router-link to="/dashboard">Dashboard</router-link>
         <router-link to="/marketplace">Marketplace</router-link>
+        <a href="#" @click.prevent="handleLogout" class="logout-link">Logout</a>
+      </nav>
+      <!-- Allow logout from onboarding -->
+      <nav class="navbar" v-else-if="user && (!families || families.length === 0)">
         <a href="#" @click.prevent="handleLogout" class="logout-link">Logout</a>
       </nav>
     </header>

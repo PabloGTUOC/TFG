@@ -7,12 +7,14 @@ import FamiliesView from '../views/FamiliesView.vue'
 import ActivitiesView from '../views/ActivitiesView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import MarketplaceView from '../views/MarketplaceView.vue'
+import OnboardingView from '../views/OnboardingView.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
         { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
-        { path: '/', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
+        { path: '/onboarding', name: 'onboarding', component: OnboardingView, meta: { requiresAuth: true } },
+        { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
         { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
         { path: '/families', name: 'families', component: FamiliesView, meta: { requiresAuth: true } },
         { path: '/activities', name: 'activities', component: ActivitiesView, meta: { requiresAuth: true } },
@@ -42,8 +44,18 @@ router.beforeEach(async (to, from, next) => {
 
     if (to.meta.requiresAuth && !isAuthenticated) {
         next('/login');
-    } else if (to.meta.guest && isAuthenticated) {
-        next('/dashboard');
+    } else if (isAuthenticated) {
+        // If authenticated, ensure they have at least one family, else pin to onboarding
+        const hasFamilies = store.families && store.families.length > 0;
+
+        if (!hasFamilies && to.name !== 'onboarding' && to.name !== 'settings' && to.name !== 'profile') {
+            next('/onboarding');
+        } else if (to.meta.guest) {
+            // Trying to hit login while logged in
+            next(hasFamilies ? '/dashboard' : '/onboarding');
+        } else {
+            next();
+        }
     } else {
         next();
     }

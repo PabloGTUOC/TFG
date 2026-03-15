@@ -26,15 +26,34 @@ familiesRouter.get('/', async (req, res) => {
 });
 
 familiesRouter.post('/', async (req, res) => {
-  const { name, monthlyCoinBudget = 1000 } = req.body;
+  const { name, mainCaretakerName, caretakers = [], objectsOfCare = [] } = req.body;
 
   if (!name || typeof name !== 'string') {
     return res.status(400).json({ error: 'name is required.' });
   }
 
+  // Calculate monthly budget based on objects of care.
+  let monthlyCoinBudget = 0;
+  for (const obj of objectsOfCare) {
+    if (obj.careTime === 'full_time') {
+      monthlyCoinBudget += 24 * 30; // 720
+    } else if (obj.careTime === 'part_time') {
+      monthlyCoinBudget += 12 * 30; // 360
+    }
+  }
+  if (monthlyCoinBudget === 0) monthlyCoinBudget = 1000;
+
   try {
     const family = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
+
+      if (mainCaretakerName && mainCaretakerName.trim()) {
+        await client.query(
+          `UPDATE users SET display_name = $1 WHERE id = $2`,
+          [mainCaretakerName.trim(), user.id]
+        );
+        user.display_name = mainCaretakerName.trim();
+      }
 
       const createdFamily = await client.query(
         `INSERT INTO families (name, monthly_coin_budget, created_by)
@@ -42,58 +61,105 @@ familiesRouter.post('/', async (req, res) => {
          RETURNING id, name, monthly_coin_budget`,
         [name.trim(), monthlyCoinBudget, user.id]
       );
+      const famId = createdFamily.rows[0].id;
 
+      // Add creator as main_caregiver, active
       await client.query(
-        `INSERT INTO family_members (family_id, user_id, role)
-         VALUES ($1, $2, 'main_caregiver')`,
-        [createdFamily.rows[0].id, user.id]
+        `INSERT INTO family_members (family_id, user_id, role, status)
+         VALUES ($1, $2, 'main_caregiver', 'active')`,
+        [famId, user.id]
       );
 
+      // Add creator to actors as person
       await client.query(
-        `INSERT INTO actors (family_id, user_id, actor_type)
-         VALUES ($1, $2, 'person')
-         ON CONFLICT (family_id, user_id) DO NOTHING`,
-        [createdFamily.rows[0].id, user.id]
+        `INSERT INTO actors (family_id, user_id, actor_type, name)
+         VALUES ($1, $2, 'person', $3)`,
+        [famId, user.id, user.display_name]
       );
+
+      // Add invitations
+      for (const ct of caretakers) {
+        if (ct.email && ct.email.trim()) {
+          await client.query(
+            `INSERT INTO family_invitations (family_id, email, name, invited_by)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (family_id, email) DO NOTHING`,
+            [famId, ct.email.trim(), ct.name?.trim() || null, user.id]
+          );
+        }
+      }
+
+      // Add objects of care -> actors
+      for (const obj of objectsOfCare) {
+        if (obj.name && obj.name.trim()) {
+          await client.query(
+            `INSERT INTO actors (family_id, actor_type, name, care_time)
+             VALUES ($1, $2, $3, $4)`,
+            [famId, obj.type || 'child', obj.name.trim(), obj.careTime || 'full_time']
+          );
+        }
+      }
 
       return createdFamily.rows[0];
     });
 
     return res.status(201).json({ family });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Failed to create family.' });
   }
 });
 
-familiesRouter.post('/:familyId/join', async (req, res) => {
-  const familyId = Number(req.params.familyId);
-  const { role = 'member' } = req.body;
-
-  if (!['main_caregiver', 'caregiver', 'member'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role.' });
-  }
+familiesRouter.post('/join-request', async (req, res) => {
+  const { identifier } = req.body;
+  if (!identifier) return res.status(400).json({ error: 'Family ID or name is required.' });
 
   try {
-    await withTransaction(async (client) => {
+    const joined = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      await client.query(
-        `INSERT INTO family_members (family_id, user_id, role)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (family_id, user_id)
-         DO UPDATE SET role = EXCLUDED.role`,
-        [familyId, user.id, role]
+
+      let familyId;
+      if (!isNaN(identifier)) {
+        familyId = Number(identifier);
+      } else {
+        const { rows: fRows } = await client.query(`SELECT id FROM families WHERE name ILIKE $1 LIMIT 1`, [identifier.trim()]);
+        if (fRows.length === 0) throw new Error('Family not found');
+        familyId = fRows[0].id;
+      }
+
+      const { rows: checkF } = await client.query('SELECT id FROM families WHERE id = $1', [familyId]);
+      if (checkF.length === 0) throw new Error('Family not found');
+
+      // Check if they have an invitation pending, if so, they can be 'active' immediately. Otherwise 'pending'.
+      const { rows: invRows } = await client.query(
+        `SELECT id FROM family_invitations WHERE family_id = $1 AND email = $2 AND status = 'pending'`,
+        [familyId, user.email]
       );
+
+      const newStatus = invRows.length > 0 ? 'active' : 'pending';
+
       await client.query(
-        `INSERT INTO actors (family_id, user_id, actor_type)
-         VALUES ($1, $2, 'person')
+        `INSERT INTO family_members (family_id, user_id, role, status)
+         VALUES ($1, $2, 'member', $3)
          ON CONFLICT (family_id, user_id) DO NOTHING`,
-        [familyId, user.id]
+        [familyId, user.id, newStatus]
       );
+
+      if (newStatus === 'active') {
+        await client.query(`UPDATE family_invitations SET status = 'accepted' WHERE id = $1`, [invRows[0].id]);
+        await client.query(
+          `INSERT INTO actors (family_id, user_id, actor_type, name)
+           VALUES ($1, $2, 'person', $3)
+           ON CONFLICT (family_id, user_id) DO NOTHING`,
+          [familyId, user.id, user.display_name]
+        );
+      }
+      return { success: true, status: newStatus };
     });
 
-    return res.status(200).json({ joined: true });
-  } catch {
-    return res.status(500).json({ error: 'Failed to join family.' });
+    return res.status(200).json(joined);
+  } catch (err) {
+    return res.status(400).json({ error: err.message || 'Failed to request join.' });
   }
 });
 

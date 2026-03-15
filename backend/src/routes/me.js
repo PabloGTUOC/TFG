@@ -12,17 +12,71 @@ meRouter.get('/', async (req, res) => {
         `SELECT fm.family_id, f.name, fm.role, fm.coin_balance
          FROM family_members fm
          JOIN families f ON f.id = fm.family_id
-         WHERE fm.user_id = $1
+         WHERE fm.user_id = $1 AND fm.status = 'active'
          ORDER BY f.created_at DESC`,
         [user.id]
       );
 
-      return { user, families };
+      const { rows: pendingRequests } = await client.query(
+        `SELECT fm.family_id, f.name
+         FROM family_members fm
+         JOIN families f ON f.id = fm.family_id
+         WHERE fm.user_id = $1 AND fm.status = 'pending'`,
+        [user.id]
+      );
+
+      return { user, families, pendingRequests };
     });
 
     return res.json(payload);
   } catch {
     return res.status(500).json({ error: 'Failed to load current user.' });
+  }
+});
+meRouter.post('/login-event', async (req, res) => {
+  try {
+    const eventId = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      const { rows } = await client.query(
+        `INSERT INTO login_history (user_id, ip_address, user_agent)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [user.id, req.ip || null, req.headers['user-agent'] || null]
+      );
+      return rows[0].id;
+    });
+    return res.json({ eventId });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to record login event.' });
+  }
+});
+
+meRouter.post('/logout-event', async (req, res) => {
+  const { eventId } = req.body;
+  try {
+    await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      if (eventId) {
+        await client.query(
+          `UPDATE login_history SET logout_at = NOW() WHERE id = $1 AND user_id = $2`,
+          [eventId, user.id]
+        );
+      } else {
+        // Fallback: update the most recent open session
+        await client.query(
+          `UPDATE login_history SET logout_at = NOW() 
+           WHERE id = (
+             SELECT id FROM login_history 
+             WHERE user_id = $1 AND logout_at IS NULL 
+             ORDER BY login_at DESC LIMIT 1
+           )`,
+          [user.id]
+        );
+      }
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to record logout event.' });
   }
 });
 

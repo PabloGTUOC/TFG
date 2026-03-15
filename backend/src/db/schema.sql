@@ -14,22 +14,37 @@ CREATE TABLE IF NOT EXISTS families (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS actors (
-  id BIGSERIAL PRIMARY KEY,
-  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  actor_type TEXT NOT NULL DEFAULT 'person',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (family_id, user_id)
-);
-
 CREATE TABLE IF NOT EXISTS family_members (
   id BIGSERIAL PRIMARY KEY,
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('main_caregiver', 'caregiver', 'member')),
   coin_balance INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (family_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS family_invitations (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  name TEXT,
+  role TEXT NOT NULL DEFAULT 'caregiver',
+  invited_by BIGINT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (family_id, email)
+);
+
+CREATE TABLE IF NOT EXISTS actors (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  actor_type TEXT NOT NULL DEFAULT 'person',
+  name TEXT,
+  care_time TEXT CHECK (care_time IN ('full_time', 'part_time')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (family_id, user_id)
 );
 
@@ -65,6 +80,7 @@ CREATE TABLE IF NOT EXISTS login_history (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  logout_at TIMESTAMPTZ,
   ip_address TEXT,
   user_agent TEXT
 );

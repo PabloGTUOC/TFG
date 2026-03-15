@@ -18,7 +18,6 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
 });
 
-app.use('/api', requireAuth, logLoginHistory);
 app.use('/api/me', requireAuth, meRouter);
 app.use('/api/families', requireAuth, familiesRouter);
 app.use('/api/activities', requireAuth, activitiesRouter);
