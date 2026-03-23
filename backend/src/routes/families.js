@@ -25,8 +25,58 @@ familiesRouter.get('/', async (req, res) => {
   }
 });
 
+familiesRouter.get('/:familyId/budget', async (req, res) => {
+  const familyId = Number(req.params.familyId);
+  if (!familyId) return res.status(400).json({ error: 'Invalid familyId.' });
+
+  try {
+    const data = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+
+      const membership = await client.query(
+        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
+        [familyId, user.id]
+      );
+      if (!membership.rowCount) return null;
+
+      const { rows } = await client.query(`
+        SELECT 
+          f.monthly_coin_budget,
+          COALESCE((
+            SELECT SUM(coin_value) 
+            FROM activities 
+            WHERE family_id = $1 
+              AND is_template = false 
+              AND status = 'completed'
+              AND date_trunc('month', starts_at) = date_trunc('month', NOW())
+          ), 0)::int as used_this_month
+        FROM families f
+        WHERE f.id = $1
+      `, [familyId]);
+
+      if (!rows.length) return null;
+
+      const d = rows[0];
+      const baseRatePerHour = d.monthly_coin_budget / 720;
+
+      return {
+        monthlyBudget: d.monthly_coin_budget,
+        usedThisMonth: d.used_this_month,
+        remainingBudget: Math.max(0, d.monthly_coin_budget - d.used_this_month),
+        baseRatePerHour: parseFloat(baseRatePerHour.toFixed(2))
+      };
+    });
+
+    if (!data) return res.status(403).json({ error: 'Not a family member or family not found.' });
+    return res.json(data);
+  } catch (err) {
+    console.error('Failed to get family budget:', err);
+    return res.status(500).json({ error: 'Failed to fetch family budget.' });
+  }
+});
+
 familiesRouter.post('/', async (req, res) => {
-  const { name, mainCaretakerName, caretakers = [], objectsOfCare = [] } = req.body;
+  const { name, mainCaretakerName, caretakers = [], objectsOfCare = [], alias } = req.body;
 
   if (!name || typeof name !== 'string') {
     return res.status(400).json({ error: 'name is required.' });
@@ -65,9 +115,9 @@ familiesRouter.post('/', async (req, res) => {
 
       // Add creator as main_caregiver, active
       await client.query(
-        `INSERT INTO family_members (family_id, user_id, role, status)
-         VALUES ($1, $2, 'main_caregiver', 'active')`,
-        [famId, user.id]
+        `INSERT INTO family_members (family_id, user_id, role, status, alias)
+         VALUES ($1, $2, 'main_caregiver', 'active', $3)`,
+        [famId, user.id, alias ? alias.trim() : null]
       );
 
       // Add creator to actors as person
@@ -111,7 +161,7 @@ familiesRouter.post('/', async (req, res) => {
 });
 
 familiesRouter.post('/join-request', async (req, res) => {
-  const { identifier } = req.body;
+  const { identifier, alias } = req.body;
   if (!identifier) return res.status(400).json({ error: 'Family ID or name is required.' });
 
   try {
@@ -139,10 +189,10 @@ familiesRouter.post('/join-request', async (req, res) => {
       const newStatus = invRows.length > 0 ? 'active' : 'pending';
 
       await client.query(
-        `INSERT INTO family_members (family_id, user_id, role, status)
-         VALUES ($1, $2, 'member', $3)
-         ON CONFLICT (family_id, user_id) DO NOTHING`,
-        [familyId, user.id, newStatus]
+        `INSERT INTO family_members (family_id, user_id, role, status, alias)
+         VALUES ($1, $2, 'member', $3, $4)
+         ON CONFLICT (family_id, user_id) DO UPDATE SET alias = EXCLUDED.alias, status = EXCLUDED.status`,
+        [familyId, user.id, newStatus, alias ? alias.trim() : null]
       );
 
       if (newStatus === 'active') {
@@ -199,45 +249,5 @@ familiesRouter.patch('/:familyId/members/:userId/role', async (req, res) => {
     return res.json(result.data);
   } catch {
     return res.status(500).json({ error: 'Failed to update role.' });
-  }
-});
-
-familiesRouter.post('/:familyId/recalculate-monthly', async (req, res) => {
-  const familyId = Number(req.params.familyId);
-  if (!familyId) return res.status(400).json({ error: 'Invalid familyId.' });
-
-  try {
-    const result = await withTransaction(async (client) => {
-      const me = await upsertUserFromAuth(client, req.auth);
-      const { rows: roleRows } = await client.query(
-        `SELECT role FROM family_members WHERE family_id=$1 AND user_id=$2`,
-        [familyId, me.id]
-      );
-      if (!roleRows.length || roleRows[0].role !== 'main_caregiver') {
-        return { error: { code: 403, message: 'Only main caregivers can recalculate monthly balances.' } };
-      }
-
-      const { rows: familyRows } = await client.query('SELECT monthly_coin_budget FROM families WHERE id=$1', [familyId]);
-      if (!familyRows.length) return { error: { code: 404, message: 'Family not found.' } };
-
-      const { rows: memberRows } = await client.query('SELECT user_id FROM family_members WHERE family_id=$1', [familyId]);
-      if (!memberRows.length) return { error: { code: 404, message: 'No family members found.' } };
-
-      const eachCoins = Math.floor(familyRows[0].monthly_coin_budget / memberRows.length);
-
-      await client.query('UPDATE family_members SET coin_balance = $1 WHERE family_id=$2', [eachCoins, familyId]);
-      await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, amount, reason)
-         SELECT $1, user_id, $2, 'monthly_recalculation' FROM family_members WHERE family_id = $1`,
-        [familyId, eachCoins]
-      );
-
-      return { data: { recalculated: true, eachCoins } };
-    });
-
-    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
-    return res.json(result.data);
-  } catch {
-    return res.status(500).json({ error: 'Failed to recalculate monthly balances.' });
   }
 });

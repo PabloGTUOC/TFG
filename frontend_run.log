@@ -1,0 +1,82 @@
+
+> carecoins-frontend@0.1.0 dev
+> vite
+
+
+  VITE v5.4.21  ready in 218 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+9:02:31 PM [vite] hmr update /src/views/DashboardView.vue
+9:03:24 PM [vite] hmr update /src/views/DashboardView.vue?vue&type=style&index=0&scoped=336c5134&lang.css
+9:08:17 PM [vite] hmr update /src/views/DashboardView.vue
+9:11:38 PM [vite] hmr update /src/views/DashboardView.vue
+9:23:15 PM [vite] hmr update /src/views/DashboardView.vue, /src/views/DashboardView.vue?vue&type=style&index=0&scoped=336c5134&lang.css
+9:33:54 PM [vite] Pre-transform error: [vue/compiler-sfc] Unexpected token (339:0)
+
+/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue
+336|  const cancelSchedule = () => {
+337|    showScheduleModal.value = false;
+338|  };
+   |     ^
+339|  </script>
+   |  ^
+340|  
+9:33:54 PM [vite] Internal server error: [vue/compiler-sfc] Unexpected token (339:0)
+
+/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue
+336|  const cancelSchedule = () => {
+337|    showScheduleModal.value = false;
+338|  };
+   |     ^
+339|  </script>
+   |  ^
+340|  
+  Plugin: vite:vue
+  File: /Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue:339:0
+  335|  
+  336|  const cancelSchedule = () => {
+  337|    showScheduleModal.value = false;
+     |                          ^
+  338|  };
+  339|  </script>
+      at constructor (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at Parser.raise (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at Parser.unexpected (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:6619:16)
+      at Parser.parseExprAtom (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11442:22)
+      at Parser.parseExprSubscripts (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at Parser.parseUpdate (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at Parser.parseMaybeUnary (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at Parser.parseMaybeUnaryOrPrivate (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at Parser.parseExprOps (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at Parser.parseMaybeConditional (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+9:33:55 PM [vite] Internal server error: [vue/compiler-sfc] Unexpected token (339:0)
+
+/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue
+336|  const cancelSchedule = () => {
+337|    showScheduleModal.value = false;
+338|  };
+   |     ^
+339|  </script>
+   |  ^
+340|  
+  Plugin: vite:vue
+  File: /Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue:339:0
+  335|  
+  336|  const cancelSchedule = () => {
+  337|    showScheduleModal.value = false;
+     |                          ^
+  338|  };
+  339|  </script>
+      at constructor (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at Parser.raise (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at Parser.unexpected (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:6619:16)
+      at Parser.parseExprAtom (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11442:22)
+      at Parser.parseExprSubscripts (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at Parser.parseUpdate (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at Parser.parseMaybeUnary (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at Parser.parseMaybeUnaryOrPrivate (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at Parser.parseExprOps (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at Parser.parseMaybeConditional (/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+9:34:56 PM [vite] hmr update /src/views/DashboardView.vue

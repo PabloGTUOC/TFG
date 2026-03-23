@@ -21,11 +21,10 @@ const handleLogout = async () => {
     <header class="app-header">
       <h1>CareCoins</h1>
       <nav class="navbar" v-if="user && families && families.length > 0">
-        <router-link to="/profile">Profile</router-link>
-        <router-link to="/families">Families</router-link>
+        <router-link to="/dashboard">Family</router-link>
         <router-link to="/activities">Activities</router-link>
-        <router-link to="/dashboard">Dashboard</router-link>
         <router-link to="/marketplace">Marketplace</router-link>
+        <router-link to="/profile">Personal Area</router-link>
         <a href="#" @click.prevent="handleLogout" class="logout-link">Logout</a>
       </nav>
       <!-- Allow logout from onboarding -->

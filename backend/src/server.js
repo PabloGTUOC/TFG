@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import cors from 'cors';
 import { requireAuth } from './middleware/auth.js';
 import { logLoginHistory } from './middleware/audit.js';
 import { familiesRouter } from './routes/families.js';
@@ -12,6 +13,10 @@ dotenv.config();
 
 const app = express();
 
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {

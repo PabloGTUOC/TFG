@@ -14,6 +14,7 @@ const mode = ref('selection'); // 'selection', 'create', 'join'
 
 const createForm = ref({ 
   name: '',
+  alias: '',
   mainCaretakerName: '',
   mainCaretakerEmail: '',
   caretakers: [{ name: '', email: '' }], 
@@ -29,7 +30,7 @@ watchEffect(() => {
   }
 });
 
-const joinForm = ref({ identifier: '' });
+const joinForm = ref({ identifier: '', alias: '' });
 
 const addCaretaker = () => {
   createForm.value.caretakers.push({ name: '', email: '' });
@@ -67,6 +68,7 @@ const createFamily = () => appStore.runAction(async () => {
     headers: appStore.authHeaders(),
     body: JSON.stringify({
       name: createForm.value.name,
+      alias: createForm.value.alias,
       mainCaretakerName: createForm.value.mainCaretakerName,
       caretakers: validCaretakers,
       objectsOfCare: validObjects
@@ -83,7 +85,10 @@ const joinFamily = () => appStore.runAction(async () => {
   const res = await appStore.request(`/api/families/join-request`, {
     method: 'POST',
     headers: appStore.authHeaders(),
-    body: JSON.stringify({ identifier: joinForm.value.identifier })
+    body: JSON.stringify({ 
+      identifier: joinForm.value.identifier,
+      alias: joinForm.value.alias 
+    })
   });
   
   await appStore.fetchUserData();
@@ -128,7 +133,11 @@ const joinFamily = () => appStore.runAction(async () => {
       
       <div class="form-section">
         <h3>1. Family Details</h3>
-        <VInput v-model="createForm.name" label="Family Name" placeholder="e.g. The Smiths" />
+        <p class="desc">Define the family name and your unique identity within it.</p>
+        <div class="grid two">
+          <VInput v-model="createForm.name" label="Family Name" placeholder="e.g. The Smiths" />
+          <VInput v-model="createForm.alias" label="Your Alias (Role)" placeholder="e.g. Dada, Mama, Nanny" />
+        </div>
       </div>
 
       <hr />
@@ -175,8 +184,11 @@ const joinFamily = () => appStore.runAction(async () => {
     <!-- JOIN MODE -->
     <VCard v-if="mode === 'join'" title="Join an Existing Family" style="max-width: 500px; margin: 0 auto;">
       <VButton type="outline" @click="mode = 'selection'" style="margin-bottom: 2rem;">&larr; Back</VButton>
-      <p class="desc">Enter the exact Family Name or Family ID to send a join request.</p>
-      <VInput v-model="joinForm.identifier" label="Family Identifier" placeholder="e.g. 1 or 'The Smiths'" />
+      <p class="desc">Enter the exact Family Name or Family ID to send a join request, along with the alias you want to go by.</p>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <VInput v-model="joinForm.identifier" label="Family Identifier" placeholder="e.g. 1 or 'The Smiths'" />
+        <VInput v-model="joinForm.alias" label="Your Alias (Role)" placeholder="e.g. Dada, Uncle Joe" />
+      </div>
       <VButton type="primary" block @click="joinFamily" style="margin-top: 1.5rem;">Send Join Request</VButton>
     </VCard>
 

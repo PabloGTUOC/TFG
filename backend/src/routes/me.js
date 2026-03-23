@@ -9,7 +9,7 @@ meRouter.get('/', async (req, res) => {
     const payload = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
       const { rows: families } = await client.query(
-        `SELECT fm.family_id, f.name, fm.role, fm.coin_balance
+        `SELECT fm.family_id, f.name, fm.role, fm.alias, fm.coin_balance
          FROM family_members fm
          JOIN families f ON f.id = fm.family_id
          WHERE fm.user_id = $1 AND fm.status = 'active'
@@ -81,7 +81,7 @@ meRouter.post('/logout-event', async (req, res) => {
 });
 
 meRouter.patch('/profile', async (req, res) => {
-  const { displayName, email } = req.body;
+  const { displayName, email, familyId, alias } = req.body;
 
   try {
     const user = await withTransaction(async (client) => {
@@ -94,11 +94,19 @@ meRouter.patch('/profile', async (req, res) => {
          RETURNING id, firebase_uid, email, display_name`,
         [displayName || null, email || null, me.id]
       );
+
+      if (familyId && alias !== undefined) {
+        const { rowCount } = await client.query('SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2', [familyId, me.id]);
+        if (rowCount > 0) {
+          await client.query('UPDATE family_members SET alias = $1 WHERE family_id = $2 AND user_id = $3', [alias.trim() || null, familyId, me.id]);
+        }
+      }
       return rows[0];
     });
 
     return res.json({ user });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
@@ -121,5 +129,44 @@ meRouter.get('/login-history', async (req, res) => {
     return res.json({ loginHistory: rows });
   } catch {
     return res.status(500).json({ error: 'Failed to load login history.' });
+  }
+});
+
+meRouter.get('/ledger', async (req, res) => {
+  const familyId = Number(req.query.familyId);
+  const monthStr = req.query.month; // Expected YYYY-MM
+  if (!familyId || !monthStr) return res.status(400).json({ error: 'familyId and month (YYYY-MM) required.' });
+
+  try {
+    const data = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+
+      const { rows: membership } = await client.query(
+        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
+        [familyId, user.id]
+      );
+      if (!membership.length) return null;
+
+      const startOfMonth = new Date(`${monthStr}-01T00:00:00Z`);
+      if (isNaN(startOfMonth.getTime())) throw new Error("Invalid month format");
+
+      const { rows: ledger } = await client.query(`
+        SELECT cl.id, cl.amount, cl.reason, cl.created_at, a.title as activity_title, a.duration_minutes
+        FROM coin_ledger cl
+        LEFT JOIN activities a ON a.id = cl.activity_id
+        WHERE cl.family_id = $1 AND cl.user_id = $2
+          AND cl.created_at >= date_trunc('month', $3::timestamptz)
+          AND cl.created_at < date_trunc('month', $3::timestamptz) + interval '1 month'
+        ORDER BY cl.created_at DESC
+      `, [familyId, user.id, startOfMonth.toISOString()]);
+
+      return { ledger };
+    });
+
+    if (!data) return res.status(403).json({ error: 'Not a family member.' });
+    return res.json(data);
+  } catch (err) {
+    console.error('Ledger Error:', err);
+    return res.status(500).json({ error: 'Failed to fetch ledger.' });
   }
 });

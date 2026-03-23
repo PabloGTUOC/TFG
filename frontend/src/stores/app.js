@@ -60,7 +60,10 @@ export const useAppStore = defineStore('app', {
     async login(email, password) {
       this.clearMessages();
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        this.user = cred.user;
+        this.token = await cred.user.getIdToken();
+        await this.fetchUserData();
         this.setSuccess('Logged in successfully!');
       } catch (err) {
         this.setError(err.message);
@@ -70,7 +73,10 @@ export const useAppStore = defineStore('app', {
     async register(email, password) {
       this.clearMessages();
       try {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        this.user = cred.user;
+        this.token = await cred.user.getIdToken();
+        await this.fetchUserData();
         this.setSuccess('Account created successfully!');
       } catch (err) {
         this.setError(err.message);
@@ -81,7 +87,10 @@ export const useAppStore = defineStore('app', {
       this.clearMessages();
       try {
         const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+        const cred = await signInWithPopup(auth, provider);
+        this.user = cred.user;
+        this.token = await cred.user.getIdToken();
+        await this.fetchUserData();
         this.setSuccess('Logged in with Google successfully!');
       } catch (err) {
         this.setError(err.message);

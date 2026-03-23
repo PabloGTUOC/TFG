@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS family_members (
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('main_caregiver', 'caregiver', 'member')),
+  alias TEXT,
   coin_balance INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -62,6 +63,8 @@ CREATE TABLE IF NOT EXISTS activities (
   status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
   approved_by BIGINT REFERENCES users(id),
   approved_at TIMESTAMPTZ,
+  bounty_amount INTEGER NOT NULL DEFAULT 0,
+  bounty_offered_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (ends_at > starts_at)
 );
@@ -85,18 +88,26 @@ CREATE TABLE IF NOT EXISTS login_history (
   user_agent TEXT
 );
 
-CREATE TABLE IF NOT EXISTS marketplace_offers (
-  id BIGSERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS marketplace_rewards (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  created_by BIGINT NOT NULL REFERENCES users(id),
+  creator_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  coin_cost INTEGER NOT NULL CHECK (coin_cost > 0),
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'redeemed', 'cancelled')),
-  redeemed_by BIGINT REFERENCES users(id),
-  redeemed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  description TEXT,
+  cost INTEGER NOT NULL CHECK (cost > 0),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reward_redemptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  reward_id UUID NOT NULL REFERENCES marketplace_rewards(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_activities_assignee_period ON activities (assigned_to, starts_at, ends_at);
 CREATE INDEX IF NOT EXISTS idx_activities_family_status ON activities (family_id, status);
-CREATE INDEX IF NOT EXISTS idx_marketplace_family_status ON marketplace_offers (family_id, status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_family_status ON marketplace_rewards (family_id, status);
