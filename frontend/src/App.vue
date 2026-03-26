@@ -1,14 +1,20 @@
 <script setup>
+import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useAppStore } from './stores/app';
+import { useAuthStore } from './stores/auth';
+import { useFamilyStore } from './stores/family';
 import { useRouter } from 'vue-router';
 
-const appStore = useAppStore();
+const authStore = useAuthStore();
+const familyStore = useFamilyStore();
 const router = useRouter();
-const { success, error, user, families, authReady } = storeToRefs(appStore);
+const { success, error, user, authReady } = storeToRefs(authStore);
+const { families } = storeToRefs(familyStore);
+
+const showDropdown = ref(false);
 
 const handleLogout = async () => {
-  await appStore.logout();
+  await authStore.logout();
   router.push('/login');
 };
 </script>
@@ -18,19 +24,39 @@ const handleLogout = async () => {
     <h2>Loading CareCoins...</h2>
   </div>
   <div v-else class="app-layout">
-    <header class="app-header">
-      <h1>CareCoins</h1>
-      <nav class="navbar" v-if="user && families && families.length > 0">
-        <router-link to="/dashboard">Family</router-link>
-        <router-link to="/activities">Activities</router-link>
-        <router-link to="/marketplace">Marketplace</router-link>
-        <router-link to="/profile">Personal Area</router-link>
-        <a href="#" @click.prevent="handleLogout" class="logout-link">Logout</a>
-      </nav>
-      <!-- Allow logout from onboarding -->
-      <nav class="navbar" v-else-if="user && (!families || families.length === 0)">
-        <a href="#" @click.prevent="handleLogout" class="logout-link">Logout</a>
-      </nav>
+    
+    <!-- Floating Pill Navigation -->
+    <header class="pill-header" v-if="user">
+      <div class="pill-container">
+        
+        <div class="logo">
+          <span style="font-size: 1.4rem;">🪙</span> 
+          <strong style="color: #1e293b; font-size:1.2rem; letter-spacing:-0.5px; margin-left: 0.2rem;">CareCoins</strong>
+        </div>
+        
+        <nav class="pill-nav" v-if="families && families.length > 0">
+          <router-link to="/dashboard">Family</router-link>
+          <router-link to="/activities">Activities</router-link>
+          <router-link to="/marketplace">Marketplace</router-link>
+          <router-link to="/profile">Personal Area</router-link>
+        </nav>
+        
+        <div class="pill-profile">
+           <!-- Right Side Avatar & Dropdown -->
+           <div class="avatar-block" @click="showDropdown = !showDropdown" title="User Menu">
+             <div class="avatar">
+               {{ familyStore.profile?.actor_type === 'caregiver' ? '👩🏽' : '👨🏽' }}
+             </div>
+             <span style="font-size: 0.6rem; margin-left:4px; color: #64748b;">▼</span>
+           </div>
+           
+           <div v-if="showDropdown" class="profile-dropdown">
+             <router-link to="/profile" @click="showDropdown = false" style="color:#1e293b; text-decoration:none; margin-bottom:0.5rem; display:block;">Profile</router-link>
+             <a href="#" @click.prevent="showDropdown = false; handleLogout()" class="logout-link">Logout</a>
+           </div>
+        </div>
+
+      </div>
     </header>
 
     <main class="main-content">
@@ -45,48 +71,151 @@ const handleLogout = async () => {
 </template>
 
 <style>
+/* App Root Styling */
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: #eef2ff; /* Extremely soft blue to mimic the wavy background */
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Wavy Background Illusion */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(circle at top right, #e0e7ff, transparent 400px), 
+                    radial-gradient(circle at bottom left, #e0e7ff, transparent 500px);
+  z-index: -1;
+}
+
 .app-layout {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-.app-header {
-  padding: 1.5rem;
-  background-color: #1a1a2e;
-  text-align: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-.app-header h1 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 2rem;
-  font-weight: bold;
-}
-.navbar {
+
+/* -------------------
+   Pill Navbar
+------------------- */
+.pill-header {
+  width: 100%;
   display: flex;
   justify-content: center;
+  padding: 1.5rem 1rem 0 1rem;
+  box-sizing: border-box;
+}
+
+.pill-container {
+  max-width: 1000px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.pill-nav {
+  display: flex;
   gap: 1.5rem;
-  flex-wrap: wrap;
 }
-.navbar a {
-  color: #a8a8b3;
+
+.pill-nav a {
+  color: #64748b;
   text-decoration: none;
-  font-weight: 500;
-  padding-bottom: 5px;
-  transition: color 0.3s;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  transition: all 0.2s;
 }
-.navbar a:hover,
-.navbar a.router-link-active {
-  color: #fff;
-  border-bottom: 2px solid #5b21b6;
+
+.pill-nav a:hover {
+  color: #1e293b;
+  background: #f1f5f9;
 }
+
+.pill-nav a.router-link-active {
+  color: #1e293b;
+  background: #e0f2fe; /* Light baby blue active state */
+}
+
+/* Profile Avatar Section */
+.pill-profile {
+  position: relative;
+}
+
+.avatar-block {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+
+.avatar-block:hover {
+  background: #f1f5f9;
+}
+
+.avatar {
+  background: #cbd5e1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 130%;
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  padding: 1rem;
+  min-width: 120px;
+  text-align: right;
+  border: 1px solid #f1f5f9;
+}
+
+.logout-link {
+  color: #ef4444;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: block;
+}
+.logout-link:hover { text-decoration: underline; }
+
+/* -------------------
+   Main Body layout
+------------------- */
 .main-content {
   flex: 1;
-  padding: 2rem;
+  padding: 2rem 1rem;
   max-width: 1000px;
   width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
+
+/* Notifications */
 .notifications {
   position: fixed;
   bottom: 2rem;
@@ -110,14 +239,6 @@ const handleLogout = async () => {
   margin-top: 0;
   margin-bottom: 0.5rem;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-.logout-link {
-  color: #fca5a5 !important;
-  margin-left: 1rem;
-}
-.logout-link:hover {
-  color: #ef4444 !important;
-  border-bottom-color: #ef4444 !important;
 }
 .loading-screen {
   display: flex;

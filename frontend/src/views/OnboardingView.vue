@@ -1,13 +1,15 @@
 <script setup>
 import { ref, watchEffect } from 'vue';
-import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
+import { useFamilyStore } from '../stores/family';
 import { useRouter } from 'vue-router';
 import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
 
-const appStore = useAppStore();
+const appStore = useAuthStore();
+const familyStore = useFamilyStore();
 const router = useRouter();
 
 const mode = ref('selection'); // 'selection', 'create', 'join'
@@ -24,9 +26,9 @@ const createForm = ref({
 });
 
 watchEffect(() => {
-  if (appStore.profile) {
-    if (!createForm.value.mainCaretakerName) createForm.value.mainCaretakerName = appStore.profile.display_name || '';
-    if (!createForm.value.mainCaretakerEmail) createForm.value.mainCaretakerEmail = appStore.profile.email || '';
+  if (familyStore.profile) {
+    if (!createForm.value.mainCaretakerName) createForm.value.mainCaretakerName = familyStore.profile.display_name || '';
+    if (!createForm.value.mainCaretakerEmail) createForm.value.mainCaretakerEmail = familyStore.profile.email || '';
   }
 });
 
@@ -75,24 +77,24 @@ const createFamily = () => appStore.runAction(async () => {
     })
   });
   
-  await appStore.fetchUserData();
+  await familyStore.fetchUserData();
   router.push('/dashboard');
 }, 'Family created successfully!');
 
 const joinFamily = () => appStore.runAction(async () => {
   if (!joinForm.value.identifier) throw new Error("Family ID or Name is required.");
-  
+
   const res = await appStore.request(`/api/families/join-request`, {
     method: 'POST',
     headers: appStore.authHeaders(),
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       identifier: joinForm.value.identifier,
-      alias: joinForm.value.alias 
+      alias: joinForm.value.alias
     })
   });
-  
-  await appStore.fetchUserData();
-  
+
+  await familyStore.fetchUserData();
+
   if (res.status === 'active') {
     appStore.setSuccess("You have successfully joined the family!");
     router.push('/dashboard');
@@ -110,8 +112,8 @@ const joinFamily = () => appStore.runAction(async () => {
       <p>Before we get you to the dashboard, you need to belong to a family. You can either create your own new family hub, or request to join an existing one.</p>
     </div>
 
-    <div v-if="appStore.pendingRequests.length > 0" class="pending-notice">
-      You have a pending request to join <strong>{{ appStore.pendingRequests[0].name }}</strong>. Please wait for the main caregiver to approve your access.
+    <div v-if="familyStore.pendingRequests.length > 0" class="pending-notice">
+      You have a pending request to join <strong>{{ familyStore.pendingRequests[0].name }}</strong>. Please wait for the main caregiver to approve your access.
     </div>
 
     <!-- SELECTION MODE -->

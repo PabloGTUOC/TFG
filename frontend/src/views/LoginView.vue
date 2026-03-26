@@ -1,12 +1,12 @@
 <script setup>
 import { ref } from 'vue';
-import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 
-const appStore = useAppStore();
+const appStore = useAuthStore();
 const router = useRouter();
 
 const isRegistering = ref(false);

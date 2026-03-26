@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { watch } from 'vue';
 import { auth } from '../firebase';
 import {
   signInWithEmailAndPassword,
@@ -9,80 +10,74 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 
-export const useAppStore = defineStore('app', {
+export const useAuthStore = defineStore('auth', {
   state: () => ({
     apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:3000',
-    user: null, // Firebase user object
-    profile: null, // Backend profile
-    families: [], // List of user's active families
-    pendingRequests: [], // Families the user requested to join
-    loginEventId: null, // Backend login event reference
+    user: null,
     token: '',
+    authReady: false,
+    loginEventId: null,
     success: '',
     error: '',
-    authReady: false // Wait for initial auth state before rendering logic
   }),
   actions: {
-    async fetchUserData() {
-      try {
-        const data = await this.request('/api/me', { headers: this.authHeaders() });
-        this.profile = data.user || null;
-        this.families = data.families || [];
-        this.pendingRequests = data.pendingRequests || [];
-
-        if (!this.loginEventId) {
-          const loginData = await this.request('/api/me/login-event', {
-            method: 'POST',
-            headers: this.authHeaders()
-          });
-          this.loginEventId = loginData.eventId;
-        }
-      } catch (e) {
-        console.error("Backend auth sync failed", e);
-      }
-    },
     initAuthListener() {
-      // Firebase automatically manages token refresh, so we listen to changes
       onIdTokenChanged(auth, async (user) => {
         this.user = user;
         if (user) {
           this.token = await user.getIdToken();
-          await this.fetchUserData();
+          const { useFamilyStore } = await import('./family.js');
+          await useFamilyStore().fetchUserData();
         } else {
           this.token = '';
-          this.profile = null;
-          this.families = [];
           this.loginEventId = null;
+          const { useFamilyStore } = await import('./family.js');
+          useFamilyStore().$reset();
         }
         this.authReady = true;
       });
     },
+
+    // Returns a promise that resolves once Firebase auth state is known.
+    waitForAuth() {
+      if (this.authReady) return Promise.resolve();
+      return new Promise(resolve => {
+        const unwatch = watch(() => this.authReady, (ready) => {
+          if (ready) { unwatch(); resolve(); }
+        }, { immediate: true });
+      });
+    },
+
     async login(email, password) {
       this.clearMessages();
       try {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        await this.fetchUserData();
+        const { useFamilyStore } = await import('./family.js');
+        await useFamilyStore().fetchUserData();
         this.setSuccess('Logged in successfully!');
       } catch (err) {
         this.setError(err.message);
         throw err;
       }
     },
+
     async register(email, password) {
       this.clearMessages();
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        await this.fetchUserData();
+        const { useFamilyStore } = await import('./family.js');
+        await useFamilyStore().fetchUserData();
         this.setSuccess('Account created successfully!');
       } catch (err) {
         this.setError(err.message);
         throw err;
       }
     },
+
     async loginWithGoogle() {
       this.clearMessages();
       try {
@@ -90,13 +85,15 @@ export const useAppStore = defineStore('app', {
         const cred = await signInWithPopup(auth, provider);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        await this.fetchUserData();
+        const { useFamilyStore } = await import('./family.js');
+        await useFamilyStore().fetchUserData();
         this.setSuccess('Logged in with Google successfully!');
       } catch (err) {
         this.setError(err.message);
         throw err;
       }
     },
+
     async logout() {
       this.clearMessages();
       try {
@@ -108,36 +105,24 @@ export const useAppStore = defineStore('app', {
           });
         }
       } catch (e) {
-        console.error("Failed to safely track backend logout: ", e);
+        console.error('Failed to safely track backend logout: ', e);
       }
-
       this.token = '';
       this.loginEventId = null;
-      this.families = [];
-      this.profile = null;
       await signOut(auth);
     },
-    setSuccess(message) {
-      this.success = message;
-      this.error = '';
-    },
-    setError(message) {
-      this.error = message;
-      this.success = '';
-    },
-    clearMessages() {
-      this.success = '';
-      this.error = '';
-    },
+
     authHeaders() {
       return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` };
     },
+
     async request(path, options = {}) {
       const response = await fetch(`${this.apiBase}${path}`, options);
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
       return data;
     },
+
     async runAction(fn, okMessage) {
       this.clearMessages();
       try {
@@ -146,6 +131,21 @@ export const useAppStore = defineStore('app', {
       } catch (err) {
         this.setError(err.message);
       }
-    }
+    },
+
+    setSuccess(message) {
+      this.success = message;
+      this.error = '';
+    },
+
+    setError(message) {
+      this.error = message;
+      this.success = '';
+    },
+
+    clearMessages() {
+      this.success = '';
+      this.error = '';
+    },
   }
 });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
+import { validateBody, string, email } from '../middleware/validate.js';
 
 export const meRouter = Router();
 
@@ -29,7 +30,8 @@ meRouter.get('/', async (req, res) => {
     });
 
     return res.json(payload);
-  } catch {
+  } catch (err) {
+    console.error('ME ROUTE ERROR:', err);
     return res.status(500).json({ error: 'Failed to load current user.' });
   }
 });
@@ -80,7 +82,11 @@ meRouter.post('/logout-event', async (req, res) => {
   }
 });
 
-meRouter.patch('/profile', async (req, res) => {
+meRouter.patch('/profile', validateBody({
+  displayName: [string(1, 100)],
+  email: [string(1, 255), email()],
+  alias: [string(1, 50)],
+}), async (req, res) => {
   const { displayName, email, familyId, alias } = req.body;
 
   try {

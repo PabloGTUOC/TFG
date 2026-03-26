@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
+import { runAutoCompleteSweep } from '../db/autoComplete.js';
+import { validateBody, validateParams, required, string, positiveInt, isoDate } from '../middleware/validate.js';
+import { assertMemberRole } from '../middleware/rbac.js';
 
 export const activitiesRouter = Router();
 
@@ -21,28 +24,7 @@ activitiesRouter.get('/', async (req, res) => {
       );
       if (!membership.rowCount) return null;
 
-      // AUTO COMPLETION ENGINE SWEEP
-      // Find all approved activities whose time has strictly elapsed.
-      const { rows: expiredActivities } = await client.query(
-        `SELECT id, assigned_to, coin_value FROM activities 
-         WHERE family_id = $1 AND status = 'approved' AND ends_at <= NOW() FOR UPDATE`,
-        [familyId]
-      );
-
-      for (const act of expiredActivities) {
-        await client.query(
-          `UPDATE activities SET status = 'completed', bounty_amount = 0, bounty_offered_by = NULL WHERE id = $1`,
-          [act.id]
-        );
-        await client.query(
-          `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
-          [act.coin_value, familyId, act.assigned_to]
-        );
-        await client.query(
-          `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
-          [familyId, act.assigned_to, act.id, act.coin_value]
-        );
-      }
+      await runAutoCompleteSweep(client, familyId);
 
       const { rows } = await client.query(
         `SELECT id, title, category, starts_at, ends_at, duration_minutes,
@@ -68,7 +50,12 @@ activitiesRouter.get('/', async (req, res) => {
 // POST /api/activities
 // Creates a new TEMPLATE (is_template = true)
 // ─────────────────────────────────────────────
-activitiesRouter.post('/', async (req, res) => {
+activitiesRouter.post('/', validateBody({
+  familyId:        [required(), positiveInt()],
+  title:           [required(), string(1, 100)],
+  durationMinutes: [required(), positiveInt()],
+  coinValue:       [positiveInt()],
+}), async (req, res) => {
   const { familyId, title, category, durationMinutes, coinValue } = req.body;
 
   if (!familyId || !title || !category || !durationMinutes) {
@@ -115,12 +102,11 @@ activitiesRouter.post('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// POST /api/activities/:templateId/approve
+// POST /api/activities/:activityId/approve
 // Approves a template (main_caregiver only)
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:activityId/approve', async (req, res) => {
-  const templateId = Number(req.params.activityId);
-  if (!templateId) return res.status(400).json({ error: 'Invalid activityId.' });
+activitiesRouter.post('/:activityId/approve', validateParams('activityId'), async (req, res) => {
+  const activityId = Number(req.params.activityId);
 
   try {
     const result = await withTransaction(async (client) => {
@@ -128,7 +114,7 @@ activitiesRouter.post('/:activityId/approve', async (req, res) => {
 
       const { rows: tmplRows } = await client.query(
         `SELECT * FROM activities WHERE id = $1 AND is_template = true FOR UPDATE`,
-        [templateId]
+        [activityId]
       );
       if (!tmplRows.length) return { error: { code: 404, message: 'Template not found.' } };
 
@@ -137,13 +123,8 @@ activitiesRouter.post('/:activityId/approve', async (req, res) => {
         return { error: { code: 409, message: 'Only pending templates can be approved.' } };
       }
 
-      const { rows: roleRows } = await client.query(
-        `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2`,
-        [tmpl.family_id, approver.id]
-      );
-      if (!roleRows.length || roleRows[0].role !== 'main_caregiver') {
-        return { error: { code: 403, message: 'Only main caregivers can approve activities.' } };
-      }
+      const rbacErr = await assertMemberRole(client, approver.id, tmpl.family_id, 'main_caregiver');
+      if (rbacErr) return rbacErr;
 
       await client.query(
         `UPDATE activities SET status = 'approved', approved_by = $1, approved_at = NOW() WHERE id = $2`,
@@ -162,17 +143,15 @@ activitiesRouter.post('/:activityId/approve', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// POST /api/activities/:templateId/schedule
+// POST /api/activities/:activityId/schedule
 // Creates a new INSTANCE row from an approved template.
 // The template itself is never modified.
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:activityId/schedule', async (req, res) => {
-  const templateId = Number(req.params.activityId);
+activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), validateBody({
+  startsAt: [required(), isoDate()],
+}), async (req, res) => {
+  const activityId = Number(req.params.activityId);
   const { startsAt } = req.body;
-
-  if (!templateId || !startsAt) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
 
   try {
     const result = await withTransaction(async (client) => {
@@ -185,7 +164,7 @@ activitiesRouter.post('/:activityId/schedule', async (req, res) => {
            AND is_template = true
            AND status = 'approved'
            AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2)`,
-        [templateId, user.id]
+        [activityId, user.id]
       );
       if (!tmpl.length) {
         return { error: { code: 404, message: 'Approved activity template not found.' } };
@@ -252,7 +231,7 @@ activitiesRouter.post('/:activityId/schedule', async (req, res) => {
 // POST /api/activities/:instanceId/complete
 // Completes a scheduled instance and awards coins
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:activityId/complete', async (req, res) => {
+activitiesRouter.post('/:activityId/complete', validateParams('activityId'), async (req, res) => {
   const instanceId = Number(req.params.activityId);
   if (!instanceId) return res.status(400).json({ error: 'Invalid activityId.' });
 
@@ -304,7 +283,7 @@ activitiesRouter.post('/:activityId/complete', async (req, res) => {
 // POST /api/activities/:id/bounty
 // Add a bounty to a shift you are assigned to
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:id/bounty', async (req, res) => {
+activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
   const activityId = Number(req.params.id);
   const bountyAmount = Number(req.body.bountyAmount);
   if (!activityId || !bountyAmount || bountyAmount <= 0) return res.status(400).json({ error: 'Valid bountyAmount required.' });
@@ -350,7 +329,7 @@ activitiesRouter.post('/:id/bounty', async (req, res) => {
 // POST /api/activities/:id/accept-bounty
 // Steal the shift and successfully claim the bribe
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:id/accept-bounty', async (req, res) => {
+activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, res) => {
   const activityId = Number(req.params.id);
 
   try {
@@ -411,7 +390,7 @@ activitiesRouter.post('/:id/accept-bounty', async (req, res) => {
 // DELETE /api/activities/:id
 // Drag-to-delete an upcoming shift from the calendar
 // ─────────────────────────────────────────────
-activitiesRouter.delete('/:id', async (req, res) => {
+activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
   const activityId = Number(req.params.id);
   if (!activityId) return res.status(400).json({ error: 'Valid activity ID required.' });
 
@@ -450,7 +429,7 @@ activitiesRouter.delete('/:id', async (req, res) => {
 // POST /api/activities/:id/revert
 // Honor-system uncheck of an auto-completed activity
 // ─────────────────────────────────────────────
-activitiesRouter.post('/:id/revert', async (req, res) => {
+activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
   const activityId = Number(req.params.id);
 
   try {

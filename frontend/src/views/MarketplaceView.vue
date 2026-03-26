@@ -1,16 +1,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
+import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 
-const appStore = useAppStore();
+const appStore = useAuthStore();
+const familyStore = useFamilyStore();
 const rewards = ref([]);
 const rewardForm = ref({ title: '', description: '', amount: '' });
 
-const getFamilyId = () => appStore.families?.[0]?.family_id || appStore.families?.[0]?.id;
-const isMainCaregiver = computed(() => appStore.families?.[0]?.role === 'main_caregiver');
+const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
+const isMainCaregiver = computed(() => familyStore.families?.[0]?.role === 'main_caregiver');
 
 const loadRewards = () => appStore.runAction(async () => {
   const fid = getFamilyId();
@@ -57,7 +59,7 @@ const redeemReward = (reward) => appStore.runAction(async () => {
   });
   
   appStore.setSuccess(`Successfully redeemed ${reward.title}!`);
-  await appStore.fetchUserData(); // Refresh user coins immediately
+  await familyStore.fetchUserData(); // Refresh user coins immediately
   await loadRewards();
 });
 </script>

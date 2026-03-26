@@ -1,33 +1,35 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import { useAppStore } from '../stores/app';
+import { useAuthStore } from '../stores/auth';
+import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
 import VInput from '../components/VInput.vue';
 import VButton from '../components/VButton.vue';
 
-const appStore = useAppStore();
+const appStore = useAuthStore();
+const familyStore = useFamilyStore();
 
-const activeFamily = appStore.families?.[0]; // Default to the first joined family
+const activeFamily = familyStore.families?.[0];
 const ledgerInfo = ref([]);
 
-const profileForm = ref({ 
-  displayName: appStore.profile?.display_name || '', 
-  email: appStore.profile?.email || '',
+const profileForm = ref({
+  displayName: familyStore.profile?.display_name || '',
+  email: familyStore.profile?.email || '',
   alias: activeFamily?.alias || ''
 });
 
 const updateProfile = () => appStore.runAction(async () => {
-  await appStore.request('/api/me/profile', { 
-    method: 'PATCH', 
-    headers: appStore.authHeaders(), 
+  await appStore.request('/api/me/profile', {
+    method: 'PATCH',
+    headers: appStore.authHeaders(),
     body: JSON.stringify({
       displayName: profileForm.value.displayName,
       email: profileForm.value.email,
       familyId: activeFamily?.family_id,
       alias: profileForm.value.alias
-    }) 
+    })
   });
-  await appStore.fetchUserData();
+  await familyStore.fetchUserData();
 }, 'Personal details updated successfully!');
 
 const today = new Date();
@@ -41,7 +43,7 @@ const loadLedger = async () => {
     });
     ledgerInfo.value = data.ledger || [];
   } catch (err) {
-    appStore.setError("Failed to fetch ledger");
+    appStore.setError('Failed to fetch ledger');
   }
 };
 
@@ -49,7 +51,7 @@ const uncheckActivity = async (item) => {
   if (!confirm(`Are you sure you want to logically un-check '${item.activity_title}'? It will formally revert ${item.amount} cc from your bank balance.`)) return;
   await appStore.runAction(async () => {
     await appStore.request(`/api/activities/${item.activity_id}/revert`, { method: 'POST', headers: appStore.authHeaders() });
-    await appStore.fetchUserData();
+    await familyStore.fetchUserData();
     await loadLedger();
   }, "Activity mathematically unchecked and bank successfully reverted.");
 };
@@ -70,11 +72,11 @@ watch(currentMonth, () => {
       <div class="info-grid">
         <div class="info-item">
           <label>Full Name</label>
-          <div class="val">{{ appStore.profile?.display_name || 'N/A' }}</div>
+          <div class="val">{{ familyStore.profile?.display_name || 'N/A' }}</div>
         </div>
         <div class="info-item">
           <label>Email Address</label>
-          <div class="val">{{ appStore.profile?.email || 'N/A' }}</div>
+          <div class="val">{{ familyStore.profile?.email || 'N/A' }}</div>
         </div>
         <div class="info-item" v-if="activeFamily">
           <label>Active Family</label>

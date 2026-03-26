@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
+import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
+import { requireRole } from '../middleware/rbac.js';
 
 export const marketplaceRouter = Router();
 
@@ -34,18 +36,21 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
 });
 
 // Create a new reward
-marketplaceRouter.post('/rewards', async (req, res) => {
+marketplaceRouter.post('/rewards',
+  validateBody({
+    familyId:    [required(), positiveInt()],
+    title:       [required(), string(1, 100)],
+    description: [string(1, 500)],
+    cost:        [required(), positiveInt()],
+  }),
+  requireRole('main_caregiver', r => r.body.familyId),
+  async (req, res) => {
   const { familyId, title, description, cost } = req.body;
   if (!familyId || !title || !cost) return res.status(400).json({ error: 'familyId, title and cost are required.' });
 
   try {
     const reward = await withTransaction(async (client) => {
       const me = await upsertUserFromAuth(client, req.auth);
-      const { rows: memberRows } = await client.query('SELECT role FROM family_members WHERE family_id=$1 AND user_id=$2', [familyId, me.id]);
-
-      if (!memberRows.length) return null;
-      if (memberRows[0].role !== 'main_caregiver') return { forbidden: true };
-
       const { rows } = await client.query(
         `INSERT INTO marketplace_rewards (family_id, creator_id, title, description, cost)
          VALUES ($1,$2,$3,$4,$5)
@@ -55,9 +60,6 @@ marketplaceRouter.post('/rewards', async (req, res) => {
       return rows[0];
     });
 
-    if (reward === null) return res.status(403).json({ error: 'Not a family member.' });
-    if (reward.forbidden) return res.status(403).json({ error: 'Only main caregivers can create rewards.' });
-
     return res.status(201).json({ reward });
   } catch (err) {
     console.error(err);
@@ -66,7 +68,7 @@ marketplaceRouter.post('/rewards', async (req, res) => {
 });
 
 // Redeem a reward
-marketplaceRouter.post('/rewards/:rewardId/redeem', async (req, res) => {
+marketplaceRouter.post('/rewards/:rewardId/redeem', validateParams('rewardId'), async (req, res) => {
   const { rewardId } = req.params;
 
   try {

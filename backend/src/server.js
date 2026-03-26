@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import './env.js';
 import express from 'express';
 import cors from 'cors';
 import { requireAuth } from './middleware/auth.js';
@@ -9,12 +9,14 @@ import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 
-dotenv.config();
-
 const app = express();
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());

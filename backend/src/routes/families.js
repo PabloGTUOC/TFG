@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
+import { validateBody, validateParams, required, string } from '../middleware/validate.js';
+import { requireRole } from '../middleware/rbac.js';
 
 export const familiesRouter = Router();
 
@@ -75,7 +77,11 @@ familiesRouter.get('/:familyId/budget', async (req, res) => {
   }
 });
 
-familiesRouter.post('/', async (req, res) => {
+familiesRouter.post('/', validateBody({
+  name:             [required(), string(1, 100)],
+  mainCaretakerName:[string(1, 100)],
+  alias:            [string(1, 50)],
+}), async (req, res) => {
   const { name, mainCaretakerName, caretakers = [], objectsOfCare = [], alias } = req.body;
 
   if (!name || typeof name !== 'string') {
@@ -160,7 +166,10 @@ familiesRouter.post('/', async (req, res) => {
   }
 });
 
-familiesRouter.post('/join-request', async (req, res) => {
+familiesRouter.post('/join-request', validateBody({
+  identifier: [required(), string(1, 100)],
+  alias:      [string(1, 50)],
+}), async (req, res) => {
   const { identifier, alias } = req.body;
   if (!identifier) return res.status(400).json({ error: 'Family ID or name is required.' });
 
@@ -213,7 +222,10 @@ familiesRouter.post('/join-request', async (req, res) => {
   }
 });
 
-familiesRouter.patch('/:familyId/members/:userId/role', async (req, res) => {
+familiesRouter.patch('/:familyId/members/:userId/role',
+  validateParams('familyId', 'userId'),
+  requireRole('main_caregiver', r => r.params.familyId),
+  async (req, res) => {
   const familyId = Number(req.params.familyId);
   const userId = Number(req.params.userId);
   const { role } = req.body;
@@ -225,14 +237,6 @@ familiesRouter.patch('/:familyId/members/:userId/role', async (req, res) => {
   try {
     const result = await withTransaction(async (client) => {
       const me = await upsertUserFromAuth(client, req.auth);
-      const { rows: roleRows } = await client.query(
-        `SELECT role FROM family_members WHERE family_id=$1 AND user_id=$2`,
-        [familyId, me.id]
-      );
-      if (!roleRows.length || roleRows[0].role !== 'main_caregiver') {
-        return { error: { code: 403, message: 'Only main caregivers can manage roles.' } };
-      }
-
       const updated = await client.query(
         `UPDATE family_members
          SET role = $1

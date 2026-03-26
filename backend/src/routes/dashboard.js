@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
+import { runAutoCompleteSweep } from '../db/autoComplete.js';
 
 export const dashboardRouter = Router();
 
@@ -17,28 +18,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
       );
       if (!membership.rowCount) return null;
 
-      // AUTO COMPLETION ENGINE SWEEP
-      // Find all approved activities whose time has strictly elapsed.
-      const { rows: expiredActivities } = await client.query(
-        `SELECT id, assigned_to, coin_value FROM activities 
-         WHERE family_id = $1 AND status = 'approved' AND ends_at <= NOW() FOR UPDATE`,
-        [familyId]
-      );
-
-      for (const act of expiredActivities) {
-        await client.query(
-          `UPDATE activities SET status = 'completed', bounty_amount = 0, bounty_offered_by = NULL WHERE id = $1`,
-          [act.id]
-        );
-        await client.query(
-          `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
-          [act.coin_value, familyId, act.assigned_to]
-        );
-        await client.query(
-          `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
-          [familyId, act.assigned_to, act.id, act.coin_value]
-        );
-      }
+      await runAutoCompleteSweep(client, familyId);
 
       const { rows: members } = await client.query(
         `SELECT fm.user_id, COALESCE(fm.alias, u.display_name, u.email, u.firebase_uid) AS name, fm.role, fm.coin_balance
