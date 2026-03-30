@@ -79,94 +79,85 @@ const navigateToDaily = (dateStr) => {
 
 <template>
   <div class="dashboard-root" v-if="dashboard.members.length > 0">
-    <div class="layout-70-30">
-      
-      <!-- Left Column (70%) -->
-      <div class="left-col">
-        <!-- Family at a Glance -->
-        <VCard title="Family at a Glance" style="margin-bottom: 2rem; background: #e0f2fe; border: 1px solid #bae6fd;">
-           <div class="family-members-row">
-             <div v-for="m in dashboard.members" :key="m.user_id" class="member-badge">
-                <div class="member-avatar">{{ m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽' }}</div>
-                <div class="member-name">{{ m.name || `User ${m.user_id}` }}</div>
-                <div class="member-coins">🪙 {{ m.coin_balance }} cc</div>
-             </div>
-           </div>
-        </VCard>
-
-        <!-- Weekly Highlights -->
-        <VCard title="Weekly Highlights" style="flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-           <div class="calendar-toolbar" style="display:flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: #60a5fa; color: #fff;">
-              <button @click="currentWeekOffset--" class="mock-nav-btn">&laquo;</button>
-              <div style="font-weight: 600; font-size:1.1rem;">{{ weekLabel }}</div>
-              <button @click="currentWeekOffset++" class="mock-nav-btn">&raquo;</button>
+    
+    <!-- Top Row: Members and Actions -->
+    <div class="dashboard-top-row">
+      <!-- Family at a Glance -->
+      <VCard title="Family at a Glance" class="top-card">
+         <div class="family-members-row">
+           <!-- Human Caregivers / Members -->
+           <div v-for="m in dashboard.members" :key="m.user_id" class="member-badge">
+              <div class="member-avatar">{{ m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽' }}</div>
+              <div class="member-name">{{ m.name || `User ${m.user_id}` }}</div>
+              <div class="member-coins">🪙 {{ m.coin_balance }} cc</div>
            </div>
 
-           <div class="weekly-row">
-              <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
-                   class="day-column" 
-                   @click="navigateToDaily(dayObj.dateStr)">
-                
-                <div class="day-header" :class="{'is-today': dayObj.date.toDateString() === new Date().toDateString()}">
-                  {{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}
-                  <div class="day-number">{{ dayObj.date.getDate() }}</div>
-                </div>
-
-                <div class="day-content">
-                  <div v-for="a in dayObj.acts" :key="a.id" class="highlight-chip">
-                    <div class="h-title">{{ a.title }}</div>
-                    <div class="h-time">🕑 {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
-                  </div>
-                </div>
-
-              </div>
+           <!-- Objects of Care -->
+           <div v-for="o in dashboard.objectsOfCare" :key="'obj-'+o.id" class="member-badge">
+              <div class="member-avatar" style="background: #fbbf24; border-color: #f59e0b;">{{ o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽') }}</div>
+              <div class="member-name">{{ o.name || 'Dependent' }}</div>
+              <div class="member-coins" style="color: #94a3b8;">{{ o.care_time === 'full_time' ? 'Full Time' : 'Part Time' }}</div>
            </div>
-        </VCard>
-      </div>
-
-      <!-- Right Column (30%) -->
-      <div class="right-col">
-         <!-- Quick Actions -->
-         <div class="quick-actions-card">
-            <h3 style="margin-top: 0; margin-bottom: 1.5rem; text-align: center; color: #e2e8f0;">Quick Actions</h3>
-            <button class="action-block primary-action" @click="router.push('/activities')">
-               <span style="font-size: 1.2rem;">⊕</span> Add Activity
-            </button>
-            <button class="action-block secondary-action" @click="router.push('/marketplace')">
-               <span style="font-size: 1.2rem;">💰</span> Claim Coins
-            </button>
          </div>
+      </VCard>
 
-         <!-- Info Links -->
-         <VCard style="background: #e0f2fe; border: 1px solid #bae6fd; min-height: 250px; display: flex; flex-direction: column; justify-content: flex-end;">
-            <div style="display:flex; flex-direction:column; gap:1.2rem; text-align: center;">
-              <router-link to="/activities" class="sidebar-link">View All Activities</router-link>
-              <router-link to="/settings" class="sidebar-link">Settings</router-link>
-            </div>
-         </VCard>
+      <!-- Quick Actions -->
+      <div class="quick-actions-card top-card">
+         <h3 style="margin-top: 0; margin-bottom: 1.5rem; text-align: center; color: #e2e8f0;">Quick Actions</h3>
+         <button class="action-block primary-action" @click="router.push('/activities')">
+            <span style="font-size: 1.2rem;">⊕</span> Add Activity
+         </button>
+         <button class="action-block secondary-action" @click="router.push('/marketplace')">
+            <span style="font-size: 1.2rem;">💰</span> Claim Coins
+         </button>
       </div>
-
     </div>
+
+    <!-- Full Width Calendar -->
+    <VCard title="Weekly Highlights" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; margin-top: 2rem;">
+       <div class="calendar-toolbar" style="display:flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: #60a5fa; color: #fff;">
+          <button @click="currentWeekOffset--" class="mock-nav-btn">&laquo;</button>
+          <div style="font-weight: 600; font-size:1.1rem;">{{ weekLabel }}</div>
+          <button @click="currentWeekOffset++" class="mock-nav-btn">&raquo;</button>
+       </div>
+
+       <div class="weekly-row">
+          <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
+               class="day-column" 
+               @click="navigateToDaily(dayObj.dateStr)">
+            
+            <div class="day-header" :class="{'is-today': dayObj.date.toDateString() === new Date().toDateString()}">
+              {{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}
+              <div class="day-number">{{ dayObj.date.getDate() }}</div>
+            </div>
+
+            <div class="day-content">
+              <div v-for="a in dayObj.acts" :key="a.id" class="highlight-chip">
+                <div class="h-title">{{ a.title }}</div>
+                <div class="h-time">🕑 {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
+              </div>
+            </div>
+
+          </div>
+       </div>
+    </VCard>
+
+    <!-- Render child modal routes (e.g. Daily Details) -->
+    <router-view />
   </div>
 </template>
 
 <style scoped>
-.layout-70-30 {
+.dashboard-top-row {
   display: grid;
   grid-template-columns: 7fr 3fr;
   gap: 2rem;
-  align-items: start;
+  align-items: stretch;
 }
-
-.left-col {
+.top-card {
+  margin: 0;
   display: flex;
   flex-direction: column;
-}
-
-.right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
 }
 
 /* Family At A Glance */
@@ -196,7 +187,7 @@ const navigateToDaily = (dateStr) => {
 }
 .member-name {
   font-weight: 700;
-  color: #1e293b;
+  color: #f8fafc;
   font-size: 1.2rem;
 }
 .member-coins {

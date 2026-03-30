@@ -18,8 +18,11 @@ const router = createRouter({
         { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
         { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
         { path: '/activities', name: 'activities', component: ActivitiesView, meta: { requiresAuth: true } },
-        { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
-        { path: '/daily/:date', name: 'daily', component: DailyView, meta: { requiresAuth: true } },
+        {
+            path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true }, children: [
+                { path: '/daily/:date', name: 'daily', component: DailyView, meta: { requiresAuth: true } }
+            ]
+        },
         { path: '/marketplace', name: 'marketplace', component: MarketplaceView, meta: { requiresAuth: true } },
         // Catch-all
         { path: '/:pathMatch(.*)*', redirect: '/dashboard' }

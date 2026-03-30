@@ -27,12 +27,13 @@ activitiesRouter.get('/', async (req, res) => {
       await runAutoCompleteSweep(client, familyId);
 
       const { rows } = await client.query(
-        `SELECT id, title, category, starts_at, ends_at, duration_minutes,
-                coin_value, status, created_by, assigned_to, is_template, approved_by, approved_at,
-                bounty_amount, bounty_offered_by
-         FROM activities
-         WHERE family_id = $1
-         ORDER BY is_template DESC, starts_at ASC NULLS FIRST`,
+        `SELECT a.id, a.title, a.category, a.starts_at, a.ends_at, a.duration_minutes,
+                a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.approved_by, a.approved_at,
+                a.bounty_amount, a.bounty_offered_by, fm.alias AS assigned_alias
+         FROM activities a
+         LEFT JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
+         WHERE a.family_id = $1
+         ORDER BY a.is_template DESC, a.starts_at ASC NULLS FIRST`,
         [familyId]
       );
       return rows;
@@ -51,10 +52,10 @@ activitiesRouter.get('/', async (req, res) => {
 // Creates a new TEMPLATE (is_template = true)
 // ─────────────────────────────────────────────
 activitiesRouter.post('/', validateBody({
-  familyId:        [required(), positiveInt()],
-  title:           [required(), string(1, 100)],
+  familyId: [required(), positiveInt()],
+  title: [required(), string(1, 100)],
   durationMinutes: [required(), positiveInt()],
-  coinValue:       [positiveInt()],
+  coinValue: [positiveInt()],
 }), async (req, res) => {
   const { familyId, title, category, durationMinutes, coinValue } = req.body;
 
@@ -172,6 +173,9 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
 
       const t = tmpl[0];
       const start = new Date(startsAt);
+      const endsAtDate = new Date(start.getTime() + t.duration_minutes * 60000);
+      const isPast = endsAtDate < new Date();
+      const initialStatus = isPast ? 'pending_validation' : 'approved';
 
       // Insert a new instance row (is_template = false)
       const { rows } = await client.query(
@@ -183,14 +187,15 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
                  $6::timestamptz,
                  $6::timestamptz + ($7::int || ' minutes')::interval,
                  $7::int, $8::int,
-                 'approved', false, $9, $10)
+                 $11, false, $9, $10)
          RETURNING *`,
         [
           t.family_id, t.created_by, user.id,
           t.title, t.category,
           start.toISOString(),
           Number(t.duration_minutes), Number(t.coin_value),
-          t.approved_by, t.approved_at
+          t.approved_by, t.approved_at,
+          initialStatus
         ]
       );
       // Check if this exceeds the monthly budget
@@ -276,6 +281,60 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
   } catch (err) {
     console.error('POST /complete error:', err);
     return res.status(500).json({ error: 'Failed to complete activity.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/activities/:id/validate
+// Caretakers can validate and approve a past activity
+// ─────────────────────────────────────────────
+activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) => {
+  const activityId = Number(req.params.id);
+
+  try {
+    const result = await withTransaction(async (client) => {
+      const me = await upsertUserFromAuth(client, req.auth);
+
+      const { rows: actRows } = await client.query(
+        `SELECT id, family_id, assigned_to, status, coin_value FROM activities WHERE id = $1 FOR UPDATE`,
+        [activityId]
+      );
+      if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
+
+      const act = actRows[0];
+      if (act.status !== 'pending_validation') return { error: { code: 409, message: 'Activity is not pending validation.' } };
+      if (act.assigned_to === me.id) return { error: { code: 403, message: 'You cannot validate your own retroactive activity.' } };
+
+      // Ensure the validating user is actually in the family
+      const { rows: memRows } = await client.query(
+        `SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2`,
+        [act.family_id, me.id]
+      );
+      if (!memRows.length) return { error: { code: 403, message: 'Not a family member.' } };
+
+      // Make it completed
+      await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [act.id]);
+
+      // Award the coins to the assignee!
+      await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+        [act.coin_value, act.family_id, act.assigned_to]
+      );
+
+      // Ledger entry
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
+        [act.family_id, act.assigned_to, act.id, act.coin_value]
+      );
+
+      return { data: { success: true, coinsAwarded: act.coin_value } };
+    });
+
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
+  } catch (err) {
+    console.error('POST /validate error:', err);
+    return res.status(500).json({ error: 'Failed to validate activity.' });
   }
 });
 
@@ -407,7 +466,7 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       const act = rows[0];
 
       if (act.assigned_to !== me.id) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
-      if (act.status !== 'approved') return { error: { code: 409, message: 'Can only un-schedule approved upcoming activities.' } };
+      if (act.status !== 'approved' && act.status !== 'pending_validation') return { error: { code: 409, message: 'Can only un-schedule upcoming or pending validation activities.' } };
 
       // Revert bounty if the person offered one recently and then panicked and dragged it off the calendar
       // Wait, bounty_amount is in Escrow. If they dragged it off, the bounty wasn't taken.

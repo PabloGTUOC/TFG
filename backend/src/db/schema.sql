@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS activities (
   ends_at TIMESTAMPTZ NOT NULL,
   duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 15),
   coin_value INTEGER NOT NULL CHECK (coin_value >= 0),
-  status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+  status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'pending_validation')) DEFAULT 'pending',
   approved_by BIGINT REFERENCES users(id),
   approved_at TIMESTAMPTZ,
   bounty_amount INTEGER NOT NULL DEFAULT 0,
