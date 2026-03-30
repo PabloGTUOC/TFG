@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   firebase_uid TEXT UNIQUE NOT NULL,
   email TEXT UNIQUE,
   display_name TEXT,
+  avatar_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -95,6 +96,9 @@ CREATE TABLE IF NOT EXISTS marketplace_rewards (
   title TEXT NOT NULL,
   description TEXT,
   cost INTEGER NOT NULL CHECK (cost > 0),
+  max_uses INTEGER,
+  valid_from TIMESTAMPTZ,
+  valid_until TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

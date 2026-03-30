@@ -2,6 +2,23 @@ import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
 import { validateBody, string, email } from '../middleware/validate.js';
+import multer from 'multer';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../uploads/'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
 
 export const meRouter = Router();
 
@@ -33,6 +50,31 @@ meRouter.get('/', async (req, res) => {
   } catch (err) {
     console.error('ME ROUTE ERROR:', err);
     return res.status(500).json({ error: 'Failed to load current user.' });
+  }
+});
+
+meRouter.post('/avatar', upload.single('avatar'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No avatar image uploaded.' });
+  }
+
+  const avatarUrl = `/uploads/${req.file.filename}`;
+
+  try {
+    const user = await withTransaction(async (client) => {
+      const me = await upsertUserFromAuth(client, req.auth);
+      await client.query(
+        `UPDATE users SET avatar_url = $1 WHERE id = $2`,
+        [avatarUrl, me.id]
+      );
+      me.avatar_url = avatarUrl;
+      return me;
+    });
+
+    return res.json({ avatar_url: user.avatar_url });
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    return res.status(500).json({ error: 'Failed to upload avatar.' });
   }
 });
 meRouter.post('/login-event', async (req, res) => {

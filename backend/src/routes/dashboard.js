@@ -21,7 +21,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
       await runAutoCompleteSweep(client, familyId);
 
       const { rows: members } = await client.query(
-        `SELECT fm.user_id, COALESCE(fm.alias, u.display_name, u.email, u.firebase_uid) AS name, fm.role, fm.coin_balance
+        `SELECT fm.user_id, COALESCE(fm.alias, u.display_name, u.email, u.firebase_uid) AS name, fm.role, fm.coin_balance, fm.status, u.avatar_url
          FROM family_members fm JOIN users u ON u.id = fm.user_id
          WHERE fm.family_id = $1
          ORDER BY fm.coin_balance DESC`,

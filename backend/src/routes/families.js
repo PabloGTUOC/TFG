@@ -78,9 +78,9 @@ familiesRouter.get('/:familyId/budget', async (req, res) => {
 });
 
 familiesRouter.post('/', validateBody({
-  name:             [required(), string(1, 100)],
-  mainCaretakerName:[string(1, 100)],
-  alias:            [string(1, 50)],
+  name: [required(), string(1, 100)],
+  mainCaretakerName: [string(1, 100)],
+  alias: [string(1, 50)],
 }), async (req, res) => {
   const { name, mainCaretakerName, caretakers = [], objectsOfCare = [], alias } = req.body;
 
@@ -168,7 +168,7 @@ familiesRouter.post('/', validateBody({
 
 familiesRouter.post('/join-request', validateBody({
   identifier: [required(), string(1, 100)],
-  alias:      [string(1, 50)],
+  alias: [string(1, 50)],
 }), async (req, res) => {
   const { identifier, alias } = req.body;
   if (!identifier) return res.status(400).json({ error: 'Family ID or name is required.' });
@@ -226,32 +226,98 @@ familiesRouter.patch('/:familyId/members/:userId/role',
   validateParams('familyId', 'userId'),
   requireRole('main_caregiver', r => r.params.familyId),
   async (req, res) => {
-  const familyId = Number(req.params.familyId);
-  const userId = Number(req.params.userId);
-  const { role } = req.body;
+    const familyId = Number(req.params.familyId);
+    const userId = Number(req.params.userId);
+    const { role } = req.body;
 
-  if (!['main_caregiver', 'caregiver', 'member'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role.' });
-  }
+    if (!['main_caregiver', 'caregiver', 'member'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role.' });
+    }
 
-  try {
-    const result = await withTransaction(async (client) => {
-      const me = await upsertUserFromAuth(client, req.auth);
-      const updated = await client.query(
-        `UPDATE family_members
+    try {
+      const result = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+        const updated = await client.query(
+          `UPDATE family_members
          SET role = $1
          WHERE family_id = $2 AND user_id = $3
          RETURNING family_id, user_id, role`,
-        [role, familyId, userId]
-      );
-      if (!updated.rowCount) return { error: { code: 404, message: 'Family member not found.' } };
+          [role, familyId, userId]
+        );
+        if (!updated.rowCount) return { error: { code: 404, message: 'Family member not found.' } };
 
-      return { data: { member: updated.rows[0] } };
-    });
+        return { data: { member: updated.rows[0] } };
+      });
 
-    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
-    return res.json(result.data);
-  } catch {
-    return res.status(500).json({ error: 'Failed to update role.' });
-  }
-});
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json(result.data);
+    } catch {
+      return res.status(500).json({ error: 'Failed to update role.' });
+    }
+  });
+
+familiesRouter.post('/:familyId/members/:userId/approve',
+  validateParams('familyId', 'userId'),
+  requireRole('main_caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    const userId = Number(req.params.userId);
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const { rowCount } = await client.query(
+          `UPDATE family_members
+           SET status = 'active', role = 'main_caregiver'
+           WHERE family_id = $1 AND user_id = $2 AND status = 'pending'`,
+          [familyId, userId]
+        );
+
+        if (rowCount === 0) {
+          return { error: 'Pending member not found.' };
+        }
+
+        return { success: true };
+      });
+
+      if (result.error) return res.status(404).json({ error: result.error });
+      return res.json(result);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to approve member.' });
+    }
+  });
+
+familiesRouter.post('/:familyId/actors',
+  validateParams('familyId'),
+  validateBody({ name: [required(), string(1, 100)] }),
+  requireRole('main_caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    const { name, actorType, careTime } = req.body;
+
+    const type = ['child', 'pet', 'elderly', 'person'].includes(actorType) ? actorType : 'child';
+    const time = ['full_time', 'part_time'].includes(careTime) ? careTime : 'full_time';
+    const budgetIncrease = time === 'full_time' ? 720 : 360;
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const { rows } = await client.query(
+          `INSERT INTO actors (family_id, actor_type, name, care_time)
+           VALUES ($1, $2, $3, $4) RETURNING *`,
+          [familyId, type, name, time]
+        );
+
+        await client.query(
+          `UPDATE families SET monthly_coin_budget = monthly_coin_budget + $1 WHERE id = $2`,
+          [budgetIncrease, familyId]
+        );
+
+        return rows[0];
+      });
+
+      return res.status(201).json(result);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to add object of care.' });
+    }
+  });

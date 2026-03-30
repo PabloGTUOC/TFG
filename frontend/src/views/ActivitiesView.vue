@@ -143,7 +143,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 
       <!-- Column 2: Register New Activity -->
       <VCard title="Register New Activity" style="height: 100%;">
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
+        <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
           Define a reusable activity template. Once approved, it appears in the Family Times sidebar and can be scheduled any number of times.
         </p>
         <div style="display: flex; flex-direction: column; gap: 1.2rem;">
@@ -154,7 +154,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
           <!-- Slider Component -->
           <div class="mock-slider-box">
             <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
-              <label style="font-size: 0.85rem; color: var(--text-secondary);">Coin Value Reward (cc)</label>
+              <label class="text-sm" style="color: var(--text-secondary);">Coin Value Reward (cc)</label>
               <strong style="color: #c084fc;">{{ createActivityForm.coinValue }} cc</strong>
             </div>
             <input type="range" 
@@ -164,7 +164,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
                    step="1"
                    class="v-slider"
                    style="width: 100%; cursor: pointer;" />
-            <div style="display:flex; justify-content: space-between; font-size: 0.70rem; color: rgba(255,255,255,0.4); margin-top: 0.4rem;">
+            <div class="text-xs" style="display:flex; justify-content: space-between; color: rgba(255,255,255,0.4); margin-top: 0.4rem;">
               <span>Min: {{ minCoins }}</span>
               <span>Suggested: {{ baseScore }}</span>
               <span>Max: {{ maxCoins }}</span>
@@ -190,15 +190,15 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
           </svg>
           
           <div class="gauge-content">
-            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem;">Remaining this month</div>
-            <div style="font-size: 3.5rem; font-weight: 700; color: #fff; line-height: 1;">
-              {{ budgetInfo.remainingBudget }} <span style="font-size: 1.2rem; color: #c084fc;">cc</span>
+            <div class="text-xs" style="color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem;">Remaining this month</div>
+            <div class="text-4xl" style="font-weight: 700; color: #fff; line-height: 1; font-size: 3.5rem;">
+              {{ budgetInfo.remainingBudget }} <span class="text-xl" style="color: #c084fc;">cc</span>
             </div>
           </div>
         </div>
         
         <!-- Budget Stats -->
-        <div style="background: rgba(255, 255, 255, 0.02); padding: 1.2rem; border-radius: 8px; font-size: 0.85rem; margin-top: auto;">
+        <div class="text-sm" style="background: rgba(255, 255, 255, 0.02); padding: 1.2rem; border-radius: 8px; margin-top: auto;">
           <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
             <span style="color: var(--text-secondary);">Total Monthly Pool:</span>
             <strong style="color: #fff;">{{ budgetInfo.monthlyBudget }} cc</strong>
@@ -262,21 +262,21 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   flex-direction: column;
 }
 .pill-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 .pill-meta {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   opacity: 0.85;
   margin-top: 0.2rem;
 }
 .mock-badge {
   background: #10b981;
   color: #fff;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   padding: 2px 6px;
   border-radius: 999px;
   text-transform: lowercase;

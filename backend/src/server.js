@@ -8,6 +8,11 @@ import { activitiesRouter } from './routes/activities.js';
 import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -24,6 +29,8 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
 });
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.use('/api/me', requireAuth, meRouter);
 app.use('/api/families', requireAuth, familiesRouter);

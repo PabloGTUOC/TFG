@@ -53,7 +53,7 @@ const START_HOUR = 6;
 const TOTAL_HOURS = 18;
 
 const scheduledToday = computed(() => {
-  const acts = familyActivities.value.filter(a => {
+  let acts = familyActivities.value.filter(a => {
     if (a.is_template || !a.starts_at) return false;
     const d = new Date(a.starts_at);
     return d.getFullYear() === targetDate.value.getFullYear() &&
@@ -61,8 +61,31 @@ const scheduledToday = computed(() => {
            d.getDate() === targetDate.value.getDate();
   });
   
-  // Compute absolute vertical CSS
-  return acts.map(a => {
+  // Sort by start time, then by duration (longest first)
+  acts.sort((a, b) => {
+    const timeA = new Date(a.starts_at).getTime();
+    const timeB = new Date(b.starts_at).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+    return (b.duration_minutes || 0) - (a.duration_minutes || 0);
+  });
+
+  const positionedActs = [];
+
+  for (let i = 0; i < acts.length; i++) {
+    const a = acts[i];
+    const startA = new Date(a.starts_at).getTime();
+    const endA = startA + (a.duration_minutes * 60000);
+
+    let overlapCount = 0;
+    for (let j = 0; j < i; j++) {
+      const b = positionedActs[j];
+      const startB = new Date(b.starts_at).getTime();
+      const endB = startB + (b.duration_minutes * 60000);
+      if (Math.max(startA, startB) < Math.min(endA, endB)) {
+        overlapCount++;
+      }
+    }
+
     let d = new Date(a.starts_at);
     let hour = d.getHours() + d.getMinutes() / 60;
     let topP = ((Math.max(START_HOUR, hour) - START_HOUR) / TOTAL_HOURS) * 100;
@@ -70,18 +93,28 @@ const scheduledToday = computed(() => {
     let visibleHours = Math.min(a.duration_minutes / 60, 24 - Math.max(START_HOUR, hour));
     let heightP = (visibleHours / TOTAL_HOURS) * 100;
     
-    return {
+    const indentMultiplier = Math.min(overlapCount, 4);
+    const leftPx = 70 + (indentMultiplier * 30);
+    const widthPx = `calc(100% - ${leftPx + 10}px)`;
+    const shadowIntensity = 0.2 + (indentMultiplier * 0.1);
+
+    positionedActs.push({
       ...a,
+      overlapCount,
       _style: {
         position: 'absolute',
         top: `${topP}%`,
         height: `${Math.max(3, heightP)}%`,
         minHeight: '60px',
-        left: '70px',
-        width: 'calc(100% - 80px)'
+        left: `${leftPx}px`,
+        width: widthPx,
+        zIndex: 10 + overlapCount,
+        boxShadow: overlapCount > 0 ? `-5px 5px 15px rgba(0,0,0,${shadowIntensity})` : '0 4px 15px rgba(0,0,0,0.2)'
       }
-    };
-  });
+    });
+  }
+  
+  return positionedActs;
 });
 
 // Column 3: Completed Today
@@ -196,11 +229,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       
       <!-- COL 1: Available Activities -->
       <VCard title="Available Activities" class="col-card">
-         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Drag items off the timeline to unschedule</p>
+         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem;">Drag items off the timeline to unschedule</p>
          <div class="template-grid">
            <div v-for="a in availableTemplates" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)">
-              <strong style="font-size: 1.1rem; color: #1e293b; display: block; margin-bottom: 0.5rem;">{{ a.title }}</strong>
-              <div style="font-size: 0.8rem; color: #475569; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              <strong class="text-lg" style="color: #1e293b; display: block; margin-bottom: 0.5rem;">{{ a.title }}</strong>
+              <div class="text-xs" style="color: #475569; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
                 <span>🕒 {{ a.duration_minutes || a.durationMinutes || 0 }}m</span>
                 <span>•</span>
                 <span>🪙 {{ a.coin_value }}cc</span>
@@ -225,15 +258,18 @@ const validateActivity = (aid) => appStore.runAction(async () => {
             <div v-for="a in scheduledToday" :key="a.id" :style="a._style" 
                  :class="['scheduled-chip', a.status === 'pending_validation' ? 'gradient-orange' : (a.status === 'completed' ? 'gradient-green' : 'gradient-pink')]" 
                  :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null">
-              <strong style="font-size: 0.9rem;">{{ a.title }}</strong>
-              <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 2px;">{{ a.assigned_alias || 'Unclaimed' }}</div>
+              <strong class="text-sm" style="display:block; margin-bottom: 2px; line-height: 1.2;">{{ a.title }}</strong>
               
-              <div v-if="a.status === 'pending_validation'" style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto;">
-                <span style="font-size: 0.7rem; font-weight: bold; color: #fef08a;">⏳ Pending Validation</span>
-                <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn" style="margin-bottom:-2px;">✓ Validate</button>
-              </div>
-              <div v-else-if="a.status === 'completed'" style="font-size: 0.7rem; font-weight: bold; margin-top: auto; opacity: 0.9;">
-                ✓ Completed
+              <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto; padding-top: 4px; gap: 0.4rem;">
+                <div class="text-xs" style="opacity: 0.9;">{{ a.assigned_alias || 'Unclaimed' }}</div>
+                
+                <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
+                  <span class="text-xs" style="font-weight: bold; color: #fef08a;">⏳ Pending Validation</span>
+                  <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
+                </div>
+                <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; padding-bottom: 1px;">
+                  ✓ Completed
+                </div>
               </div>
             </div>
          </div>
@@ -243,8 +279,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       <VCard title="Completed" class="col-card">
          <div v-for="a in completedToday" :key="a.id" class="completed-chip ui-gradient">
             <div>
-              <strong style="font-size: 1rem; color:#1e293b;">{{ a.title }}</strong>
-              <div style="font-size:0.75rem; color:#475569;">{{ a.duration_minutes || a.durationMinutes || 0 }}m - 🪙 {{ a.coin_value }}cc</div>
+              <strong class="text-base" style="color:#1e293b;">{{ a.title }}</strong>
+              <div class="text-xs" style="color:#475569;">{{ a.duration_minutes || a.durationMinutes || 0 }}m - 🪙 {{ a.coin_value }}cc</div>
             </div>
             <div class="mock-check">✔</div>
          </div>
@@ -254,8 +290,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
          </div>
 
          <div class="daily-tallies">
-            <div style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 0.3rem;">Great job everyone!</div>
-            <div style="font-weight: 700; font-size: 1.2rem; color: #f8fafc;">Total coins earned this day: <span style="color: #fbbf24;">{{ todayCoins }}cc</span></div>
+            <div class="text-sm" style="color: #94a3b8; margin-bottom: 0.3rem;">Great job everyone!</div>
+            <div class="text-xl" style="font-weight: 700; color: #f8fafc;">Total coins earned this day: <span style="color: #fbbf24;">{{ todayCoins }}cc</span></div>
          </div>
       </VCard>
 
@@ -361,7 +397,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 .h-label {
   width: 60px;
-  font-size: 0.70rem;
+  font-size: 0.75rem;
   color: #94a3b8;
   padding-left: 0.5rem;
   padding-top: 0.2rem;
@@ -393,6 +429,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   overflow: hidden;
   box-sizing: border-box;
   cursor: grab;
+  transition: transform 0.1s, box-shadow 0.2s;
+}
+.scheduled-chip:hover {
+  z-index: 50 !important;
 }
 .scheduled-chip:active {
   cursor: grabbing;
@@ -435,7 +475,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 
 .empty-pill {
   color: #fff; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(8px);
-  padding: 0.8rem 1.5rem; border-radius: 999px; text-align: center; font-size: 0.9rem; margin: 2rem auto; font-weight: 500;
+  padding: 0.8rem 1.5rem; border-radius: 999px; text-align: center; font-size: 1rem; margin: 2rem auto; font-weight: 500;
   width: max-content;
 }
 

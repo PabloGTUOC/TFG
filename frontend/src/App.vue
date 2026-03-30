@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from './stores/auth';
 import { useFamilyStore } from './stores/family';
@@ -12,6 +12,16 @@ const { success, error, user, authReady } = storeToRefs(authStore);
 const { families } = storeToRefs(familyStore);
 
 const showDropdown = ref(false);
+const profileMenuRef = ref(null);
+
+const closeDropdown = (e) => {
+  if (showDropdown.value && profileMenuRef.value && !profileMenuRef.value.contains(e.target)) {
+    showDropdown.value = false;
+  }
+};
+
+onMounted(() => document.addEventListener('click', closeDropdown));
+onUnmounted(() => document.removeEventListener('click', closeDropdown));
 
 const handleLogout = async () => {
   await authStore.logout();
@@ -30,8 +40,8 @@ const handleLogout = async () => {
       <div class="pill-container">
         
         <div class="logo">
-          <span style="font-size: 1.4rem;">🪙</span> 
-          <strong style="color: #1e293b; font-size:1.2rem; letter-spacing:-0.5px; margin-left: 0.2rem;">CareCoins</strong>
+          <span class="text-2xl">🪙</span> 
+          <strong class="text-xl" style="color: #1e293b; letter-spacing:-0.5px; margin-left: 0.2rem;">CareCoins</strong>
         </div>
         
         <nav class="pill-nav" v-if="families && families.length > 0">
@@ -41,18 +51,17 @@ const handleLogout = async () => {
           <router-link to="/profile">Personal Area</router-link>
         </nav>
         
-        <div class="pill-profile">
+        <div class="pill-profile" ref="profileMenuRef">
            <!-- Right Side Avatar & Dropdown -->
            <div class="avatar-block" @click="showDropdown = !showDropdown" title="User Menu">
-             <div class="avatar">
-               {{ familyStore.profile?.actor_type === 'caregiver' ? '👩🏽' : '👨🏽' }}
+             <div class="avatar" :style="familyStore.profile?.avatar_url ? `background-image: url('${authStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center; border: 1px solid #3b82f6;` : ''">
+               {{ familyStore.profile?.avatar_url ? '' : (familyStore.profile?.actor_type === 'caregiver' ? '👩🏽' : '👨🏽') }}
              </div>
-             <span style="font-size: 0.6rem; margin-left:4px; color: #64748b;">▼</span>
+             <span class="text-xs" style="margin-left:4px; color: #64748b;">▼</span>
            </div>
            
            <div v-if="showDropdown" class="profile-dropdown">
-             <router-link to="/profile" @click="showDropdown = false" style="color:#1e293b; text-decoration:none; margin-bottom:0.5rem; display:block;">Profile</router-link>
-             <a href="#" @click.prevent="showDropdown = false; handleLogout()" class="logout-link">Logout</a>
+             <a href="#" @click.prevent="showDropdown = false; handleLogout()" class="dropdown-item logout-link">Logout</a>
            </div>
         </div>
 
@@ -103,13 +112,13 @@ body::before {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 1.5rem 1rem 0 1rem;
+  padding: 1.5rem 0 0 0;
   box-sizing: border-box;
 }
 
 .pill-container {
   max-width: 1000px;
-  width: 100%;
+  width: calc(100% - 2rem);
   background: #ffffff;
   border-radius: 999px;
   padding: 0.6rem 1.5rem;
@@ -119,6 +128,7 @@ body::before {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   position: relative;
   z-index: 100;
+  box-sizing: border-box;
 }
 
 .logo {
@@ -135,7 +145,7 @@ body::before {
   color: #64748b;
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 1rem;
   padding: 0.4rem 0.8rem;
   border-radius: 999px;
   transition: all 0.2s;
@@ -183,34 +193,51 @@ body::before {
 
 .profile-dropdown {
   position: absolute;
-  top: 130%;
+  top: calc(100% + 10px);
   right: 0;
-  background: #fff;
+  background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  padding: 1rem;
-  min-width: 120px;
-  text-align: right;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  padding: 0.5rem 0;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
   border: 1px solid #f1f5f9;
+  overflow: hidden;
 }
 
-.logout-link {
-  color: #ef4444;
+.dropdown-item {
+  padding: 0.8rem 1.5rem;
+  text-align: left;
   text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: #1e293b;
+  transition: background 0.2s, color 0.2s;
   display: block;
 }
-.logout-link:hover { text-decoration: underline; }
+
+.dropdown-item:hover {
+  background: #f8fafc;
+}
+
+.dropdown-item.logout-link {
+  color: #ef4444;
+}
+
+.dropdown-item.logout-link:hover {
+  background: #fef2f2;
+}
 
 /* -------------------
    Main Body layout
 ------------------- */
 .main-content {
   flex: 1;
-  padding: 2rem 1rem;
+  padding: 2rem 0;
   max-width: 1000px;
-  width: 100%;
+  width: calc(100% - 2rem);
   margin: 0 auto;
   box-sizing: border-box;
 }

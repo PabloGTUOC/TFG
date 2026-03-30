@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
-import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
+import { validateBody, required, string, positiveInt, isoDate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 
 export const marketplaceRouter = Router();
@@ -12,23 +12,42 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
   if (!familyId) return res.status(400).json({ error: 'Invalid familyId.' });
 
   try {
-    const rewards = await withTransaction(async (client) => {
+    const data = await withTransaction(async (client) => {
       const me = await upsertUserFromAuth(client, req.auth);
       const member = await client.query('SELECT 1 FROM family_members WHERE family_id=$1 AND user_id=$2', [familyId, me.id]);
       if (!member.rowCount) return null;
 
       const { rows } = await client.query(
-        `SELECT id, family_id, creator_id, title, description, cost, status, created_at
+        `SELECT id, family_id, creator_id, title, description, cost, status, created_at,
+                max_uses, valid_from, valid_until,
+                (SELECT COUNT(*) FROM reward_redemptions rr WHERE rr.reward_id = marketplace_rewards.id)::int as uses
          FROM marketplace_rewards
          WHERE family_id = $1 AND status = 'active'
+           AND (max_uses IS NULL OR (SELECT COUNT(*) FROM reward_redemptions rr WHERE rr.reward_id = marketplace_rewards.id) < max_uses)
+           AND (valid_from IS NULL OR NOW() >= valid_from)
+           AND (valid_until IS NULL OR NOW() <= valid_until)
          ORDER BY created_at DESC`,
         [familyId]
       );
-      return rows;
+
+      const { rows: claimed } = await client.query(
+        `SELECT rr.id as redemption_id, mr.title, rr.redeemed_at, 
+                COALESCE(fm.alias, u.display_name, u.email) as buyer_name, u.avatar_url as buyer_avatar
+         FROM reward_redemptions rr
+         JOIN marketplace_rewards mr ON mr.id = rr.reward_id
+         JOIN users u ON u.id = rr.user_id
+         JOIN family_members fm ON fm.user_id = u.id AND fm.family_id = rr.family_id
+         WHERE rr.family_id = $1
+         ORDER BY rr.redeemed_at DESC
+         LIMIT 30`,
+        [familyId]
+      );
+
+      return { rewards: rows, claimed };
     });
 
-    if (rewards === null) return res.status(403).json({ error: 'Not a family member.' });
-    return res.json({ rewards });
+    if (data === null) return res.status(403).json({ error: 'Not a family member.' });
+    return res.json(data);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to load rewards.' });
@@ -38,50 +57,72 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
 // Create a new reward
 marketplaceRouter.post('/rewards',
   validateBody({
-    familyId:    [required(), positiveInt()],
-    title:       [required(), string(1, 100)],
+    familyId: [required(), positiveInt()],
+    title: [required(), string(1, 100)],
     description: [string(1, 500)],
-    cost:        [required(), positiveInt()],
+    cost: [required(), positiveInt()],
+    maxUses: [positiveInt()],
+    validFrom: [isoDate()],
+    validUntil: [isoDate()]
   }),
   requireRole('main_caregiver', r => r.body.familyId),
   async (req, res) => {
-  const { familyId, title, description, cost } = req.body;
-  if (!familyId || !title || !cost) return res.status(400).json({ error: 'familyId, title and cost are required.' });
+    const { familyId, title, description, cost, maxUses, validFrom, validUntil } = req.body;
+    if (!familyId || !title || !cost) return res.status(400).json({ error: 'familyId, title and cost are required.' });
 
-  try {
-    const reward = await withTransaction(async (client) => {
-      const me = await upsertUserFromAuth(client, req.auth);
-      const { rows } = await client.query(
-        `INSERT INTO marketplace_rewards (family_id, creator_id, title, description, cost)
-         VALUES ($1,$2,$3,$4,$5)
-         RETURNING id, family_id, creator_id, title, description, cost, status, created_at`,
-        [familyId, me.id, title.trim(), description ? description.trim() : null, Number(cost)]
-      );
-      return rows[0];
-    });
+    try {
+      const reward = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+        const { rows } = await client.query(
+          `INSERT INTO marketplace_rewards (family_id, creator_id, title, description, cost, max_uses, valid_from, valid_until)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         RETURNING *`,
+          [
+            familyId, me.id, title.trim(), description ? description.trim() : null, Number(cost),
+            maxUses ? Number(maxUses) : null,
+            validFrom ? new Date(validFrom) : null,
+            validUntil ? new Date(validUntil) : null
+          ]
+        );
+        return rows[0];
+      });
 
-    return res.status(201).json({ reward });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to create reward.' });
-  }
-});
+      return res.status(201).json({ reward });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to create reward.' });
+    }
+  });
 
 // Redeem a reward
-marketplaceRouter.post('/rewards/:rewardId/redeem', validateParams('rewardId'), async (req, res) => {
+marketplaceRouter.post('/rewards/:rewardId/redeem', async (req, res) => {
   const { rewardId } = req.params;
+  if (!rewardId || typeof rewardId !== 'string' || rewardId.length < 10) {
+    return res.status(400).json({ error: 'rewardId: must be a valid UUID' });
+  }
 
   try {
     const result = await withTransaction(async (client) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows: rewardRows } = await client.query(
-        `SELECT id, family_id, cost, title, status FROM marketplace_rewards WHERE id=$1 FOR UPDATE`,
+        `SELECT id, family_id, cost, title, status, max_uses, valid_from, valid_until FROM marketplace_rewards WHERE id=$1 FOR UPDATE`,
         [rewardId]
       );
       if (!rewardRows.length) return { error: { code: 404, message: 'Reward not found.' } };
       const reward = rewardRows[0];
       if (reward.status !== 'active') return { error: { code: 409, message: 'Reward is no longer active.' } };
+
+      const now = new Date();
+      if (reward.valid_from && now < reward.valid_from) return { error: { code: 409, message: 'Reward is not yet available.' } };
+      if (reward.valid_until && now > reward.valid_until) return { error: { code: 409, message: 'Reward has expired.' } };
+
+      if (reward.max_uses) {
+        const { rows: usageRows } = await client.query('SELECT COUNT(*) as c FROM reward_redemptions WHERE reward_id=$1', [reward.id]);
+        if (Number(usageRows[0].c) >= reward.max_uses) {
+          return { error: { code: 409, message: 'Reward is sold out.' } };
+        }
+      }
 
       const { rows: buyerRows } = await client.query(
         `SELECT coin_balance FROM family_members WHERE family_id=$1 AND user_id=$2 FOR UPDATE`,
@@ -100,8 +141,8 @@ marketplaceRouter.post('/rewards/:rewardId/redeem', validateParams('rewardId'), 
 
       // Burn coins from economy visibly
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,'reward_redemption')`,
-        [reward.family_id, me.id, -reward.cost]
+        `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`,
+        [reward.family_id, me.id, -reward.cost, `Redeemed: ${reward.title}`]
       );
 
       return { data: { redeemed: true, cost: reward.cost } };
