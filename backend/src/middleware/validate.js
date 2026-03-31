@@ -39,6 +39,11 @@ export const isoDate = () => (v) => {
   return isNaN(new Date(v).getTime()) ? 'must be a valid date/time string' : null;
 };
 
+export const oneOf = (values) => (v) => {
+  if (v === undefined || v === null) return null; // presence handled by required()
+  return values.includes(v) ? null : `must be one of: ${values.join(', ')}`;
+};
+
 // ─── Middleware factories ─────────────────────────────────────────────────────
 
 /**

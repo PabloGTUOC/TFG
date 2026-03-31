@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
 import { runAutoCompleteSweep } from '../db/autoComplete.js';
-import { validateBody, validateParams, required, string, positiveInt, isoDate } from '../middleware/validate.js';
+import { validateBody, validateParams, required, string, positiveInt, isoDate, oneOf } from '../middleware/validate.js';
 import { assertMemberRole } from '../middleware/rbac.js';
 
 export const activitiesRouter = Router();
@@ -54,17 +54,12 @@ activitiesRouter.get('/', async (req, res) => {
 activitiesRouter.post('/', validateBody({
   familyId: [required(), positiveInt()],
   title: [required(), string(1, 100)],
+  category: [required(), oneOf(['care', 'household'])],
   durationMinutes: [required(), positiveInt()],
   coinValue: [positiveInt()]
 }), async (req, res) => {
   const { familyId, title, category, durationMinutes, coinValue, isRecurrent } = req.body;
 
-  if (!familyId || !title || !category || !durationMinutes) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
-  if (!['care', 'household'].includes(category)) {
-    return res.status(400).json({ error: 'Invalid category.' });
-  }
   if (Number(durationMinutes) < 15) {
     return res.status(400).json({ error: 'Minimum duration is 15 minutes.' });
   }

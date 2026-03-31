@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
+import { useCurrentFamily } from '../composables/useCurrentFamily';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -53,7 +54,7 @@ const openRecurrenceModal = (activity) => {
   recurrenceForm.value.activityId = activity.id;
   recurrenceForm.value.title = activity.title;
   recurrenceForm.value.frequency = 'daily';
-  
+
   const tmrw = new Date();
   tmrw.setDate(tmrw.getDate() + 1);
   recurrenceForm.value.untilDate = tmrw.toISOString().split('T')[0];
@@ -77,10 +78,10 @@ const confirmRecurrence = async () => {
   }, 'Propagating scheduled activities...');
 };
 
-const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
+const { familyId } = useCurrentFamily();
 
 const loadActivities = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) return;
   const activitiesData = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
   familyActivities.value = activitiesData.activities || [];
@@ -574,8 +575,4 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   width: max-content;
 }
 
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
-  display: flex; align-items: center; justify-content: center;
-}
 </style>

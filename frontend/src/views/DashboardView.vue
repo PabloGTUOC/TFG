@@ -7,22 +7,23 @@ import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useCurrentFamily } from '../composables/useCurrentFamily';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
 const route = useRoute();
 const router = useRouter();
+const { familyId, role } = useCurrentFamily();
 
 const dashboard = ref({ members: [], calendar: [], objectsOfCare: [] });
 const familyActivities = ref([]);
 const claimedRewards = ref([]);
 const currentWeekOffset = ref(0);
 
-const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
-const isMainCaregiver = computed(() => familyStore.families?.[0]?.role === 'main_caregiver');
+const isMainCaregiver = computed(() => role.value === 'main_caregiver');
 
 const loadDashboard = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) return;
   dashboard.value = await appStore.request(`/api/dashboard/${fid}`, { headers: appStore.authHeaders() });
   const activitiesData = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
@@ -34,7 +35,7 @@ const loadDashboard = () => appStore.runAction(async () => {
   } catch(e) {}
 }, 'Family dashboard loaded.');
 
-watch(() => getFamilyId(), (newFid) => {
+watch(familyId, (newFid) => {
   if (newFid) loadDashboard();
 }, { immediate: true });
 
@@ -47,7 +48,7 @@ const pendingMembers = computed(() => dashboard.value.members.filter(m => m.stat
 
 // --- Pending Approval Logic ---
 const approveMember = (userId) => appStore.runAction(async () => {
-   const fid = getFamilyId();
+   const fid = familyId.value;
    await appStore.request(`/api/families/${fid}/members/${userId}/approve`, {
      method: 'POST',
      headers: appStore.authHeaders()
@@ -71,7 +72,7 @@ const timeOptions = [
 ];
 
 const createCareObject = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!careObjectForm.value.name.trim()) throw new Error("Name is required");
   
   await appStore.request(`/api/families/${fid}/actors`, {
@@ -435,8 +436,4 @@ const navigateToDaily = (dateStr) => {
   border-bottom-color: #2563eb;
 }
 
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
-  display: flex; align-items: center; justify-content: center;
-}
 </style>

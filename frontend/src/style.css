@@ -16,6 +16,8 @@
   --input-focus: #a78bfa;
   --error: #ef4444;
   --success: #10b981;
+  --color-blue: #3b82f6;
+  --color-slate-800: #1e293b;
 }
 
 body {
@@ -104,6 +106,17 @@ pre {
   font-family: monospace;
   font-size: 0.9rem;
   color: #c4b5fd;
+}
+
+/* Shared modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Base fade-in animation for views */

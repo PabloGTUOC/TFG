@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useAuthStore } from './auth';
 
 export const useFamilyStore = defineStore('family', {
   state: () => ({
@@ -9,7 +10,6 @@ export const useFamilyStore = defineStore('family', {
   }),
   actions: {
     async fetchUserData() {
-      const { useAuthStore } = await import('./auth.js');
       const authStore = useAuthStore();
       try {
         const data = await authStore.request('/api/me', { headers: authStore.authHeaders() });

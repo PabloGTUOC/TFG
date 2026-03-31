@@ -5,6 +5,7 @@ import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
 import VInput from '../components/VInput.vue';
 import VButton from '../components/VButton.vue';
+import { useCurrentFamily } from '../composables/useCurrentFamily';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -33,7 +34,7 @@ const triggerActorUpload = (actorId) => {
   if (el) el.click();
 };
 
-const handleActorAvatarUpload = async (event, actorId, familyId) => {
+const handleActorAvatarUpload = async (event, actorId, fid) => {
   const file = event.target.files[0];
   if (!file) return;
   const formData = new FormData();
@@ -41,7 +42,7 @@ const handleActorAvatarUpload = async (event, actorId, familyId) => {
   await appStore.runAction(async () => {
     const headers = appStore.authHeaders();
     delete headers['Content-Type'];
-    const res = await fetch(`${appStore.apiBase}/api/families/${familyId}/actors/${actorId}/avatar`, {
+    const res = await fetch(`${appStore.apiBase}/api/families/${fid}/actors/${actorId}/avatar`, {
       method: 'POST', headers: { Authorization: headers.Authorization }, body: formData
     });
     if (!res.ok) throw new Error('Upload failed');
@@ -49,13 +50,13 @@ const handleActorAvatarUpload = async (event, actorId, familyId) => {
   }, 'Dependent avatar updated successfully!');
 };
 
-const activeFamily = familyStore.families?.[0];
+const { family } = useCurrentFamily();
 const ledgerInfo = ref([]);
 
 const profileForm = ref({
   displayName: familyStore.profile?.display_name || '',
   email: familyStore.profile?.email || '',
-  alias: activeFamily?.alias || ''
+  alias: family.value?.alias || ''
 });
 
 const updateProfile = () => appStore.runAction(async () => {
@@ -65,7 +66,7 @@ const updateProfile = () => appStore.runAction(async () => {
     body: JSON.stringify({
       displayName: profileForm.value.displayName,
       email: profileForm.value.email,
-      familyId: activeFamily?.family_id,
+      familyId: family.value?.family_id,
       alias: profileForm.value.alias
     })
   });
@@ -76,9 +77,9 @@ const today = new Date();
 const currentMonth = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
 
 const loadLedger = async () => {
-  if (!activeFamily) return;
+  if (!family.value) return;
   try {
-    const data = await appStore.request(`/api/me/ledger?familyId=${activeFamily.family_id}&month=${currentMonth.value}`, {
+    const data = await appStore.request(`/api/me/ledger?familyId=${family.value.family_id}&month=${currentMonth.value}`, {
       headers: appStore.authHeaders()
     });
     ledgerInfo.value = data.ledger || [];
@@ -135,17 +136,17 @@ watch(currentMonth, () => {
           <label>Email Address</label>
           <div class="val">{{ familyStore.profile?.email || 'N/A' }}</div>
         </div>
-        <div class="info-item" v-if="activeFamily">
+        <div class="info-item" v-if="family">
           <label>Active Family</label>
-          <div class="val">{{ activeFamily.name }}</div>
+          <div class="val">{{ family.name }}</div>
         </div>
-        <div class="info-item" v-if="activeFamily">
+        <div class="info-item" v-if="family">
           <label>Your Role</label>
-          <div class="val" style="text-transform: capitalize;">{{ activeFamily.role?.replace('_', ' ') }}</div>
+          <div class="val" style="text-transform: capitalize;">{{ family.role?.replace('_', ' ') }}</div>
         </div>
-        <div class="info-item" v-if="activeFamily">
+        <div class="info-item" v-if="family">
           <label>Your Alias</label>
-          <div class="val">{{ activeFamily.alias || 'None Set' }}</div>
+          <div class="val">{{ family.alias || 'None Set' }}</div>
         </div>
       </div>
       
@@ -154,7 +155,7 @@ watch(currentMonth, () => {
         <div class="grid three">
           <VInput v-model="profileForm.displayName" label="Full Name" />
           <VInput v-model="profileForm.email" label="Email Address" />
-          <VInput v-if="activeFamily" v-model="profileForm.alias" label="Your Alias" />
+          <VInput v-if="family" v-model="profileForm.alias" label="Your Alias" />
         </div>
         <VButton type="primary" @click="updateProfile" style="margin-top: 1.5rem;">Save Changes</VButton>
       </div>

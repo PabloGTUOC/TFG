@@ -6,9 +6,11 @@ import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
+import { useCurrentFamily } from '../composables/useCurrentFamily';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
+const { familyId } = useCurrentFamily();
 const allActivities = ref([]);
 
 const categoryFilter = ref('all');
@@ -42,10 +44,8 @@ const durationOptions = Array.from({ length: 24 }, (_, i) => {
   };
 });
 
-const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
-
 const fetchActivities = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) return;
   const data = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
   allActivities.value = data.activities || [];
@@ -73,12 +73,12 @@ watch(() => createActivityForm.value.durationMinutes, () => {
   updateSuggestedCoins();
 });
 
-watch(() => getFamilyId(), (newFid) => {
+watch(familyId, (newFid) => {
   if (newFid) fetchActivities();
 }, { immediate: true });
 
 const createActivity = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) throw new Error('No family found.');
   await appStore.request('/api/activities', {
     method: 'POST',

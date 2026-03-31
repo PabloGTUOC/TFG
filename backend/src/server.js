@@ -1,6 +1,7 @@
 import './env.js';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { requireAuth } from './middleware/auth.js';
 import { logLoginHistory } from './middleware/audit.js';
 import { familiesRouter } from './routes/families.js';
@@ -25,6 +26,14 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+}));
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });

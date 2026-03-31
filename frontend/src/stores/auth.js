@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { watch } from 'vue';
 import { auth } from '../firebase';
+import { useFamilyStore } from './family';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -26,12 +27,10 @@ export const useAuthStore = defineStore('auth', {
         this.user = user;
         if (user) {
           this.token = await user.getIdToken();
-          const { useFamilyStore } = await import('./family.js');
           await useFamilyStore().fetchUserData();
         } else {
           this.token = '';
           this.loginEventId = null;
-          const { useFamilyStore } = await import('./family.js');
           useFamilyStore().$reset();
         }
         this.authReady = true;
@@ -54,7 +53,6 @@ export const useAuthStore = defineStore('auth', {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        const { useFamilyStore } = await import('./family.js');
         await useFamilyStore().fetchUserData();
         this.setSuccess('Logged in successfully!');
       } catch (err) {
@@ -69,7 +67,6 @@ export const useAuthStore = defineStore('auth', {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        const { useFamilyStore } = await import('./family.js');
         await useFamilyStore().fetchUserData();
         this.setSuccess('Account created successfully!');
       } catch (err) {
@@ -85,7 +82,6 @@ export const useAuthStore = defineStore('auth', {
         const cred = await signInWithPopup(auth, provider);
         this.user = cred.user;
         this.token = await cred.user.getIdToken();
-        const { useFamilyStore } = await import('./family.js');
         await useFamilyStore().fetchUserData();
         this.setSuccess('Logged in with Google successfully!');
       } catch (err) {
@@ -117,10 +113,16 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async request(path, options = {}) {
-      const response = await fetch(`${this.apiBase}${path}`, options);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-      return data;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const response = await fetch(`${this.apiBase}${path}`, { ...options, signal: controller.signal });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+        return data;
+      } finally {
+        clearTimeout(timer);
+      }
     },
 
     async runAction(fn, okMessage) {
