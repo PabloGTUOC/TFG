@@ -43,7 +43,15 @@ meRouter.get('/', async (req, res) => {
         [user.id]
       );
 
-      return { user, families, pendingRequests };
+      const { rows: actors } = await client.query(
+        `SELECT a.id, a.family_id, a.name, a.actor_type, a.avatar_url, a.care_time
+         FROM actors a
+         JOIN family_members fm ON fm.family_id = a.family_id
+         WHERE fm.user_id = $1 AND fm.status = 'active' AND a.actor_type != 'person'`,
+        [user.id]
+      );
+
+      return { user, families, pendingRequests, actors };
     });
 
     return res.json(payload);

@@ -41,7 +41,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
       );
 
       const { rows: objectsOfCare } = await client.query(
-        `SELECT id, name, actor_type, care_time 
+        `SELECT id, name, actor_type, care_time, avatar_url 
          FROM actors 
          WHERE family_id = $1 AND actor_type != 'person'
          ORDER BY id ASC`,

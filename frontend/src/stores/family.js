@@ -5,6 +5,7 @@ export const useFamilyStore = defineStore('family', {
     profile: null,
     families: [],
     pendingRequests: [],
+    actors: [],
   }),
   actions: {
     async fetchUserData() {
@@ -15,6 +16,7 @@ export const useFamilyStore = defineStore('family', {
         this.profile = data.user || null;
         this.families = data.families || [];
         this.pendingRequests = data.pendingRequests || [];
+        this.actors = data.actors || [];
 
         if (!authStore.loginEventId) {
           const loginData = await authStore.request('/api/me/login-event', {

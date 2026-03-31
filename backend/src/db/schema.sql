@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS actors (
   actor_type TEXT NOT NULL DEFAULT 'person',
   name TEXT,
   care_time TEXT CHECK (care_time IN ('full_time', 'part_time')),
+  avatar_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (family_id, user_id)
 );
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS activities (
   duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 15),
   coin_value INTEGER NOT NULL CHECK (coin_value >= 0),
   status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'pending_validation')) DEFAULT 'pending',
+  is_recurrent BOOLEAN NOT NULL DEFAULT false,
   approved_by BIGINT REFERENCES users(id),
   approved_at TIMESTAMPTZ,
   bounty_amount INTEGER NOT NULL DEFAULT 0,

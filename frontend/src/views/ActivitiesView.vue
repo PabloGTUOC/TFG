@@ -23,7 +23,7 @@ const templates = computed(() => {
 });
 
 const budgetInfo = ref(null);
-const createActivityForm = ref({ title: '', category: 'care', durationMinutes: '60', coinValue: 0 });
+const createActivityForm = ref({ title: '', category: 'care', durationMinutes: '60', coinValue: 0, isRecurrent: false });
 
 const categoryOptions = [
   { value: 'care', label: 'Care / Nurture' },
@@ -88,7 +88,8 @@ const createActivity = () => appStore.runAction(async () => {
       title: createActivityForm.value.title,
       category: createActivityForm.value.category,
       durationMinutes: Number(createActivityForm.value.durationMinutes),
-      coinValue: Number(createActivityForm.value.coinValue) || baseScore.value
+      coinValue: Number(createActivityForm.value.coinValue) || baseScore.value,
+      isRecurrent: createActivityForm.value.isRecurrent
     })
   });
   createActivityForm.value.title = '';
@@ -109,7 +110,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
     <div class="grid three" style="align-items: stretch; gap: 1.5rem;" v-if="budgetInfo">
 
       <!-- Column 1: Activity Catalogue List -->
-      <VCard title="Activity Catalogue" style="display:flex; flex-direction:column; max-height: calc(100vh - 150px);">
+      <VCard title="Activity Catalogue" class="fixed-card">
         <!-- Category Filters -->
         <div style="margin-bottom: 1.5rem; display:flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
            <button class="filter-btn" :class="{active: categoryFilter === 'all'}" @click="categoryFilter = 'all'">All</button>
@@ -118,11 +119,11 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
         </div>
         
         <!-- Scroller -->
-        <div class="activity-scroll-area" style="flex: 1; overflow-y: auto; padding-right: 0.5rem; display: flex; flex-direction: column; gap: 1.2rem;">
+        <div class="activity-scroll-area" style="flex: 1; overflow-y: auto; padding-right: 0.8rem; display: flex; flex-direction: column; gap: 1.2rem; min-height: 0;">
           <div v-for="a in templates" :key="a.id" class="activity-pill">
              <div class="pill-info">
                <div class="pill-title">
-                 {{ a.title }}
+                 {{ a.title }} <span v-if="a.is_recurrent" title="Recurring Activity" style="font-size: 0.9rem;">🔁</span>
                  <span v-if="a.status === 'approved'" class="mock-badge">approved</span>
                </div>
                <div class="pill-meta">
@@ -132,7 +133,6 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
              
              <!-- Action Button -->
              <button v-if="a.status === 'pending'" class="action-btn pending-btn" @click="approveActivity(a.id)">Approve</button>
-             <button v-else class="action-btn claim-btn" title="Drag me from the dashboard to claim!">Claim</button>
           </div>
           
           <div v-if="templates.length === 0" style="color:var(--text-secondary); text-align: center; margin-top: 2rem;">
@@ -142,14 +142,19 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
       </VCard>
 
       <!-- Column 2: Register New Activity -->
-      <VCard title="Register New Activity" style="height: 100%;">
-        <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
+      <VCard title="Register New Activity" class="fixed-card">
+        <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4; flex-shrink: 0;">
           Define a reusable activity template. Once approved, it appears in the Family Times sidebar and can be scheduled any number of times.
         </p>
         <div style="display: flex; flex-direction: column; gap: 1.2rem;">
           <VInput v-model="createActivityForm.title" label="Title" placeholder="Park Visit, Bedtime routine…" />
           <VSelect v-model="createActivityForm.category" :options="categoryOptions" label="Category" />
           <VSelect v-model="createActivityForm.durationMinutes" :options="durationOptions" label="Duration" />
+          
+          <label style="display: flex; align-items: center; gap: 0.5rem; color: #e2e8f0; font-size: 0.9rem; cursor: pointer;">
+            <input type="checkbox" v-model="createActivityForm.isRecurrent" style="width: 1rem; height: 1rem; cursor: pointer;" />
+            <span>🔁 This is a recurring activity</span>
+          </label>
           
           <!-- Slider Component -->
           <div class="mock-slider-box">
@@ -175,42 +180,46 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
       </VCard>
 
       <!-- Column 3: Family Budget Health Gauge -->
-      <VCard title="Family Budget Health" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-        
-        <div class="gauge-container" style="text-align: center; margin-top: 2rem; position: relative;">
-          <!-- Custom SVG Semi-Circle -->
-          <svg viewBox="0 0 200 120" style="width: 100%; max-width: 250px; margin: 0 auto; overflow: visible;">
-            <!-- Background Arc -->
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
-            <!-- Foreground Arc (Dynamic) -->
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#a855f7" stroke-width="14" stroke-linecap="round"
-                  :stroke-dasharray="252" 
-                  :stroke-dashoffset="252 - (252 * (budgetInfo.remainingBudget / budgetInfo.monthlyBudget))" 
-                  style="transition: stroke-dashoffset 1s ease-in-out;" />
-          </svg>
+      <VCard title="Family Budget Health" class="fixed-card">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 100%;">
           
-          <div class="gauge-content">
-            <div class="text-xs" style="color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem;">Remaining this month</div>
-            <div class="text-4xl" style="font-weight: 700; color: #fff; line-height: 1; font-size: 3.5rem;">
-              {{ budgetInfo.remainingBudget }} <span class="text-xl" style="color: #c084fc;">cc</span>
+          <div class="gauge-container" style="text-align: center; position: relative; width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: 2rem;">
+            <div class="text-xs" style="color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; font-weight: 600;">Remaining this month</div>
+            
+            <!-- Custom SVG Semi-Circle -->
+            <svg viewBox="0 0 200 120" style="width: 100%; max-width: 250px; margin: 0 auto; overflow: visible;">
+              <!-- Background Arc -->
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
+              <!-- Foreground Arc (Dynamic) -->
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#a855f7" stroke-width="14" stroke-linecap="round"
+                    :stroke-dasharray="252" 
+                    :stroke-dashoffset="252 - (252 * (budgetInfo.remainingBudget / budgetInfo.monthlyBudget))" 
+                    style="transition: stroke-dashoffset 1s ease-in-out;" />
+            </svg>
+            
+            <div class="gauge-content">
+              <div class="text-4xl" style="font-weight: 700; color: #fff; line-height: 1; font-size: 3.5rem; margin-top: 1rem;">
+                {{ budgetInfo.remainingBudget }}<span class="text-xl" style="color: #c084fc; margin-left: 0.2rem;">cc</span>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <!-- Budget Stats -->
-        <div class="text-sm" style="background: rgba(255, 255, 255, 0.02); padding: 1.2rem; border-radius: 8px; margin-top: auto;">
-          <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
-            <span style="color: var(--text-secondary);">Total Monthly Pool:</span>
-            <strong style="color: #fff;">{{ budgetInfo.monthlyBudget }} cc</strong>
+          
+          <!-- Budget Stats -->
+          <div class="text-sm" style="background: rgba(255, 255, 255, 0.02); padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 250px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="display:flex; justify-content: space-between; margin-bottom: 1rem;">
+              <span style="color: var(--text-secondary);">Total Monthly Pool</span>
+              <strong style="color: #fff; font-size: 1.05rem;">{{ budgetInfo.monthlyBudget }} cc</strong>
+            </div>
+            <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.8rem;">
+              <span style="color: var(--text-secondary);">Scheduled/Used</span>
+              <strong style="color: #fff; font-size: 1.05rem;">{{ budgetInfo.usedThisMonth }} cc</strong>
+            </div>
+            <div style="display:flex; justify-content: space-between; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.8rem;">
+              <span style="color: var(--text-secondary);">Estimated Rate</span>
+              <strong style="color: #fbbf24; font-size: 1.05rem;">~{{ budgetInfo.baseRatePerHour }} cc / hr</strong>
+            </div>
           </div>
-          <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
-            <span style="color: var(--text-secondary);">Scheduled/Used:</span>
-            <strong style="color: #fff;">{{ budgetInfo.usedThisMonth }} cc</strong>
-          </div>
-          <div style="display:flex; justify-content: space-between;">
-            <span style="color: var(--text-secondary);">Estimated Rate:</span>
-            <strong style="color: #fff;">~{{ budgetInfo.baseRatePerHour }} cc / hr</strong>
-          </div>
+          
         </div>
       </VCard>
 
@@ -220,6 +229,18 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 </template>
 
 <style scoped>
+:deep(.fixed-card) {
+  height: 720px;
+  display: flex !important;
+  flex-direction: column;
+}
+:deep(.fixed-card .v-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Filter Buttons */
 .filter-btn {
   background: transparent;

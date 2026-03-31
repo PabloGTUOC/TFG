@@ -3,6 +3,22 @@ import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth } from '../db/users.js';
 import { validateBody, validateParams, required, string } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
+import multer from 'multer';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../uploads/'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
 
 export const familiesRouter = Router();
 
@@ -319,5 +335,33 @@ familiesRouter.post('/:familyId/actors',
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to add object of care.' });
+    }
+  });
+
+familiesRouter.post('/:familyId/actors/:actorId/avatar',
+  upload.single('avatar'),
+  validateParams('familyId', 'actorId'),
+  requireRole('main_caregiver', r => r.params.familyId),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No avatar image uploaded.' });
+
+    const familyId = Number(req.params.familyId);
+    const actorId = Number(req.params.actorId);
+    const avatarUrl = `/uploads/${req.file.filename}`;
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const { rows } = await client.query(
+          `UPDATE actors SET avatar_url = $1 WHERE id = $2 AND family_id = $3 RETURNING *`,
+          [avatarUrl, actorId, familyId]
+        );
+        if (!rows.length) return { error: { code: 404, message: 'Actor not found.' } };
+        return { data: rows[0] };
+      });
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json({ avatar_url: result.data.avatar_url });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to upload actor avatar.' });
     }
   });

@@ -6,10 +6,11 @@ import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
+const route = useRoute();
 const router = useRouter();
 
 const dashboard = ref({ members: [], calendar: [], objectsOfCare: [] });
@@ -37,6 +38,10 @@ watch(() => getFamilyId(), (newFid) => {
   if (newFid) loadDashboard();
 }, { immediate: true });
 
+watch(() => route.path, (newPath) => {
+  if (newPath === '/dashboard') loadDashboard();
+});
+
 const activeMembers = computed(() => dashboard.value.members.filter(m => m.status !== 'pending'));
 const pendingMembers = computed(() => dashboard.value.members.filter(m => m.status === 'pending'));
 
@@ -50,36 +55,7 @@ const approveMember = (userId) => appStore.runAction(async () => {
    await loadDashboard();
 }, 'Member approved!');
 
-// --- Avatar Upload Logic ---
-const avatarInput = ref(null);
-const triggerAvatarUpload = () => {
-  if (avatarInput.value) avatarInput.value.click();
-};
-const handleAvatarUpload = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('avatar', file);
-
-  await appStore.runAction(async () => {
-    const headers = appStore.authHeaders();
-    delete headers['Content-Type']; // Let browser set multipart boundary
-    
-    const res = await fetch(`${appStore.apiBase}/api/me/avatar`, {
-      method: 'POST',
-      headers: { Authorization: headers.Authorization },
-      body: formData
-    });
-    
-    if (!res.ok) {
-        const d = await res.json().catch(()=>({}));
-        throw new Error(d.error || 'Upload failed');
-    }
-    await loadDashboard();
-    await familyStore.fetchUserData(); // Refresh profile in family store too
-  }, 'Avatar updated successfully!');
-};
+// --- Avatar Upload Logic Moved To Profile View ---
 
 // --- Care Object Modal ---
 const showCareObjectModal = ref(false);
@@ -170,10 +146,7 @@ const navigateToDaily = (dateStr) => {
            <!-- Human Caregivers / Members -->
            <div v-for="m in activeMembers" :key="m.user_id" class="member-badge">
               <div class="member-avatar"
-                   :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''"
-                   @click="m.user_id === familyStore.profile?.id ? triggerAvatarUpload() : null"
-                   :class="{'cursor-pointer hover-scale': m.user_id === familyStore.profile?.id}"
-                   :title="m.user_id === familyStore.profile?.id ? 'Click to change avatar' : ''">
+                   :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''">
                  {{ m.avatar_url ? '' : (m.role === 'main_caregiver' || m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
               </div>
               <div class="member-name">{{ m.name || `User ${m.user_id}` }}</div>
@@ -182,7 +155,10 @@ const navigateToDaily = (dateStr) => {
 
            <!-- Objects of Care -->
            <div v-for="o in dashboard.objectsOfCare" :key="'obj-'+o.id" class="member-badge">
-              <div class="member-avatar" style="background: #fbbf24; border-color: #f59e0b;">{{ o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽') }}</div>
+              <div class="member-avatar"
+                   :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : 'background: #fbbf24; border-color: #f59e0b;'">
+                 {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
+              </div>
               <div class="member-name">{{ o.name || 'Dependent' }}</div>
               <div class="member-coins" style="color: #94a3b8;">{{ o.care_time === 'full_time' ? 'Full Time' : 'Part Time' }}</div>
            </div>
@@ -260,9 +236,6 @@ const navigateToDaily = (dateStr) => {
           </div>
        </div>
     </VCard>
-
-    <!-- Hidden Avatar Input -->
-    <input type="file" ref="avatarInput" style="display: none;" accept="image/*" @change="handleAvatarUpload">
 
     <!-- Add Care Object Modal -->
     <div v-if="showCareObjectModal" class="modal-overlay">

@@ -28,7 +28,7 @@ activitiesRouter.get('/', async (req, res) => {
 
       const { rows } = await client.query(
         `SELECT a.id, a.title, a.category, a.starts_at, a.ends_at, a.duration_minutes,
-                a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.approved_by, a.approved_at,
+                a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.is_recurrent, a.approved_by, a.approved_at,
                 a.bounty_amount, a.bounty_offered_by, fm.alias AS assigned_alias
          FROM activities a
          LEFT JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
@@ -55,9 +55,9 @@ activitiesRouter.post('/', validateBody({
   familyId: [required(), positiveInt()],
   title: [required(), string(1, 100)],
   durationMinutes: [required(), positiveInt()],
-  coinValue: [positiveInt()],
+  coinValue: [positiveInt()]
 }), async (req, res) => {
-  const { familyId, title, category, durationMinutes, coinValue } = req.body;
+  const { familyId, title, category, durationMinutes, coinValue, isRecurrent } = req.body;
 
   if (!familyId || !title || !category || !durationMinutes) {
     return res.status(400).json({ error: 'Missing required fields.' });
@@ -81,14 +81,15 @@ activitiesRouter.post('/', validateBody({
       const { rows } = await client.query(
         `INSERT INTO activities
            (family_id, created_by, assigned_to, title, category,
-            starts_at, ends_at, duration_minutes, coin_value, status, is_template)
-         VALUES ($1, $2, NULL, $3, $4, NULL, NULL, $5, $6, 'pending', true)
+            starts_at, ends_at, duration_minutes, coin_value, status, is_template, is_recurrent)
+         VALUES ($1, $2, NULL, $3, $4, NULL, NULL, $5, $6, 'pending', true, $7)
          RETURNING *`,
         [
           familyId, creator.id,
           title.trim(), category,
           Number(durationMinutes),
-          coinValue ? Number(coinValue) : Number(durationMinutes)
+          coinValue ? Number(coinValue) : Number(durationMinutes),
+          Boolean(isRecurrent)
         ]
       );
       return { data: rows[0] };
@@ -182,12 +183,12 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         `INSERT INTO activities
            (family_id, created_by, assigned_to, title, category,
             starts_at, ends_at, duration_minutes, coin_value,
-            status, is_template, approved_by, approved_at)
+            status, is_template, is_recurrent, approved_by, approved_at)
          VALUES ($1, $2, $3, $4, $5,
                  $6::timestamptz,
                  $6::timestamptz + ($7::int || ' minutes')::interval,
                  $7::int, $8::int,
-                 $11, false, $9, $10)
+                 $11, false, $12, $9, $10)
          RETURNING *`,
         [
           t.family_id, t.created_by, user.id,
@@ -195,7 +196,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
           start.toISOString(),
           Number(t.duration_minutes), Number(t.coin_value),
           t.approved_by, t.approved_at,
-          initialStatus
+          initialStatus, t.is_recurrent
         ]
       );
       // Check if this exceeds the monthly budget
@@ -231,6 +232,82 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
     return res.status(500).json({ error: 'Failed to schedule activity.' });
   }
 });
+
+// ─────────────────────────────────────────────
+// POST /api/activities/:activityId/recurrence
+// Spawns future instances from a scheduled recurrent instance
+// ─────────────────────────────────────────────
+activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), validateBody({
+  frequency: [required(), string(1, 20)],
+  untilDate: [required(), isoDate()]
+}), async (req, res) => {
+  const instanceId = Number(req.params.activityId);
+  const { frequency, untilDate } = req.body;
+  const until = new Date(untilDate);
+  until.setHours(23, 59, 59, 999);
+
+  try {
+    const result = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+
+      const { rows: actRows } = await client.query(
+        `SELECT * FROM activities WHERE id = $1 AND is_template = false AND is_recurrent = true`,
+        [instanceId]
+      );
+      if (!actRows.length) return { error: { code: 404, message: 'Valid recurrent scheduled instance not found.' } };
+
+      const act = actRows[0];
+
+      // Calculate dates
+      let current = new Date(act.starts_at);
+      const clones = [];
+
+      while (true) {
+        if (frequency === 'daily') {
+          current.setDate(current.getDate() + 1);
+        } else if (frequency === 'weekdays') {
+          current.setDate(current.getDate() + 1);
+          if (current.getDay() === 0 || current.getDay() === 6) continue;
+        } else if (frequency === 'weekly') {
+          current.setDate(current.getDate() + 7);
+        }
+
+        if (current > until) break;
+        clones.push(new Date(current));
+      }
+
+      if (!clones.length) return { data: { created: 0 } };
+
+      let count = 0;
+      for (const d of clones) {
+        const startIso = d.toISOString();
+        const initialStatus = 'approved'; // Assuming future scheduling makes them approved
+
+        await client.query(`
+          INSERT INTO activities
+           (family_id, created_by, assigned_to, title, category,
+            starts_at, ends_at, duration_minutes, coin_value,
+            status, is_template, is_recurrent, approved_by, approved_at)
+          VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $6::timestamptz + ($7::int || ' minutes')::interval, $7, $8, $11, false, true, $9, $10)
+        `, [
+          act.family_id, act.created_by, act.assigned_to, act.title, act.category,
+          startIso, act.duration_minutes, act.coin_value,
+          act.approved_by, act.approved_at, initialStatus
+        ]);
+        count++;
+      }
+
+      return { data: { created: count } };
+    });
+
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.status(201).json(result.data);
+  } catch (err) {
+    console.error('POST /recurrence error:', err);
+    return res.status(500).json({ error: 'Failed to create recurrences.' });
+  }
+});
+
 
 // ─────────────────────────────────────────────
 // POST /api/activities/:instanceId/complete
@@ -451,6 +528,7 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
 // ─────────────────────────────────────────────
 activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
   const activityId = Number(req.params.id);
+  const isSeries = req.query.series === 'true';
   if (!activityId) return res.status(400).json({ error: 'Valid activity ID required.' });
 
   try {
@@ -458,7 +536,7 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows } = await client.query(
-        `SELECT family_id, assigned_to, status, starts_at, bounty_amount, bounty_offered_by 
+        `SELECT family_id, assigned_to, status, starts_at, bounty_amount, bounty_offered_by, title, category 
          FROM activities WHERE id = $1 FOR UPDATE`,
         [activityId]
       );
@@ -472,7 +550,21 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       // Wait, bounty_amount is in Escrow. If they dragged it off, the bounty wasn't taken.
       // We don't owe them coins, because we only charged the bounty on ACCEPTANCE.
 
-      await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+      if (isSeries) {
+        await client.query(`
+           DELETE FROM activities
+           WHERE family_id = $1
+             AND title = $2
+             AND category = $3
+             AND assigned_to = $4
+             AND is_template = false
+             AND is_recurrent = true
+             AND starts_at >= $5
+             AND status IN ('approved', 'pending_validation')
+         `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+      } else {
+        await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+      }
       return { data: { success: true } };
     });
 

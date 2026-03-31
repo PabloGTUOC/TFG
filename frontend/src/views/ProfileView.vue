@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
@@ -8,6 +8,46 @@ import VButton from '../components/VButton.vue';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
+const actors = computed(() => familyStore.actors || []);
+
+const userAvatarInput = ref(null);
+
+const handleUserAvatarUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('avatar', file);
+  await appStore.runAction(async () => {
+    const headers = appStore.authHeaders();
+    delete headers['Content-Type'];
+    const res = await fetch(`${appStore.apiBase}/api/me/avatar`, {
+      method: 'POST', headers: { Authorization: headers.Authorization }, body: formData
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    await familyStore.fetchUserData();
+  }, 'Your avatar updated successfully!');
+};
+
+const triggerActorUpload = (actorId) => {
+  const el = document.getElementById(`actor-upload-${actorId}`);
+  if (el) el.click();
+};
+
+const handleActorAvatarUpload = async (event, actorId, familyId) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('avatar', file);
+  await appStore.runAction(async () => {
+    const headers = appStore.authHeaders();
+    delete headers['Content-Type'];
+    const res = await fetch(`${appStore.apiBase}/api/families/${familyId}/actors/${actorId}/avatar`, {
+      method: 'POST', headers: { Authorization: headers.Authorization }, body: formData
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    await familyStore.fetchUserData();
+  }, 'Dependent avatar updated successfully!');
+};
 
 const activeFamily = familyStore.families?.[0];
 const ledgerInfo = ref([]);
@@ -69,6 +109,23 @@ watch(currentMonth, () => {
   <div class="profile-layout" style="display: flex; flex-direction: column; gap: 2rem;">
     <!-- Personal Information Card -->
     <VCard title="Profile & Identity">
+      <div style="display:flex; align-items:center; gap: 2rem; margin-bottom: 2rem;">
+        <div 
+          style="width: 100px; height: 100px; border-radius: 50%; background: #60a5fa; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; border: 4px solid #3b82f6; cursor: pointer; overflow:hidden; position:relative;"
+          :style="familyStore.profile?.avatar_url ? `background-image: url('${appStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''"
+          @click="userAvatarInput.click()"
+          title="Click to update your picture"
+        >
+          {{ familyStore.profile?.avatar_url ? '' : '👤' }}
+          <div style="position:absolute; bottom:0; background:rgba(0,0,0,0.6); width:100%; text-align:center; font-size: 0.65rem; color:#fff; padding:2px 0;">EDIT</div>
+        </div>
+        <div>
+          <h2 style="margin:0; color:#fff;">{{ familyStore.profile?.display_name }}</h2>
+          <div style="color:var(--text-secondary); font-size:0.9rem;">{{ familyStore.profile?.email }}</div>
+        </div>
+      </div>
+      <input type="file" ref="userAvatarInput" style="display: none;" accept="image/*" @change="handleUserAvatarUpload">
+
       <div class="info-grid">
         <div class="info-item">
           <label>Full Name</label>
@@ -100,6 +157,30 @@ watch(currentMonth, () => {
           <VInput v-if="activeFamily" v-model="profileForm.alias" label="Your Alias" />
         </div>
         <VButton type="primary" @click="updateProfile" style="margin-top: 1.5rem;">Save Changes</VButton>
+      </div>
+    </VCard>
+
+    <!-- Dependents (Actors) Management -->
+    <VCard title="Family Dependents" v-if="actors.length > 0">
+      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Manage avatars for your family objects of care.</p>
+      <div style="display:flex; flex-wrap: wrap; gap: 1.5rem;">
+        <div v-for="a in actors" :key="a.id" style="display:flex; align-items:center; gap: 1rem; background: var(--input-bg); padding: 1rem; border-radius: 12px; border: 1px solid var(--input-border); min-width: 250px; flex: 1;">
+          <div 
+            style="width: 60px; height: 60px; border-radius: 50%; background: #fbbf24; display: flex; align-items: center; justify-content: center; font-size: 2rem; border: 3px solid #f59e0b; cursor: pointer; overflow:hidden; position:relative; flex-shrink: 0;"
+            :style="a.avatar_url ? `background-image: url('${appStore.apiBase}${a.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''"
+            @click="triggerActorUpload(a.id)"
+            title="Click to update dependent picture"
+          >
+            {{ a.avatar_url ? '' : (a.actor_type === 'child' ? '👶🏽' : (a.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
+            <div style="position:absolute; bottom:0; background:rgba(0,0,0,0.6); width:100%; text-align:center; font-size: 0.55rem; color:#fff; padding:2px 0;">EDIT</div>
+          </div>
+          <input :id="'actor-upload-'+a.id" type="file" style="display: none;" accept="image/*" @change="handleActorAvatarUpload($event, a.id, a.family_id)">
+          
+          <div>
+            <strong style="color: #fff; font-size: 1.1rem; display:block;">{{ a.name }}</strong>
+            <span style="color: var(--text-secondary); font-size: 0.8rem; text-transform: capitalize;">{{ a.actor_type }} · {{ a.care_time.replace('_', ' ') }}</span>
+          </div>
+        </div>
       </div>
     </VCard>
 

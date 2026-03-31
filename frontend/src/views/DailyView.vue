@@ -33,6 +33,50 @@ const scheduleForm = ref({ activityId: '', time: '' });
 const scheduleHour = ref('06');
 const scheduleMinute = ref('00');
 
+const showRecurrenceModal = ref(false);
+const recurrenceForm = ref({ activityId: '', title: '', frequency: 'daily', untilDate: '' });
+
+const showDeleteModal = ref(false);
+const deleteTarget = ref(null);
+
+const confirmDeleteSingle = async () => {
+  await unSchedule(deleteTarget.value.id, false);
+  showDeleteModal.value = false;
+};
+
+const confirmDeleteSeries = async () => {
+  await unSchedule(deleteTarget.value.id, true);
+  showDeleteModal.value = false;
+};
+
+const openRecurrenceModal = (activity) => {
+  recurrenceForm.value.activityId = activity.id;
+  recurrenceForm.value.title = activity.title;
+  recurrenceForm.value.frequency = 'daily';
+  
+  const tmrw = new Date();
+  tmrw.setDate(tmrw.getDate() + 1);
+  recurrenceForm.value.untilDate = tmrw.toISOString().split('T')[0];
+  showRecurrenceModal.value = true;
+};
+
+const confirmRecurrence = async () => {
+  if (!recurrenceForm.value.untilDate) return;
+  await appStore.runAction(async () => {
+    const res = await appStore.request(`/api/activities/${recurrenceForm.value.activityId}/recurrence`, {
+      method: 'POST',
+      headers: appStore.authHeaders(),
+      body: JSON.stringify({
+        frequency: recurrenceForm.value.frequency,
+        untilDate: recurrenceForm.value.untilDate
+      })
+    });
+    showRecurrenceModal.value = false;
+    await loadActivities();
+    appStore.setSuccess(`Created ${res.created} future instances!`);
+  }, 'Propagating scheduled activities...');
+};
+
 const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
 
 const loadActivities = () => appStore.runAction(async () => {
@@ -147,7 +191,12 @@ const dropOut = async (event) => {
   try {
     const payload = JSON.parse(j);
     if (payload.type === 'scheduled') {
-      await unSchedule(payload.activity.id);
+      if (payload.activity.is_recurrent) {
+        deleteTarget.value = payload.activity;
+        showDeleteModal.value = true;
+      } else {
+        await unSchedule(payload.activity.id, false);
+      }
     }
   } catch(e) {}
 };
@@ -196,13 +245,13 @@ const confirmSchedule = async () => {
   });
 };
 
-const unSchedule = (aid) => appStore.runAction(async () => {
-  await appStore.request(`/api/activities/${aid}`, {
+const unSchedule = (aid, series = false) => appStore.runAction(async () => {
+  await appStore.request(`/api/activities/${aid}${series ? '?series=true' : ''}`, {
     method: 'DELETE',
     headers: appStore.authHeaders()
   });
   await loadActivities();
-  appStore.setSuccess('Activity removed from schedule.');
+  appStore.setSuccess(series ? 'Entire recurring series removed.' : 'Activity removed from schedule.');
 });
 
 const validateActivity = (aid) => appStore.runAction(async () => {
@@ -255,12 +304,17 @@ const validateActivity = (aid) => appStore.runAction(async () => {
             </div>
 
             <!-- Absolute positioned chips -->
-            <div v-for="a in scheduledToday" :key="a.id" :style="a._style" 
-                 :class="['scheduled-chip', a.status === 'pending_validation' ? 'gradient-orange' : (a.status === 'completed' ? 'gradient-green' : 'gradient-pink')]" 
-                 :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null">
-              <strong class="text-sm" style="display:block; margin-bottom: 2px; line-height: 1.2;">{{ a.title }}</strong>
-              
-              <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto; padding-top: 4px; gap: 0.4rem;">
+             <div v-for="a in scheduledToday" :key="a.id"
+                  :style="[a._style, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
+                  :class="['scheduled-chip', a.status === 'pending_validation' ? 'gradient-orange' : (a.status === 'completed' ? 'gradient-green' : 'gradient-pink')]" 
+                  :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
+                  @click="a.is_recurrent && a.status !== 'completed' ? openRecurrenceModal(a) : null">
+               <strong class="text-sm" style="display:block; margin-bottom: 2px; line-height: 1.2;">
+                 {{ a.title }}
+                 <span v-if="a.is_recurrent" title="Click to schedule future recurrences" style="font-size: 0.85rem; margin-left: 0.3rem;">🔁</span>
+               </strong>
+               
+               <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto; padding-top: 4px; gap: 0.4rem;">
                 <div class="text-xs" style="opacity: 0.9;">{{ a.assigned_alias || 'Unclaimed' }}</div>
                 
                 <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
@@ -299,6 +353,31 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </div>
   </div>
 
+  <!-- Recurrence Modal -->
+  <div v-if="showRecurrenceModal" class="modal-overlay">
+    <VCard title="Schedule Future Copies" style="max-width: 350px; width: 100%;">
+      <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
+        Repeat <strong>{{ recurrenceForm.title }}</strong> at this time into the future.
+      </p>
+      <div style="margin-bottom: 1.2rem;">
+        <label style="display:block; margin-bottom: 0.5rem; color: #fff; font-size: 0.95rem;">Frequency:</label>
+        <select v-model="recurrenceForm.frequency" style="width: 100%; padding: 0.75rem; border-radius: 8px; font-size: 1rem; background: #1e293b; color: #fff; border: 1px solid #334155; outline: none;">
+          <option value="daily">Every Day</option>
+          <option value="weekdays">Every Working Day (Mon-Fri)</option>
+          <option value="weekly">Every Week (same day)</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 1.8rem;">
+        <label style="display:block; margin-bottom: 0.5rem; color: #fff; font-size: 0.95rem;">Until Date:</label>
+        <input type="date" v-model="recurrenceForm.untilDate" style="width: 100%; padding: 0.75rem; border-radius: 8px; font-size: 1rem; background: #1e293b; color: #fff; border: 1px solid #334155; outline: none; color-scheme: dark;" />
+      </div>
+      <div style="display:flex; justify-content: flex-end; gap: 1rem;">
+        <VButton type="secondary" @click="showRecurrenceModal = false">Cancel</VButton>
+        <VButton type="primary" @click="confirmRecurrence">Generate</VButton>
+      </div>
+    </VCard>
+  </div>
+
   <!-- Time Modal -->
   <div v-if="showScheduleModal" class="modal-overlay">
     <VCard title="Confirm Time" style="max-width: 320px; width: 100%;">
@@ -321,6 +400,22 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       </div>
     </VCard>
   </div>
+
+  <!-- Delete Modal -->
+  <div v-if="showDeleteModal" class="modal-overlay">
+    <VCard title="Delete Recurring Activity" style="max-width: 350px; width: 100%;">
+      <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
+        <strong>{{ deleteTarget?.title }}</strong> is a recurring activity. Do you want to delete just this specific instance, or everything from this date onward?
+      </p>
+      
+      <div style="display:flex; flex-direction: column; gap: 0.8rem;">
+        <VButton type="primary" block @click="confirmDeleteSingle">Delete just this one</VButton>
+        <VButton type="danger" block @click="confirmDeleteSeries">Delete this and all future</VButton>
+        <VButton type="secondary" block style="margin-top: 0.2rem;" @click="showDeleteModal = false">Cancel</VButton>
+      </div>
+    </VCard>
+  </div>
+
 </template>
 
 <style scoped>
