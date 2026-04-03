@@ -5,18 +5,19 @@ import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
+import { useCurrentFamily } from '../composables/useCurrentFamily';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
+const { familyId, role } = useCurrentFamily();
 const rewards = ref([]);
 const claimedRewards = ref([]);
 const rewardForm = ref({ title: '', description: '', amount: '', maxUses: '', validFrom: '', validUntil: '' });
 
-const getFamilyId = () => familyStore.families?.[0]?.family_id || familyStore.families?.[0]?.id;
-const isMainCaregiver = computed(() => familyStore.families?.[0]?.role === 'main_caregiver');
+const isMainCaregiver = computed(() => role.value === 'main_caregiver');
 
 const loadRewards = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) return;
   const data = await appStore.request(`/api/marketplace/rewards/${fid}`, { headers: appStore.authHeaders() });
   rewards.value = data.rewards || [];
@@ -28,7 +29,7 @@ onMounted(() => {
 });
 
 const createReward = () => appStore.runAction(async () => {
-  const fid = getFamilyId();
+  const fid = familyId.value;
   if (!fid) throw new Error("No family found.");
   if (!rewardForm.value.title || !rewardForm.value.amount) {
     throw new Error("Title and cost are required.");
