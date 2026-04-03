@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useFamilyStore } from '@/stores/family';
+import { useFamilyStore } from '../stores/family';
 
 export function useCurrentFamily() {
   const familyStore = useFamilyStore();
