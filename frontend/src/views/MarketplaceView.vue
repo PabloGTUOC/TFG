@@ -116,8 +116,8 @@ const formatDate = (ds) => {
               {{ c.buyer_avatar ? '' : '👤' }}
            </div>
            <div style="flex:1;">
-             <strong style="color:#fff; display:block; font-size: 1.1rem;">{{ c.buyer_name }}</strong>
-             <span class="text-sm" style="color:var(--text-secondary);">Redeemed "<strong style="color: #e2e8f0;">{{ c.title }}</strong>"</span>
+             <strong style="color:var(--text-primary); display:block; font-size: 1.1rem; font-weight:800;">{{ c.buyer_name }}</strong>
+             <span class="text-sm" style="color:var(--text-secondary);">Redeemed "<strong style="color: var(--text-primary);">{{ c.title }}</strong>"</span>
            </div>
            <div class="text-sm" style="color:#94a3b8; text-align: right;">
              <div>{{ formatDate(c.redeemed_at) }}</div>
@@ -160,9 +160,9 @@ const formatDate = (ds) => {
 .reward-item {
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border: 1px solid var(--input-border);
-  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card, 32px);
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -176,10 +176,10 @@ const formatDate = (ds) => {
   flex: 1;
 }
 .reward-title {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 0.5rem 0;
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 800;
 }
 .reward-desc {
   color: var(--text-secondary);

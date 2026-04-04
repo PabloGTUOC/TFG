@@ -26,7 +26,7 @@ defineEmits(['click']);
   font-weight: 500;
   font-size: 1rem;
   padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  border-radius: var(--radius-button, 9999px);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
@@ -49,23 +49,23 @@ defineEmits(['click']);
 
 /* Variants */
 .primary {
-  background: var(--accent-gradient);
+  background: var(--accent-primary);
   color: white;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
 }
 .primary:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
   filter: brightness(1.1);
 }
 
 .secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
 }
 .secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(15, 23, 42, 0.1);
+  border-color: var(--input-border);
 }
 
 .outline {

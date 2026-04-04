@@ -1,37 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
 :root {
-  --font-family: 'Outfit', sans-serif;
-  --bg-color: #0d0f1a;
-  --bg-gradient: linear-gradient(135deg, #0d0f1a 0%, #17102e 100%);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent-primary: #8b5cf6;
-  --accent-secondary: #ec4899;
-  --accent-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
-  --card-bg: rgba(30, 41, 59, 0.4);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --input-bg: rgba(15, 23, 42, 0.6);
-  --input-border: rgba(255, 255, 255, 0.15);
-  --input-focus: #a78bfa;
-  --error: #ef4444;
-  --success: #10b981;
-  --color-blue: #3b82f6;
+  --font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  --bg-color: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --card-border: #E2E8F0;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+
+  --accent-primary: #2563EB;
+  --accent-secondary: #60A5FA;
+  --accent-gradient: linear-gradient(135deg, #2563EB, #60A5FA);
+
+  --input-bg: #F1F5F9;
+  --input-border: #CBD5E1;
+  --input-focus: #2563EB;
+
+  --error: #F43F5E;
+  --success: #22C55E;
+  --color-blue: #2563EB;
   --color-slate-800: #1e293b;
+
+  --radius-button: 9999px;
+  --radius-card: 32px;
 }
 
 body {
   margin: 0;
   background: var(--bg-color);
-  background-image: var(--bg-gradient);
-  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin-top: 0;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -40,13 +48,17 @@ h1, h2, h3, h4, h5, h6 {
 h2 {
   font-size: 1.5rem;
   margin-bottom: 1.5rem;
-  color: #fff;
+  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 h3 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 p {
@@ -68,16 +80,16 @@ ul {
 
 li {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   margin-bottom: 0.5rem;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--card-border);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 li:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .grid {
@@ -86,8 +98,13 @@ li:hover {
   margin-bottom: 1rem;
 }
 
-.grid.two { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.grid.three { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
 
 .row {
   display: flex;
@@ -120,21 +137,59 @@ pre {
 }
 
 /* Base fade-in animation for views */
-.main-content > * {
+.main-content>* {
   animation: fadeIn 0.4s ease-out;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Typography Utilities */
-.text-xs { font-size: 0.75rem; line-height: 1rem; }
-.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-.text-base { font-size: 1rem; line-height: 1.5rem; }
-.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
-.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-.text-2xl { font-size: 1.5rem; line-height: 2rem; }
-.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.text-base {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.text-xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+.text-4xl {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+}

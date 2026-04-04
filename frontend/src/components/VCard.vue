@@ -22,21 +22,21 @@ const props = defineProps({
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-card, 32px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
   margin-bottom: 1.5rem;
   overflow: hidden;
   transition: box-shadow 0.3s ease;
 }
 .v-card:hover {
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 .v-card-title {
   margin: 0;
   padding: 1.5rem 1.5rem 0.5rem;
   font-size: 1.5rem;
-  color: #fff;
+  color: var(--text-primary);
+  font-weight: 800;
   border-bottom: 1px solid transparent;
 }
 </style>

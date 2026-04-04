@@ -51,18 +51,25 @@ const handleLogout = async () => {
           <router-link to="/profile">Personal Area</router-link>
         </nav>
         
-        <div class="pill-profile" ref="profileMenuRef">
-           <!-- Right Side Avatar & Dropdown -->
-           <div class="avatar-block" @click="showDropdown = !showDropdown" title="User Menu">
-             <div class="avatar" :style="familyStore.profile?.avatar_url ? `background-image: url('${authStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center; border: 1px solid #3b82f6;` : ''">
-               {{ familyStore.profile?.avatar_url ? '' : (familyStore.profile?.actor_type === 'caregiver' ? '👩🏽' : '👨🏽') }}
+        <div style="display:flex; align-items:center; gap: 1rem;">
+          <!-- Coin Counter -->
+          <div v-if="families && families.length > 0" style="background: var(--success); color: white; padding: 0.4rem 0.8rem; border-radius: var(--radius-button); font-weight: 800; display:flex; align-items:center; gap:0.4rem; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);">
+            <span class="material-symbols-rounded" style="font-size:1.2rem;">toll</span>
+            {{ families[0].coin_balance }} cc
+          </div>
+
+          <div class="pill-profile" ref="profileMenuRef">
+             <!-- Right Side Avatar & Dropdown -->
+             <div class="avatar-block" @click="showDropdown = !showDropdown" title="User Menu">
+               <div class="avatar" :style="familyStore.profile?.avatar_url ? `background-image: url('${authStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center; border: 2px solid var(--accent-primary);` : ''">
+                 {{ familyStore.profile?.avatar_url ? '' : (familyStore.profile?.actor_type === 'caregiver' ? '👩🏽' : '👨🏽') }}
+               </div>
              </div>
-             <span class="text-xs" style="margin-left:4px; color: #64748b;">▼</span>
-           </div>
-           
-           <div v-if="showDropdown" class="profile-dropdown">
-             <a href="#" @click.prevent="showDropdown = false; handleLogout()" class="dropdown-item logout-link">Logout</a>
-           </div>
+             
+             <div v-if="showDropdown" class="profile-dropdown">
+               <a href="#" @click.prevent="showDropdown = false; handleLogout()" class="dropdown-item logout-link">Logout</a>
+             </div>
+          </div>
         </div>
 
       </div>
@@ -80,25 +87,7 @@ const handleLogout = async () => {
 </template>
 
 <style>
-/* App Root Styling */
-body {
-  margin: 0;
-  font-family: 'Inter', -apple-system, sans-serif;
-  background-color: #eef2ff; /* Extremely soft blue to mimic the wavy background */
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Wavy Background Illusion */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-image: radial-gradient(circle at top right, #e0e7ff, transparent 400px), 
-                    radial-gradient(circle at bottom left, #e0e7ff, transparent 500px);
-  z-index: -1;
-}
-
+/* App Root Styling handled in style.css, but app-layout handles flex */
 .app-layout {
   min-height: 100vh;
   display: flex;
@@ -106,59 +95,60 @@ body::before {
 }
 
 /* -------------------
-   Pill Navbar
+   Pill Navbar (The Editorial Playground)
 ------------------- */
 .pill-header {
   width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
   justify-content: center;
-  padding: 1.5rem 0 0 0;
+  padding: 1rem 0;
   box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .pill-container {
-  max-width: 1000px;
+  max-width: 1200px;
   width: calc(100% - 2rem);
-  background: #ffffff;
-  border-radius: 999px;
-  padding: 0.6rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-  position: relative;
-  z-index: 100;
   box-sizing: border-box;
 }
 
 .logo {
   display: flex;
   align-items: center;
+  font-family: var(--font-family);
 }
 
 .pill-nav {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
 .pill-nav a {
-  color: #64748b;
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 600;
   font-size: 1rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
 
 .pill-nav a:hover {
-  color: #1e293b;
-  background: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .pill-nav a.router-link-active {
-  color: #1e293b;
-  background: #e0f2fe; /* Light baby blue active state */
+  color: var(--accent-primary);
+  border-bottom: 2px solid var(--accent-primary);
 }
 
 /* Profile Avatar Section */

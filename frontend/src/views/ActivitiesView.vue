@@ -104,8 +104,8 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 
 <template>
   <div style="display: flex; flex-direction: column; gap: 1rem;">
-    <!-- Mockup Header -->
-    <h2 style="margin-bottom: 1rem; color: #fff; font-weight: 600; letter-spacing: 0.5px;">Family Admin and Budget Hub</h2>
+    <!-- Header -->
+    <h2 style="margin-bottom: 1rem; font-weight: 800; letter-spacing: -0.02em;">Family Admin and Budget Hub</h2>
 
     <div class="grid three" style="align-items: stretch; gap: 1.5rem;" v-if="budgetInfo">
 
@@ -267,16 +267,17 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   border-radius: 3px;
 }
 
-/* Gradient Activity Pills */
+/* Light Theme Task Pills */
 .activity-pill {
-  background: linear-gradient(135deg, #e0f2fe, #d8b4fe);
-  border-radius: 12px;
-  padding: 1rem 1.2rem;
+  background: var(--card-bg);
+  border-radius: var(--radius-button, 9999px);
+  padding: 0.8rem 1.4rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  color: #1e1b4b;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  color: var(--text-primary);
 }
 .pill-info {
   display: flex;
@@ -284,7 +285,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 }
 .pill-title {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 800;
   display: flex;
   align-items: center;
   gap: 0.5rem;

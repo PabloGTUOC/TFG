@@ -283,7 +283,7 @@ familiesRouter.post('/:familyId/members/:userId/approve',
       const result = await withTransaction(async (client) => {
         const { rowCount } = await client.query(
           `UPDATE family_members
-           SET status = 'active', role = 'main_caregiver'
+           SET status = 'active', role = 'caregiver'
            WHERE family_id = $1 AND user_id = $2 AND status = 'pending'`,
           [familyId, userId]
         );

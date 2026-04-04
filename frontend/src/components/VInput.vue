@@ -41,7 +41,7 @@ defineEmits(['update:modelValue']);
   border: 1px solid var(--input-border);
   color: var(--text-primary);
   padding: 0.6rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-button, 9999px);
   font-size: 1rem;
   transition: all 0.2s ease;
   width: 100%;
@@ -53,8 +53,8 @@ defineEmits(['update:modelValue']);
 .v-input:focus {
   outline: none;
   border-color: var(--input-focus);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
-  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  background: #ffffff;
 }
 .v-input:disabled {
   opacity: 0.6;

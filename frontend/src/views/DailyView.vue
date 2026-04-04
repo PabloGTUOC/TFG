@@ -270,8 +270,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   <div class="daily-fullscreen-overlay" @click.self="closeDailyView">
     <div class="daily-wrapper" @dragover.prevent @drop.prevent="dropOut($event)">
       <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h2 style="color: #fff; margin: 0;">Activities and Task Board</h2>
-      <strong style="color: #e2e8f0;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }}</strong>
+      <h2 style="margin: 0;">Activities and Task Board</h2>
+      <strong style="color: var(--primary);">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }}</strong>
     </div>
 
     <!-- 3 Column Layout -->
@@ -464,10 +464,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   gap: 1rem;
 }
 .mock-gradient-pill {
-  background: linear-gradient(135deg, #e0f2fe, #d8b4fe);
-  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-button, 9999px);
   padding: 1rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
   cursor: grab;
   transition: transform 0.1s;
   text-align: center;
@@ -513,10 +514,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: linear-gradient(to right, #10b981, #059669);
 }
 .scheduled-chip {
-  border-radius: 8px;
+  border-radius: var(--radius-button, 9999px);
   color: #fff;
-  padding: 0.6rem 1rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  padding: 0.6rem 1.2rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -548,14 +549,15 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background-position: 0 0, 10px 10px;
 }
 .completed-chip {
-  background: linear-gradient(135deg, #e0f2fe, #d8b4fe);
-  border-radius: 12px;
+  background: var(--card-bg);
+  border-radius: var(--radius-button, 9999px);
   padding: 1rem 1.2rem;
   margin-bottom: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
 }
 .mock-check {
   background: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.2rem;
