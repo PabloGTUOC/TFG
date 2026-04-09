@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS families (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   monthly_coin_budget INTEGER NOT NULL DEFAULT 1000 CHECK (monthly_coin_budget > 0),
+  last_coin_distribution_month VARCHAR(7),
   created_by BIGINT NOT NULL REFERENCES users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

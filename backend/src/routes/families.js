@@ -182,6 +182,23 @@ familiesRouter.post('/', validateBody({
   }
 });
 
+familiesRouter.get('/search', async (req, res) => {
+  const { query } = req.query;
+  if (!query || query.length < 2) return res.json([]);
+  try {
+    const { rows } = await withTransaction(async (client) => {
+      return client.query(
+        `SELECT id, name FROM families WHERE id::text = $1 OR name ILIKE $2 LIMIT 5`,
+        [query, `%${query}%`]
+      );
+    });
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 familiesRouter.post('/join-request', validateBody({
   identifier: [required(), string(1, 100)],
   alias: [string(1, 50)],

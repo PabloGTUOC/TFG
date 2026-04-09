@@ -29,9 +29,11 @@ activitiesRouter.get('/', async (req, res) => {
       const { rows } = await client.query(
         `SELECT a.id, a.title, a.category, a.starts_at, a.ends_at, a.duration_minutes,
                 a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.is_recurrent, a.approved_by, a.approved_at,
-                a.bounty_amount, a.bounty_offered_by, fm.alias AS assigned_alias
+                a.bounty_amount, a.bounty_offered_by, fm.alias AS assigned_alias,
+                COALESCE(fm.alias, u.display_name) AS assigned_to_name
          FROM activities a
          LEFT JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
+         LEFT JOIN users u ON u.id = a.assigned_to
          WHERE a.family_id = $1
          ORDER BY a.is_template DESC, a.starts_at ASC NULLS FIRST`,
         [familyId]

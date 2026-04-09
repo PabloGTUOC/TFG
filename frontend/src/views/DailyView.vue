@@ -125,7 +125,12 @@ const scheduledToday = computed(() => {
     for (let j = 0; j < i; j++) {
       const b = positionedActs[j];
       const startB = new Date(b.starts_at).getTime();
-      const endB = startB + (b.duration_minutes * 60000);
+      // Enforce minimum 60 min visual footprint to prevent physical overlapping of zero-duration chips
+      const durA = Math.max((a.duration_minutes || a.durationMinutes || 0), 60);
+      const durB = Math.max((b.duration_minutes || b.durationMinutes || 0), 60);
+      const endA = startA + (durA * 60000);
+      const endB = startB + (durB * 60000);
+      
       if (Math.max(startA, startB) < Math.min(endA, endB)) {
         overlapCount++;
       }
@@ -135,11 +140,11 @@ const scheduledToday = computed(() => {
     let hour = d.getHours() + d.getMinutes() / 60;
     let topP = ((Math.max(START_HOUR, hour) - START_HOUR) / TOTAL_HOURS) * 100;
     
-    let visibleHours = Math.min(a.duration_minutes / 60, 24 - Math.max(START_HOUR, hour));
+    let visibleHours = Math.min((a.duration_minutes || 60) / 60, 24 - Math.max(START_HOUR, hour));
     let heightP = (visibleHours / TOTAL_HOURS) * 100;
     
     const indentMultiplier = Math.min(overlapCount, 4);
-    const leftPx = 70 + (indentMultiplier * 30);
+    const leftPx = 70 + (indentMultiplier * 45); // increased indent to 45px for better visibility
     const widthPx = `calc(100% - ${leftPx + 10}px)`;
     const shadowIntensity = 0.2 + (indentMultiplier * 0.1);
 
@@ -149,8 +154,7 @@ const scheduledToday = computed(() => {
       _style: {
         position: 'absolute',
         top: `${topP}%`,
-        height: `${Math.max(3, heightP)}%`,
-        minHeight: '60px',
+        /* height removed to ensure the element acts as a fixed-height Pill rather than a distorted oval */
         left: `${leftPx}px`,
         width: widthPx,
         zIndex: 10 + overlapCount,
@@ -270,89 +274,114 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   <div class="daily-fullscreen-overlay" @click.self="closeDailyView">
     <div class="daily-wrapper" @dragover.prevent @drop.prevent="dropOut($event)">
       <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h2 style="margin: 0;">Activities and Task Board</h2>
-      <strong style="color: var(--primary);">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }}</strong>
+      <h2 style="margin: 0;">Daily Schedule</h2>
+      <div style="text-align: right;">
+        <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
+        <span style="color: var(--accent-primary); font-weight: 800;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
+      </div>
     </div>
 
     <!-- 3 Column Layout -->
     <div class="daily-grid">
       
-      <!-- COL 1: Available Activities -->
-      <VCard title="Available Activities" class="col-card">
-         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem;">Drag items off the timeline to unschedule</p>
+      <!-- COL 1: Task Library -->
+      <VCard title="Task Library" class="col-card" style="box-shadow: none; border: none; background: transparent;">
+         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem;">Drag icons to the timeline to schedule your day.</p>
          <div class="template-grid">
-           <div v-for="a in availableTemplates" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)">
-              <strong class="text-lg" style="color: #1e293b; display: block; margin-bottom: 0.5rem;">{{ a.title }}</strong>
-              <div class="text-xs" style="color: #475569; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
-                <span>🕒 {{ a.duration_minutes || a.durationMinutes || 0 }}m</span>
-                <span>•</span>
-                <span>🪙 {{ a.coin_value }}cc</span>
+           
+           <template v-for="category in ['care', 'household']" :key="category">
+             <div v-if="availableTemplates.some(a => a.category === category)" style="text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--text-secondary); margin-top: 1rem; letter-spacing: 1px;">
+               {{ category === 'care' ? 'CARE & WELLNESS' : 'HOUSEHOLD' }}
+             </div>
+             
+             <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)">
+                <div style="width: 40px; height: 40px; background: #e0e7ff; color: #3730a3; border-radius: 50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  <span style="font-size: 1.2rem;">{{ category === 'care' ? '❤️' : '🧹' }}</span>
+                </div>
+                <div style="flex:1;">
+                  <strong class="text-base" style="color: var(--text-primary); display: block; margin-bottom: 0.1rem; line-height:1.2; font-weight: 800;">{{ a.title }}</strong>
+                  <div class="text-xs" style="color: var(--text-secondary); display: flex; align-items: center; gap: 0.4rem;">
+                    <span>{{ category === 'care' ? 'Care' : 'Cleaning' }}</span>
+                    <span>•</span>
+                    <span>🪙 {{ a.coin_value }}cc</span>
+                  </div>
+                </div>
+             </div>
+           </template>
+           
+         </div>
+      </VCard>
+
+      <!-- Right Column: Timeline & Completed Bar -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+        
+        <!-- COL 2: Scheduled Timeline -->
+        <VCard title="Scheduled for Today" style="padding: 0; flex: 1; min-height: 600px; display: flex; flex-direction: column;">
+           <div class="timeline-container" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
+              <!-- Draw 18 hr lines -->
+              <div class="hour-lines" style="position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column;">
+                 <div v-for="h in 19" :key="h" class="h-line">
+                   <span class="h-label">{{ (h+5) > 12 ? (h+5)-12 : (h+5) }}:00 {{ (h+5) >= 12 ? 'PM' : 'AM' }}</span>
+                   <div class="h-border"></div>
+                 </div>
               </div>
-              <button class="mock-btn" style="background:#7c3aed; color:#fff;">Claim</button>
+
+              <!-- Absolute positioned chips -->
+               <div v-for="a in scheduledToday" :key="a.id"
+                    :style="[a._style, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
+                    :class="['scheduled-chip', a.status === 'pending_validation' ? 'gradient-orange' : (a.status === 'completed' ? 'gradient-green' : 'gradient-pink')]" 
+                    :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
+                    @click="a.is_recurrent && a.status !== 'completed' ? openRecurrenceModal(a) : null">
+                 <div style="display:flex; align-items:center; gap: 0.8rem;">
+                   <span style="font-size: 1.4rem;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
+                   <strong class="text-base" style="display:block; line-height: 1.2; font-weight:800;">
+                     {{ a.title }}
+                     <span v-if="a.is_recurrent" title="Click to schedule future recurrences" style="font-size: 0.85rem; margin-left: 0.3rem;">🔁</span>
+                   </strong>
+                 </div>
+                 
+                 <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <div class="text-xs" style="font-weight:800; background: rgba(0,0,0,0.1); padding: 4px 10px; border-radius: 999px;">
+                    {{ new Date(a.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }}
+                  </div>
+                  
+                  <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
+                    <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
+                  </div>
+                  <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px;">
+                    ✓ Done
+                  </div>
+                </div>
+              </div>
            </div>
-         </div>
-      </VCard>
+        </VCard>
 
-      <!-- COL 2: Scheduled Timeline -->
-      <VCard :title="scheduledTitle" class="col-card" style="padding: 0;">
-         <div class="timeline-container" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
-            <!-- Draw 18 hr lines -->
-            <div class="hour-lines" style="position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column;">
-               <div v-for="h in 19" :key="h" class="h-line">
-                 <span class="h-label">{{ (h+5) > 12 ? (h+5)-12 : (h+5) }}:00 {{ (h+5) >= 12 ? 'PM' : 'AM' }}</span>
-                 <div class="h-border"></div>
-               </div>
-            </div>
+        <!-- Horizontal Completed Bar -->
+        <div style="background: var(--card-bg); color: var(--text-primary); padding: 1.2rem 2rem; border-radius: 32px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--card-border); margin-top: 0.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; flex: 1;">
+             
+             <div v-if="completedToday.length === 0" style="font-weight: 600; font-size: 0.95rem; color: var(--text-secondary);">
+               Nothing finished yet today. Get to work!
+             </div>
 
-            <!-- Absolute positioned chips -->
-             <div v-for="a in scheduledToday" :key="a.id"
-                  :style="[a._style, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
-                  :class="['scheduled-chip', a.status === 'pending_validation' ? 'gradient-orange' : (a.status === 'completed' ? 'gradient-green' : 'gradient-pink')]" 
-                  :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
-                  @click="a.is_recurrent && a.status !== 'completed' ? openRecurrenceModal(a) : null">
-               <strong class="text-sm" style="display:block; margin-bottom: 2px; line-height: 1.2;">
-                 {{ a.title }}
-                 <span v-if="a.is_recurrent" title="Click to schedule future recurrences" style="font-size: 0.85rem; margin-left: 0.3rem;">🔁</span>
-               </strong>
-               
-               <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; width: 100%; margin-top: auto; padding-top: 4px; gap: 0.4rem;">
-                <div class="text-xs" style="opacity: 0.9;">{{ a.assigned_alias || 'Unclaimed' }}</div>
-                
-                <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
-                  <span class="text-xs" style="font-weight: bold; color: #fef08a;">⏳ Pending Validation</span>
-                  <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
-                </div>
-                <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; padding-bottom: 1px;">
-                  ✓ Completed
-                </div>
-              </div>
-            </div>
-         </div>
-      </VCard>
+             <div v-for="a in completedToday" :key="a.id" :class="[a.category === 'care' ? 'gradient-pink' : 'gradient-orange']" style="display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 1.2rem; border-radius: 9999px; font-size: 0.95rem; color: white;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: white; flex-shrink: 0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                <strong style="line-height: 1; font-weight: 800;">{{ a.title }}</strong>
+             </div>
+           </div>
 
-      <!-- COL 3: Completed -->
-      <VCard title="Completed" class="col-card">
-         <div v-for="a in completedToday" :key="a.id" class="completed-chip ui-gradient">
-            <div>
-              <strong class="text-base" style="color:#1e293b;">{{ a.title }}</strong>
-              <div class="text-xs" style="color:#475569;">{{ a.duration_minutes || a.durationMinutes || 0 }}m - 🪙 {{ a.coin_value }}cc</div>
-            </div>
-            <div class="mock-check">✔</div>
-         </div>
-
-         <div v-if="completedToday.length === 0" class="empty-pill">
-            Nothing finished yet today.
-         </div>
-
-         <div class="daily-tallies">
-            <div class="text-sm" style="color: #94a3b8; margin-bottom: 0.3rem;">Great job everyone!</div>
-            <div class="text-xl" style="font-weight: 700; color: #f8fafc;">Total coins earned this day: <span style="color: #fbbf24;">{{ todayCoins }}cc</span></div>
-         </div>
-      </VCard>
-
-    </div>
-    </div>
-  </div>
+           <!-- Totals at the end -->
+           <div v-if="todayCoins > 0" style="margin-left: 1rem; display: flex; align-items: center; gap: 0.6rem; background: var(--bg-color); color: var(--text-primary); padding: 0.5rem 1.2rem; border-radius: 9999px; border: 1px solid var(--input-border);">
+              <span style="font-size: 0.85rem; font-weight: 800; text-transform: uppercase;">Total Earned</span>
+              <strong style="font-size: 1.3rem; font-weight: 800; color: var(--accent-primary);">{{ todayCoins }}cc</strong>
+           </div>
+        </div>
+        
+      </div>
+    
+    </div> <!-- end daily-grid -->
+    </div> <!-- end daily-wrapper -->
+  </div> <!-- end daily-fullscreen-overlay -->
 
   <!-- Recurrence Modal -->
   <div v-if="showRecurrenceModal" class="modal-overlay">
@@ -361,16 +390,16 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         Repeat <strong>{{ recurrenceForm.title }}</strong> at this time into the future.
       </p>
       <div style="margin-bottom: 1.2rem;">
-        <label style="display:block; margin-bottom: 0.5rem; color: #fff; font-size: 0.95rem;">Frequency:</label>
-        <select v-model="recurrenceForm.frequency" style="width: 100%; padding: 0.75rem; border-radius: 8px; font-size: 1rem; background: #1e293b; color: #fff; border: 1px solid #334155; outline: none;">
+        <label style="display:block; margin-bottom: 0.5rem; color: var(--text-primary); font-size: 0.95rem; font-weight:600;">Frequency:</label>
+        <select v-model="recurrenceForm.frequency" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;">
           <option value="daily">Every Day</option>
           <option value="weekdays">Every Working Day (Mon-Fri)</option>
           <option value="weekly">Every Week (same day)</option>
         </select>
       </div>
       <div style="margin-bottom: 1.8rem;">
-        <label style="display:block; margin-bottom: 0.5rem; color: #fff; font-size: 0.95rem;">Until Date:</label>
-        <input type="date" v-model="recurrenceForm.untilDate" style="width: 100%; padding: 0.75rem; border-radius: 8px; font-size: 1rem; background: #1e293b; color: #fff; border: 1px solid #334155; outline: none; color-scheme: dark;" />
+        <label style="display:block; margin-bottom: 0.5rem; color: var(--text-primary); font-size: 0.95rem; font-weight:600;">Until Date:</label>
+        <input type="date" v-model="recurrenceForm.untilDate" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" />
       </div>
       <div style="display:flex; justify-content: flex-end; gap: 1rem;">
         <VButton type="secondary" @click="showRecurrenceModal = false">Cancel</VButton>
@@ -383,13 +412,13 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   <div v-if="showScheduleModal" class="modal-overlay">
     <VCard title="Confirm Time" style="max-width: 320px; width: 100%;">
       <div style="margin-bottom: 1.5rem;">
-        <label style="display:block; margin-bottom: 0.75rem; color: #fff; font-size: 1.1rem; font-weight: 600;">Starting at...</label>
+        <label style="display:block; margin-bottom: 0.75rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 800;">Starting at...</label>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <select v-model="scheduleHour" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-size: 1.2rem; background: #1e293b; color: #fff; border: 1px solid #334155; text-align: center; appearance: none; outline: none;">
+          <select v-model="scheduleHour" style="flex: 1; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1.2rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); text-align: center; appearance: none; outline: none;">
             <option v-for="h in 24" :key="h-1" :value="String(h-1).padStart(2, '0')">{{ String(h-1).padStart(2, '0') }}</option>
           </select>
-          <span style="font-size: 1.5rem; color: #fff; font-weight: bold;">:</span>
-          <select v-model="scheduleMinute" style="flex: 1; padding: 0.75rem; border-radius: 8px; font-size: 1.2rem; background: #1e293b; color: #fff; border: 1px solid #334155; text-align: center; appearance: none; outline: none;">
+          <span style="font-size: 1.5rem; color: var(--text-primary); font-weight: bold;">:</span>
+          <select v-model="scheduleMinute" style="flex: 1; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1.2rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); text-align: center; appearance: none; outline: none;">
             <option value="00">00</option>
             <option value="30">30</option>
           </select>
@@ -420,34 +449,35 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 </template>
 
 <style scoped>
+.modal-overlay {
+  z-index: 10000 !important;
+}
+
 .daily-fullscreen-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  z-index: 100;
+  background: var(--bg-color); /* fully opaque solid background to cover dashboard */
+  z-index: 9999;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 2rem;
+  align-items: flex-start; /* THIS IS THE KEY FIX: prevent vertical centering from pushing content off the top of the monitor */
+  padding: 4rem 2rem;
   overflow-y: auto;
 }
 
 .daily-wrapper {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 20px;
+  background: transparent;
+  border: none;
   width: 100%;
   max-width: 1400px;
   min-height: 80vh;
-  padding: 2rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  margin: 0 auto;
 }
 
 .daily-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 320px 1fr;
+  gap: 2rem;
   align-items: stretch;
   min-height: 70vh;
 }
@@ -459,25 +489,24 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 
 /* Template Grid (Col 1) */
 .template-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 .mock-gradient-pill {
-  background: var(--card-bg);
+  background: #ffffff;
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-button, 9999px);
-  padding: 1rem;
+  border-radius: 9999px; /* Re-applied Pill Radius since they are now horizontal */
+  padding: 0.8rem 1.2rem;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
   cursor: grab;
   transition: transform 0.1s;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
 }
-.mock-gradient-pill:active { cursor: grabbing; transform: scale(0.95); }
-.mock-btn {
-  width: 100%; border:none; padding: 0.75rem; border-radius: 999px; font-weight:700; cursor:pointer; transition: opacity 0.2s;
-}
-.mock-btn:hover { opacity: 0.9; }
+.mock-gradient-pill:active { cursor: grabbing; transform: scale(0.98); }
 
 /* Timeline (Col 2) */
 .timeline-container {
@@ -514,15 +543,15 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: linear-gradient(to right, #10b981, #059669);
 }
 .scheduled-chip {
-  border-radius: var(--radius-button, 9999px);
+  border-radius: 9999px; /* Real Pill radius without oval distortion */
   color: #fff;
   padding: 0.6rem 1.2rem;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
   z-index: 10;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
+  flex-direction: row; /* Horizontal alignment */
+  justify-content: space-between;
+  align-items: center;
   overflow: hidden;
   box-sizing: border-box;
   cursor: grab;
@@ -550,7 +579,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 .completed-chip {
   background: var(--card-bg);
-  border-radius: var(--radius-button, 9999px);
+  border-radius: 16px;
   padding: 1rem 1.2rem;
   margin-bottom: 1rem;
   display: flex;
@@ -572,8 +601,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 
 .empty-pill {
-  color: #fff; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(8px);
-  padding: 0.8rem 1.5rem; border-radius: 999px; text-align: center; font-size: 1rem; margin: 2rem auto; font-weight: 500;
+  color: var(--text-primary); background: var(--input-bg); border: 1px solid var(--input-border);
+  padding: 0.8rem 1.5rem; border-radius: 999px; text-align: center; font-size: 1rem; margin: 1rem auto; font-weight: 600;
   width: max-content;
 }
 

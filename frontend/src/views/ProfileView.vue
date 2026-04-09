@@ -178,7 +178,7 @@ watch(currentMonth, () => {
           <input :id="'actor-upload-'+a.id" type="file" style="display: none;" accept="image/*" @change="handleActorAvatarUpload($event, a.id, a.family_id)">
           
           <div>
-            <strong style="color: #fff; font-size: 1.1rem; display:block;">{{ a.name }}</strong>
+            <strong style="color: var(--text-primary); font-size: 1.1rem; display:block;">{{ a.name }}</strong>
             <span style="color: var(--text-secondary); font-size: 0.8rem; text-transform: capitalize;">{{ a.actor_type }} · {{ a.care_time.replace('_', ' ') }}</span>
           </div>
         </div>
@@ -234,8 +234,8 @@ watch(currentMonth, () => {
 }
 .info-item .val {
   font-size: 1.1rem;
-  color: #fff;
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 800;
 }
 
 .ledger-list {
@@ -259,7 +259,8 @@ watch(currentMonth, () => {
 }
 .ledger-title {
   font-size: 1.05rem;
-  color: #fff;
+  color: var(--text-primary);
+  font-weight: 800;
 }
 .ledger-date {
   font-size: 0.8rem;

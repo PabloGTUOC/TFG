@@ -9,6 +9,7 @@ import { activitiesRouter } from './routes/activities.js';
 import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
+import { statsRouter } from './routes/stats.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +47,7 @@ app.use('/api/families', requireAuth, familiesRouter);
 app.use('/api/activities', requireAuth, activitiesRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/marketplace', requireAuth, marketplaceRouter);
+app.use('/api/stats', requireAuth, statsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

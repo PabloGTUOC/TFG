@@ -198,23 +198,23 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
             </svg>
             
             <div class="gauge-content">
-              <div class="text-4xl" style="font-weight: 700; color: #fff; line-height: 1; font-size: 3.5rem; margin-top: 1rem;">
-                {{ budgetInfo.remainingBudget }}<span class="text-xl" style="color: #c084fc; margin-left: 0.2rem;">cc</span>
+              <div class="text-4xl" style="font-weight: 800; color: var(--text-primary); line-height: 1; font-size: 3.5rem; margin-top: 1rem;">
+                {{ budgetInfo.remainingBudget }}<span class="text-xl" style="color: var(--accent-primary); margin-left: 0.2rem;">cc</span>
               </div>
             </div>
           </div>
           
           <!-- Budget Stats -->
-          <div class="text-sm" style="background: rgba(255, 255, 255, 0.02); padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 250px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+          <div class="text-sm" style="background: var(--input-bg); padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 250px; border: 1px solid var(--input-border); box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
             <div style="display:flex; justify-content: space-between; margin-bottom: 1rem;">
               <span style="color: var(--text-secondary);">Total Monthly Pool</span>
-              <strong style="color: #fff; font-size: 1.05rem;">{{ budgetInfo.monthlyBudget }} cc</strong>
+              <strong style="color: var(--text-primary); font-size: 1.05rem; font-weight:800;">{{ budgetInfo.monthlyBudget }} cc</strong>
             </div>
-            <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.8rem;">
+            <div style="display:flex; justify-content: space-between; margin-bottom: 1rem; border-top: 1px dashed var(--input-border); padding-top: 0.8rem;">
               <span style="color: var(--text-secondary);">Scheduled/Used</span>
-              <strong style="color: #fff; font-size: 1.05rem;">{{ budgetInfo.usedThisMonth }} cc</strong>
+              <strong style="color: var(--text-primary); font-size: 1.05rem; font-weight:800;">{{ budgetInfo.usedThisMonth }} cc</strong>
             </div>
-            <div style="display:flex; justify-content: space-between; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.8rem;">
+            <div style="display:flex; justify-content: space-between; border-top: 1px dashed var(--input-border); padding-top: 0.8rem;">
               <span style="color: var(--text-secondary);">Estimated Rate</span>
               <strong style="color: #fbbf24; font-size: 1.05rem;">~{{ budgetInfo.baseRatePerHour }} cc / hr</strong>
             </div>
@@ -270,7 +270,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 /* Light Theme Task Pills */
 .activity-pill {
   background: var(--card-bg);
-  border-radius: var(--radius-button, 9999px);
+  border-radius: 16px;
   padding: 0.8rem 1.4rem;
   display: flex;
   justify-content: space-between;

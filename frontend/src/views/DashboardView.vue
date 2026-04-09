@@ -134,109 +134,252 @@ const processedWeekDays = computed(() => {
 const navigateToDaily = (dateStr) => {
   router.push(`/daily/${dateStr}`);
 };
+
+const navigateToStats = () => {
+  router.push('/stats');
+};
+
+// --- NEW HIGH FIDELITY COMPUTED DATA ---
+const completedToday = computed(() => {
+  return familyActivities.value.filter(a => {
+    if (a.is_template || !a.starts_at || a.status !== 'completed') return false;
+    const d = new Date(a.starts_at);
+    const today = new Date();
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  });
+});
+
+const todayCoins = computed(() => completedToday.value.reduce((sum, a) => sum + (a.coin_value || 0), 0));
+
+const todayPendingTasks = computed(() => {
+  return familyActivities.value.filter(a => {
+    if (a.is_template || !a.starts_at || a.status === 'completed') return false;
+    const d = new Date(a.starts_at);
+    const today = new Date();
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  }).length;
+});
+
+const recentActivitiesList = computed(() => {
+   const acts = familyActivities.value
+     .filter(a => a.status === 'completed' && a.starts_at)
+     .map(a => ({
+        id: `act-${a.id}`,
+        icon: '✓', color: '#0055ff', bg: '#e0e7ff',
+        title: `${a.assigned_to_name || 'Someone'} completed ${a.title}`,
+        time: new Date(a.starts_at),
+        coinText: `+${a.coin_value} Coins`, coinColor: '#2563eb'
+     }));
+   
+   const rews = claimedRewards.value.map(r => ({
+        id: `rew-${r.redemption_id}`,
+        icon: '🛍️', color: '#ff4444', bg: '#fee2e2',
+        title: `${r.buyer_name || 'Someone'} got ${r.title}`,
+        time: new Date(r.redeemed_at),
+        coinText: `-${r.cost} Coins`, coinColor: '#ff4444'
+     }));
+     
+   let all = [...acts, ...rews];
+   all.sort((a,b) => b.time - a.time);
+   
+   all.forEach(item => {
+      const ms = new Date().getTime() - item.time.getTime();
+      const hrs = Math.floor(ms / 3600000);
+      if (hrs > 24) item.timeStr = `${Math.floor(hrs/24)} days ago`;
+      else if (hrs > 0) item.timeStr = `${hrs} hours ago`;
+      else item.timeStr = `${Math.max(1, Math.floor(ms/60000))} mins ago`;
+   });
+   return all.slice(0, 3);
+});
+
+const timeGreeting = computed(() => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+});
+
+const getActorMaxGdp = (actor) => {
+   const now = new Date();
+   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+   const hrs = daysInMonth * 24;
+   return actor.care_time === 'full_time' ? hrs : Math.floor(hrs / 2);
+};
+
+const globalUsedThisMonth = computed(() => dashboard.value.used_this_month || 0);
+
+const getActorRemainingGdp = (actor) => {
+   const max = getActorMaxGdp(actor);
+   if (!dashboard.value.objectsOfCare || dashboard.value.objectsOfCare.length === 0) return max;
+   
+   const total = dashboard.value.objectsOfCare.reduce((sum, o) => sum + getActorMaxGdp(o), 0);
+   if (total === 0) return 0;
+   
+   const usedShare = globalUsedThisMonth.value * (max / total);
+   return Math.max(0, Math.floor(max - usedShare));
+};
 </script>
 
 <template>
-  <div class="dashboard-root" v-if="dashboard.members.length > 0">
-    
-    <!-- Top Row: Members and Actions -->
-    <div class="dashboard-top-row">
-      <!-- Family at a Glance -->
-      <VCard title="Family at a Glance" class="top-card">
-         <div class="family-members-row">
-           <!-- Human Caregivers / Members -->
-           <div v-for="m in activeMembers" :key="m.user_id" class="member-badge">
-              <div class="member-avatar"
-                   :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''">
-                 {{ m.avatar_url ? '' : (m.role === 'main_caregiver' || m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
-              </div>
-              <div class="member-name">{{ m.name || `User ${m.user_id}` }}</div>
-              <div class="member-coins">🪙 {{ m.coin_balance }} cc</div>
-           </div>
-
-           <!-- Objects of Care -->
-           <div v-for="o in dashboard.objectsOfCare" :key="'obj-'+o.id" class="member-badge">
-              <div class="member-avatar"
-                   :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : 'background: #fbbf24; border-color: #f59e0b;'">
-                 {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
-              </div>
-              <div class="member-name">{{ o.name || 'Dependent' }}</div>
-              <div class="member-coins" style="color: #94a3b8;">{{ o.care_time === 'full_time' ? 'Full Time' : 'Part Time' }}</div>
-           </div>
-         </div>
-
-         <!-- Pending Members Requests -->
-         <div v-if="pendingMembers.length > 0" class="pending-section" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
-            <h4 class="text-base" style="color:#f8fafc; margin-bottom: 1rem;">Pending Requests</h4>
-            <div v-for="p in pendingMembers" :key="p.user_id" style="display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.2); padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-               <span class="text-sm" style="color:#e2e8f0; font-weight: 500;">{{ p.name }} wants to join</span>
-               <button v-if="isMainCaregiver" class="action-block primary-action" style="width: auto; padding: 0.5rem 1rem; margin: 0; font-size: 0.85rem;" @click="approveMember(p.user_id)">Approve</button>
-               <span v-else class="text-xs" style="color:#94a3b8; font-style: italic;">Wait for admin</span>
-            </div>
-         </div>
-      </VCard>
-
-      <!-- Quick Actions -->
-      <div class="quick-actions-card top-card">
-         <h3 style="margin-top: 0; margin-bottom: 1.5rem; text-align: center; color: #e2e8f0;">Quick Actions</h3>
-         <button class="action-block primary-action" @click="router.push('/activities')">
-            <span class="text-xl">⊕</span> Add Activity
-         </button>
-         <button class="action-block secondary-action" @click="router.push('/marketplace')">
-            <span class="text-xl">💰</span> Claim Coins
-         </button>
-         <button v-if="isMainCaregiver" class="action-block" style="background:#f8fafc; color:#0f172a; margin-top: 1rem; margin-bottom: 0;" @click="showCareObjectModal = true">
-            <span class="text-xl">🐶</span> Add Dependent
-         </button>
-      </div>
+  <div class="dashboard-root" v-if="dashboard.members.length > 0" style="padding-top: 1rem;">
+    <!-- Title Section -->
+    <div style="margin-bottom: 3rem;">
+       <h1 style="color: #1e1b4b; font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
+       <p style="color: #64748b; font-size: 1.1rem; max-width: 600px; margin: 0; line-height: 1.5;">
+         {{ timeGreeting }}! Your family has earned <strong>{{ todayCoins || 0 }} coins</strong> today. <strong>{{ todayPendingTasks }} major tasks</strong> are still waiting for attention.
+       </p>
     </div>
 
-    <!-- Claimed Rewards (Backpack) -->
-    <VCard v-if="claimedRewards.length > 0" title="Family Backpack (Recently Claimed)" style="margin-top: 2rem;">
-      <div style="display:flex; flex-wrap: wrap; gap:1rem;">
-        <div v-for="c in claimedRewards" :key="c.redemption_id" style="flex: 1; min-width: 250px; display:flex; align-items:center; gap:1rem; padding: 1rem; background: var(--bg-surface); border-radius: 12px; border: 1px solid var(--input-border);">
-           <div style="width:40px; height:40px; border-radius:50%; background:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden;" :style="c.buyer_avatar ? `background-image:url('${appStore.apiBase}${c.buyer_avatar}'); background-size:cover;`:''">
-              {{ c.buyer_avatar ? '' : '👤' }}
-           </div>
-           <div style="flex:1;">
-             <strong style="color:#fff; display:block; font-size: 1rem;">{{ c.buyer_name }}</strong>
-             <span class="text-sm" style="color:var(--text-secondary);">got "{{ c.title }}"</span>
-           </div>
-           <div class="text-xs" style="color:#10b981; font-weight: 600; text-align:right;">
-             {{ new Date(c.redeemed_at).toLocaleDateString([], { month: 'short', day: 'numeric'}) }}
-           </div>
-        </div>
-      </div>
-    </VCard>
+    <!-- Main Grid: Left (Members + Stats) | Right (Recent) -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 3rem;">
+       
+       <!-- LEFT COLUMN -->
+       <div>
+          
+          <!-- Members Title -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+             <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">Active Family Members</h2>
+             <a href="#" @click.prevent="router.push('/profile')" style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.95rem; cursor: pointer;">Manage Tribe &rarr;</a>
+          </div>
 
-    <!-- Full Width Calendar -->
-    <VCard title="Weekly Highlights" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; margin-top: 2rem;">
-       <div class="calendar-toolbar" style="display:flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: #60a5fa; color: #fff;">
-          <button @click="currentWeekOffset--" class="mock-nav-btn">&laquo;</button>
-          <div style="font-weight: 600; font-size:1.1rem;">{{ weekLabel }}</div>
-          <button @click="currentWeekOffset++" class="mock-nav-btn">&raquo;</button>
+          <!-- Members Grid -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 3rem;">
+             <div v-for="(m, i) in activeMembers" :key="m.user_id" 
+                  class="mockup-member-card" :class="'color-' + (i % 4)">
+                <div class="member-avatar"
+                     :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''">
+                   {{ m.avatar_url ? '' : (m.role === 'main_caregiver' || m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
+                </div>
+                <div style="font-weight: 800; font-size: 1.15rem; color: #1e293b; margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
+                <div style="font-size: 0.8rem; font-weight: 800; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;" :class="`text-color-${i % 4}`">
+                   <div style="width: 12px; height: 12px; border-radius: 50%; background: currentColor;"></div>
+                   {{ m.coin_balance }}
+                </div>
+             </div>
+             
+             <!-- Objects of Care -->
+             <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id" 
+                  class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
+                <div class="member-avatar"
+                     :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : 'background: #fbbf24; border-color: #f59e0b;'">
+                   {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
+                </div>
+                <div style="font-weight: 800; font-size: 1.15rem; color: #1e293b; margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
+                 <div style="font-size: 0.8rem; font-weight: 800; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: currentColor;"></div>
+                    {{ getActorRemainingGdp(o).toLocaleString() }}
+                 </div>
+              </div>
+
+             <!-- Pending Members -->
+             <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id" 
+                  style="border: 2px dashed #cbd5e1; background: #f8fafc; border-radius: 32px; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+                <div class="member-avatar" style="background: #e2e8f0; border-color: #cbd5e1; color: #64748b; font-size: 2rem;">
+                   ⏳
+                </div>
+                <div style="font-weight: 800; font-size: 1.15rem; color: #64748b; margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
+                <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-top: 0.2rem;">
+                   Pending Approval
+                </div>
+                <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: #22c55e; color: white; border: none; padding: 0.5rem; border-radius: 9999px; font-weight: 800; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(34,197,94,0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                   APPROVE
+                </button>
+             </div>
+           </div>
+
+          <!-- Giant Stats Bar -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+             <!-- Coins Pill -->
+             <div @click="navigateToStats"
+                  style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; background: #0055ff; color: white; border-radius: 9999px; padding: 2.5rem 3rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0, 85, 255, 0.4);"
+                  onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 15px 35px rgba(0, 85, 255, 0.5)';"
+                  onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 30px rgba(0, 85, 255, 0.4)';">
+                <div>
+                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Coins Earned</div>
+                  <div style="font-size: 3.5rem; font-weight: 800; line-height: 1;">{{ dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString() }}</div>
+                </div>
+                <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items:center; justify-content: center; font-size: 2.5rem;">🪙</div>
+             </div>
+             
+             <!-- Tasks Pill -->
+             <div @click="navigateToStats"
+                  style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; background: #33ff99; color: #064e3b; border-radius: 9999px; padding: 2.5rem 3rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(51, 255, 153, 0.4);"
+                  onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 15px 35px rgba(51, 255, 153, 0.5)';"
+                  onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 30px rgba(51, 255, 153, 0.4)';">
+                <div>
+                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Tasks Completed Today</div>
+                  <div style="font-size: 3.5rem; font-weight: 800; line-height: 1;">{{ completedToday.length }}<span style="opacity:0.4; font-size: 2rem;">/{{ scheduledInstances.length }}</span></div>
+                </div>
+                <div style="width: 80px; height: 80px; background: rgba(0,0,0,0.08); border-radius: 50%; display: flex; align-items:center; justify-content: center; font-size: 2.5rem;">✔</div>
+             </div>
+          </div>
+
        </div>
 
-       <div class="weekly-row">
-          <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
-               class="day-column" 
-               @click="navigateToDaily(dayObj.dateStr)">
-            
-            <div class="day-header" :class="{'is-today': dayObj.date.toDateString() === new Date().toDateString()}">
-              {{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}
-              <div class="day-number">{{ dayObj.date.getDate() }}</div>
-            </div>
+       <!-- RIGHT COLUMN -->
+       <div style="min-height: 0; display: flex; flex-direction: column;">
+          <div style="background: #f3f4fb; border-radius: 32px; padding: 2.5rem; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+             <h3 style="font-size: 1.5rem; font-weight: 800; color: #1e1b4b; margin-top: 0; margin-bottom: 2rem; flex-shrink: 0;">Recent Activity</h3>
+             
+             <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1; overflow-y: auto; padding-right: 0.5rem; padding-bottom: 1rem;">
+               <div v-for="item in recentActivitiesList" :key="item.id" style="display: flex; align-items: flex-start; gap: 1rem;">
+                  <div :style="`width: 40px; height: 40px; border-radius: 50%; background: ${item.bg}; color: ${item.color}; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; font-weight: bold;`">
+                     {{ item.icon }}
+                  </div>
+                  <div>
+                     <div style="font-weight: 800; color: #1e293b; font-size: 0.95rem; line-height: 1.3;" v-html="item.title.replace(/(completed|added|spent|got|organized)/, '<span style=\'font-weight:600; color:#64748b;\'>$1</span>')"></div>
+                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
+                       <span style="font-size: 0.75rem; font-weight: 700; color: #94a3b8;">{{ item.timeStr }}</span>
+                       <span style="font-size: 0.75rem; font-weight: 800;" :style="`color: ${item.coinColor};`">{{ item.coinText }}</span>
+                     </div>
+                  </div>
+               </div>
+               
+               <div v-if="recentActivitiesList.length === 0" style="color: #94a3b8; font-weight: 600;">No activity yet.</div>
+             </div>
 
-            <div class="day-content">
-              <div v-for="a in dayObj.acts" :key="a.id" class="highlight-chip">
-                <div class="h-title">{{ a.title }}</div>
-                <div class="h-time">🕑 {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
-              </div>
-            </div>
-
+             <VButton type="secondary" block @click="navigateToStats" style="margin-top: 2rem; background: #e0e7ff; color: #3730a3; border: none; flex-shrink: 0;">View Full Audit Log</VButton>
           </div>
        </div>
-    </VCard>
+
+    </div>
+
+    <!-- FULL-WIDTH BOTTOM ROW -->
+    <div style="margin-top: 4rem; margin-bottom: 4rem;">
+       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">This Week's Schedule</h2>
+          <div style="display: flex; align-items: center; gap: 1rem;">
+             <button @click="currentWeekOffset--" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&laquo;</button>
+             <div style="font-weight: 800; font-size:1.1rem; color: var(--text-primary);">{{ weekLabel }}</div>
+             <button @click="currentWeekOffset++" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&raquo;</button>
+          </div>
+       </div>
+
+       <div class="mockup-weekly-row" style="background: white; border-radius: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; border: 1px solid var(--card-border); min-height: 250px; overflow: hidden;">
+          <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
+               class="mockup-day-col"
+               @click="navigateToDaily(dayObj.dateStr)">
+            
+            <div style="text-align: center; padding: 1.2rem 0; border-bottom: 1px solid var(--card-border);" :style="dayObj.date.toDateString() === new Date().toDateString() ? 'background: #e0f2fe; color: var(--primary);' : 'color: #64748b;'">
+              <div style="font-weight: 800; font-size: 0.85rem; text-transform: uppercase;">{{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
+              <div style="font-size: 1.6rem; font-weight: 800; margin-top: 0.2rem;">{{ dayObj.date.getDate() }}</div>
+            </div>
+
+            <div style="flex: 1; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
+              <div v-for="a in dayObj.acts" :key="a.id" style="border-radius: 9999px; padding: 0.5rem 0.8rem; font-size: 0.8rem; color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.3rem;" :class="[a.category === 'care' ? 'gradient-pink' : 'gradient-orange']">
+                <div style="display:flex; align-items: center; gap: 0.3rem;">
+                  <span style="font-size: 0.95rem;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
+                  <div style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.title }}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px; display: inline-block; font-size: 0.75rem; font-weight: 700; align-self: flex-start;">
+                  {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                </div>
+              </div>
+            </div>
+            
+          </div>
+       </div>
+    </div>
 
     <!-- Add Care Object Modal -->
     <div v-if="showCareObjectModal" class="modal-overlay">
@@ -262,178 +405,63 @@ const navigateToDaily = (dateStr) => {
 </template>
 
 <style scoped>
-.dashboard-top-row {
-  display: grid;
-  grid-template-columns: 7fr 3fr;
-  gap: 2rem;
-  align-items: stretch;
-}
-.top-card {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
+.dashboard-root {
+  max-width: 1300px;
+  margin: 0 auto;
 }
 
-/* Family At A Glance */
-.family-members-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4rem;
-  padding: 1rem 0;
-}
-.member-badge {
+.mockup-member-card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
 }
+.mockup-member-card.color-0 { border-bottom: 6px solid #0055ff; }
+.mockup-member-card.color-1 { border-bottom: 6px solid #22c55e; }
+.mockup-member-card.color-2 { border-bottom: 6px solid #eab308; }
+.mockup-member-card.color-3 { border-bottom: 6px solid #ff4444; }
+
+.text-color-0 { color: #0055ff; }
+.text-color-1 { color: #22c55e; }
+.text-color-2 { color: #eab308; }
+.text-color-3 { color: #ff4444; }
+
+.mockup-weekly-row .mockup-day-col {
+  flex: 1;
+  border-right: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.mockup-weekly-row .mockup-day-col:last-child {
+  border-right: none;
+}
+.mockup-weekly-row .mockup-day-col:hover {
+  background: #f8fafc;
+}
+
+.gradient-pink {
+  background: linear-gradient(to right, #a855f7, #ec4899);
+}
+.gradient-orange {
+  background: linear-gradient(to right, #f97316, #eab308);
+}
+
 .member-avatar {
-  background: #60a5fa;
-  width: 90px;
-  height: 90px;
+  background: #f1f5f9;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  border: 4px solid #3b82f6;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 3rem;
-  margin-bottom: 0.8rem;
-  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
-}
-.cursor-pointer { cursor: pointer; }
-.hover-scale { transition: transform 0.2s, box-shadow 0.2s; }
-.hover-scale:hover { transform: scale(1.05); box-shadow: 0 12px 25px rgba(59, 130, 246, 0.5); }
-
-.member-name {
-  font-weight: 700;
-  color: #f8fafc;
-  font-size: 1.25rem;
-}
-.member-coins {
-  font-size: 0.875rem;
-  color: #64748b;
-  font-weight: 600;
-  margin-top: 0.2rem;
-}
-
-/* Weekly Highlights Grid */
-.mock-nav-btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-.weekly-row {
-  display: flex;
-  min-height: 400px;
-}
-.day-column {
-  flex: 1;
-  border-right: 1px solid #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  transition: background 0.2s;
-  cursor: pointer;
-}
-.day-column:last-child {
-  border-right: none;
-}
-.day-column:hover {
-  background: #f8fafc;
-}
-
-.day-header {
-  text-align: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid #e2e8f0;
-  font-weight: 600;
-  color: #64748b;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.is-today {
-  background: #e0f2fe;
-  color: #2563eb;
-}
-
-.day-content {
-  flex: 1;
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.highlight-chip {
-  background: #93c5fd;
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
-  color: #1e3a8a;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  border: 1px solid #60a5fa;
-}
-.h-title {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.h-time {
-  font-size: 0.7rem;
-  opacity: 0.8;
-  margin-top: 2px;
-}
-
-/* Right Col Features */
-.quick-actions-card {
-  background: #475569;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-}
-
-.action-block {
-  width: 100%;
-  padding: 1rem;
-  border-radius: 999px;
-  border: none;
-  font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: transform 0.1s, opacity 0.2s;
-}
-.action-block:active { transform: scale(0.98); }
-.action-block:hover { opacity: 0.9; }
-
-.primary-action {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-.secondary-action {
-  background: #e0f2fe;
-  color: #0f172a;
-  margin-bottom: 0;
-}
-
-.sidebar-link {
-  color: #475569;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.95rem;
-  border-bottom: 1px solid transparent;
-  transition: all 0.2s;
-}
-.sidebar-link:hover {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
 </style>

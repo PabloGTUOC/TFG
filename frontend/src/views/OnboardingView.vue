@@ -33,6 +33,30 @@ watchEffect(() => {
 });
 
 const joinForm = ref({ identifier: '', alias: '' });
+const searchResults = ref([]);
+let searchTimeout;
+
+const handleSearch = (e) => {
+  const query = e.target.value;
+  joinForm.value.identifier = query;
+  clearTimeout(searchTimeout);
+  if (query.trim().length < 2) {
+    searchResults.value = [];
+    return;
+  }
+  searchTimeout = setTimeout(async () => {
+    try {
+      searchResults.value = await appStore.request(`/api/families/search?query=${encodeURIComponent(query)}`, { headers: appStore.authHeaders() });
+    } catch {
+      searchResults.value = [];
+    }
+  }, 300);
+};
+
+const selectFamily = (match) => {
+  joinForm.value.identifier = String(match.name);
+  searchResults.value = [];
+};
 
 const addCaretaker = () => {
   createForm.value.caretakers.push({ name: '', email: '' });
@@ -187,8 +211,19 @@ const joinFamily = () => appStore.runAction(async () => {
     <VCard v-if="mode === 'join'" title="Join an Existing Family" style="max-width: 500px; margin: 0 auto;">
       <VButton type="outline" @click="mode = 'selection'" style="margin-bottom: 2rem;">&larr; Back</VButton>
       <p class="desc">Enter the exact Family Name or Family ID to send a join request, along with the alias you want to go by.</p>
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <VInput v-model="joinForm.identifier" label="Family Identifier" placeholder="e.g. 1 or 'The Smiths'" />
+      <div style="display: flex; flex-direction: column; gap: 1rem; position: relative;">
+        <div style="position: relative;">
+          <!-- Custom Input instead of VInput so we can bind the raw input event cleanly -->
+          <label style="display: block; font-weight: 800; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Family Identifier</label>
+          <input type="text" :value="joinForm.identifier" @input="handleSearch" placeholder="Type Family Name to search..." style="width: 100%; box-sizing: border-box; background: var(--input-bg); border: 2px solid var(--input-border); color: var(--text-primary); padding: 0.75rem 1rem; border-radius: 8px; font-weight: 500; font-size: 1rem; transition: border-color 0.2s;" />
+          
+          <div v-if="searchResults.length > 0" class="search-dropdown">
+            <div v-for="res in searchResults" :key="'s'+res.id" class="search-item" @click="selectFamily(res)">
+               <span style="font-weight: 800; color: #1e293b;">{{ res.name }}</span>
+               <span style="font-size: 0.8rem; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">ID: {{ res.id }}</span>
+            </div>
+          </div>
+        </div>
         <VInput v-model="joinForm.alias" label="Your Alias (Role)" placeholder="e.g. Dada, Uncle Joe" />
       </div>
       <VButton type="primary" block @click="joinFamily" style="margin-top: 1.5rem;">Send Join Request</VButton>
@@ -262,5 +297,32 @@ hr {
   border-radius: 8px;
   text-align: center;
   margin-bottom: 2rem;
+}
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 4px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  z-index: 50;
+  overflow: hidden;
+}
+.search-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+.search-item:last-child {
+  border-bottom: none;
+}
+.search-item:hover {
+  background: #f1f5f9;
 }
 </style>
