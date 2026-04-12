@@ -335,19 +335,23 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
 
       await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [inst.id]);
 
-      await client.query(
-        `UPDATE family_members SET coin_balance = coin_balance + $1
-         WHERE family_id = $2 AND user_id = $3`,
-        [inst.coin_value, inst.family_id, inst.assigned_to]
-      );
+      const bountyAmt = inst.bounty_amount || 0;
+      const totalAward = (inst.coin_value || 0) + bountyAmt;
 
-      await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
-         VALUES ($1, $2, $3, $4, 'activity_completed')`,
-        [inst.family_id, inst.assigned_to, inst.id, inst.coin_value]
-      );
+      if (totalAward > 0) {
+        await client.query(
+          `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+          [totalAward, inst.family_id, inst.assigned_to]
+        );
+        if (inst.coin_value > 0) {
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1, $2, $3, $4, 'activity_completed')`, [inst.family_id, inst.assigned_to, inst.id, inst.coin_value]);
+        }
+        if (bountyAmt > 0) {
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1, $2, $3, $4, 'bounty_earned')`, [inst.family_id, inst.assigned_to, inst.id, bountyAmt]);
+        }
+      }
 
-      return { data: { completed: true, coinsAwarded: inst.coin_value } };
+      return { data: { completed: true, coinsAwarded: totalAward } };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
@@ -370,7 +374,7 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows: actRows } = await client.query(
-        `SELECT id, family_id, assigned_to, status, coin_value FROM activities WHERE id = $1 FOR UPDATE`,
+        `SELECT id, family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1 FOR UPDATE`,
         [activityId]
       );
       if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
@@ -389,19 +393,31 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
       // Make it completed
       await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [act.id]);
 
-      // Award the coins to the assignee!
-      await client.query(
-        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
-        [act.coin_value, act.family_id, act.assigned_to]
-      );
+      const bountyAmt = act.bounty_amount || 0;
+      const totalAward = (act.coin_value || 0) + bountyAmt;
 
-      // Ledger entry
-      await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
-        [act.family_id, act.assigned_to, act.id, act.coin_value]
-      );
+      if (totalAward > 0) {
+        // Award the coins to the assignee!
+        await client.query(
+          `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+          [totalAward, act.family_id, act.assigned_to]
+        );
 
-      return { data: { success: true, coinsAwarded: act.coin_value } };
+        if (act.coin_value > 0) {
+          await client.query(
+            `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
+            [act.family_id, act.assigned_to, act.id, act.coin_value]
+          );
+        }
+        if (bountyAmt > 0) {
+          await client.query(
+            `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_earned')`,
+            [act.family_id, act.assigned_to, act.id, bountyAmt]
+          );
+        }
+      }
+
+      return { data: { success: true, coinsAwarded: totalAward } };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
@@ -444,6 +460,15 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
       }
 
       await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
+        [bountyAmount, act.family_id, me.id]
+      );
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_escrow')`,
+        [act.family_id, me.id, activityId, -bountyAmount]
+      );
+
+      await client.query(
         `UPDATE activities SET bounty_amount = $1, bounty_offered_by = $2 WHERE id = $3`,
         [bountyAmount, me.id, activityId]
       );
@@ -483,30 +508,11 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
       const offererId = act.bounty_offered_by;
       const amount = act.bounty_amount;
 
-      // Ensure offerer still has the funds
-      const { rows: memRows } = await client.query(
-        `SELECT coin_balance FROM family_members WHERE family_id = $1 AND user_id = $2 FOR UPDATE`,
-        [act.family_id, offererId]
-      );
-      if (!memRows.length || memRows[0].coin_balance < amount) {
-        // Clear the invalid bounty gracefully
-        await client.query(`UPDATE activities SET bounty_amount = 0, bounty_offered_by = NULL WHERE id = $1`, [activityId]);
-        return { error: { code: 409, message: 'The person offering the bounty no longer has enough coins. Bounty withdrawn.' } };
-      }
-
-      // Execute Trade: Charge Offerer, Pay Accepter
-      await client.query('UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3', [amount, act.family_id, offererId]);
-      await client.query('UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3', [amount, act.family_id, me.id]);
-
-      // Transfer ownership of shift and clear bounty metadata
+      // Transfer ownership of shift natively, leave escrowed coins on the activity 
       await client.query(
-        `UPDATE activities SET assigned_to = $1, bounty_amount = 0, bounty_offered_by = NULL WHERE id = $2`,
+        `UPDATE activities SET assigned_to = $1 WHERE id = $2`,
         [me.id, activityId]
       );
-
-      // Log trade on ledger
-      await client.query(`INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,'bounty_paid')`, [act.family_id, offererId, -amount]);
-      await client.query(`INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,'bounty_earned')`, [act.family_id, me.id, amount]);
 
       return { data: { success: true } };
     });
@@ -548,6 +554,18 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       // We don't owe them coins, because we only charged the bounty on ACCEPTANCE.
 
       if (isSeries) {
+        const { rows: refundRows } = await client.query(`
+           SELECT bounty_amount, bounty_offered_by FROM activities
+           WHERE family_id = $1 AND title = $2 AND category = $3 AND assigned_to = $4
+             AND is_template = false AND is_recurrent = true AND starts_at >= $5
+             AND status IN ('approved', 'pending_validation') AND bounty_amount > 0 AND bounty_offered_by IS NOT NULL
+         `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+
+        for (const refund of refundRows) {
+          await client.query(`UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`, [refund.bounty_amount, act.family_id, refund.bounty_offered_by]);
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,'bounty_refunded')`, [act.family_id, refund.bounty_offered_by, refund.bounty_amount]);
+        }
+
         await client.query(`
            DELETE FROM activities
            WHERE family_id = $1
@@ -560,6 +578,10 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
              AND status IN ('approved', 'pending_validation')
          `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
       } else {
+        if (act.bounty_amount > 0 && act.bounty_offered_by) {
+          await client.query(`UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`, [act.bounty_amount, act.family_id, act.bounty_offered_by]);
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_refunded')`, [act.family_id, act.bounty_offered_by, activityId, act.bounty_amount]);
+        }
         await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
       }
       return { data: { success: true } };
@@ -585,7 +607,7 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows } = await client.query(
-        `SELECT family_id, assigned_to, status, coin_value FROM activities WHERE id = $1 FOR UPDATE`,
+        `SELECT family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1 FOR UPDATE`,
         [activityId]
       );
       if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
@@ -594,22 +616,28 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
       if (act.assigned_to !== me.id) return { error: { code: 403, message: "Cannot revert someone else's completion." } };
       if (act.status !== 'completed') return { error: { code: 409, message: 'Activity is not completed.' } };
 
+      const bountyAmt = act.bounty_amount || 0;
+      const totalAward = (act.coin_value || 0) + bountyAmt;
+
       // Deduct the coins!
-      await client.query(
-        `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
-        [act.coin_value, act.family_id, me.id]
-      );
+      if (totalAward > 0) {
+        await client.query(
+          `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
+          [totalAward, act.family_id, me.id]
+        );
+
+        if (act.coin_value > 0) {
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_reverted')`, [act.family_id, me.id, activityId, -act.coin_value]);
+        }
+        if (bountyAmt > 0) {
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_reverted')`, [act.family_id, me.id, activityId, -bountyAmt]);
+        }
+      }
 
       // Revert status to rejected
       await client.query(`UPDATE activities SET status = 'rejected' WHERE id = $1`, [activityId]);
 
-      // Log the penalty to ledger
-      await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_reverted')`,
-        [act.family_id, me.id, activityId, -act.coin_value]
-      );
-
-      return { data: { success: true, coinsDeducted: act.coin_value } };
+      return { data: { success: true, coinsDeducted: totalAward } };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });

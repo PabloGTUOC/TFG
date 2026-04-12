@@ -35,5 +35,8 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    host: true   // binds to 0.0.0.0 — accessible on your home network
+  }
 });

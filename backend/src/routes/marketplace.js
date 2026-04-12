@@ -31,7 +31,7 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
       );
 
       const { rows: claimed } = await client.query(
-        `SELECT rr.id as redemption_id, mr.title, rr.redeemed_at, 
+        `SELECT rr.id as redemption_id, mr.title, mr.cost, rr.redeemed_at, 
                 COALESCE(fm.alias, u.display_name, u.email) as buyer_name, u.avatar_url as buyer_avatar
          FROM reward_redemptions rr
          JOIN marketplace_rewards mr ON mr.id = rr.reward_id

@@ -149,15 +149,16 @@ const completedToday = computed(() => {
   });
 });
 
-const todayCoins = computed(() => completedToday.value.reduce((sum, a) => sum + (a.coin_value || 0), 0));
+const todayCoins = computed(() => {
+   return dashboard.value.members.reduce((acc, current) => acc + (current.coin_balance || 0), 0);
+});
 
 const todayPendingTasks = computed(() => {
-  return familyActivities.value.filter(a => {
-    if (a.is_template || !a.starts_at || a.status === 'completed') return false;
-    const d = new Date(a.starts_at);
-    const today = new Date();
-    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-  }).length;
+   return (familyActivities.value || []).filter(a => a.status === 'pending_validation' || a.status === 'pending').length;
+});
+
+const availableOffers = computed(() => {
+   return (familyActivities.value || []).filter(a => a.bounty_amount && a.bounty_amount > 0 && a.status !== 'completed');
 });
 
 const recentActivitiesList = computed(() => {
@@ -218,6 +219,20 @@ const getActorRemainingGdp = (actor) => {
    const usedShare = globalUsedThisMonth.value * (max / total);
    return Math.max(0, Math.floor(max - usedShare));
 };
+
+const gradients = [
+  'linear-gradient(to right, #3b82f6, #2563eb)', // Blue
+  'linear-gradient(to right, #10b981, #059669)', // Green
+  'linear-gradient(to right, #eab308, #ca8a04)', // Yellow
+  'linear-gradient(to right, #ef4444, #dc2626)'  // Red
+];
+
+const getAssigneeGradient = (assigned_to) => {
+  if (!assigned_to) return 'linear-gradient(to right, #94a3b8, #64748b)'; // Fallback gray
+  const index = activeMembers.value.findIndex(m => m.user_id === assigned_to);
+  if (index === -1) return 'linear-gradient(to right, #94a3b8, #64748b)';
+  return gradients[index % gradients.length];
+};
 </script>
 
 <template>
@@ -226,7 +241,7 @@ const getActorRemainingGdp = (actor) => {
     <div style="margin-bottom: 3rem;">
        <h1 style="color: #1e1b4b; font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
        <p style="color: #64748b; font-size: 1.1rem; max-width: 600px; margin: 0; line-height: 1.5;">
-         {{ timeGreeting }}! Your family has earned <strong>{{ todayCoins || 0 }} coins</strong> today. <strong>{{ todayPendingTasks }} major tasks</strong> are still waiting for attention.
+         {{ timeGreeting }}, {{ familyStore.families?.[0]?.alias || familyStore.profile?.display_name || 'Caregiver' }}! Your family has earned <strong>{{ todayCoins || 0 }} coins</strong> today. <strong>{{ todayPendingTasks }} major tasks</strong> are still waiting for attention.
        </p>
     </div>
 
@@ -286,6 +301,33 @@ const getActorRemainingGdp = (actor) => {
                 </button>
              </div>
            </div>
+
+          <!-- Available Offers -->
+          <div v-if="availableOffers.length > 0" style="margin-bottom: 3rem;">
+             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
+               <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">Task Offers & Bribes</h2>
+               <div style="background: rgba(255,215,0,0.15); color: #b45309; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 900;">{{ availableOffers.length }} ACTIVE</div>
+             </div>
+             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
+               <div v-for="offer in availableOffers" :key="'offer-'+offer.id" 
+                    style="background: white; border: 1px solid var(--card-border); border-radius: 20px; padding: 1.2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 0.8rem; cursor: pointer; transition: all 0.2s;"
+                    @click="navigateToDaily(offer.starts_at.split('T')[0])"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 15px rgba(0,0,0,0.05)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)';">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f8fafc; border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
+                    <div style="background: rgba(255,215,0,0.9); color: #854d0e; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
+                  </div>
+                  <div style="margin-top: 0.2rem;">
+                    <div style="font-weight: 800; font-size: 1.05rem; color: #1e293b; line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>
+                    <div style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                      <span class="material-symbols-rounded" style="font-size: 0.9rem;">calendar_today</span>
+                      {{ new Date(offer.starts_at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) }} • {{ new Date(offer.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                    </div>
+                  </div>
+               </div>
+             </div>
+          </div>
 
           <!-- Giant Stats Bar -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
@@ -366,10 +408,13 @@ const getActorRemainingGdp = (actor) => {
             </div>
 
             <div style="flex: 1; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
-              <div v-for="a in dayObj.acts" :key="a.id" style="border-radius: 9999px; padding: 0.5rem 0.8rem; font-size: 0.8rem; color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.3rem;" :class="[a.category === 'care' ? 'gradient-pink' : 'gradient-orange']">
-                <div style="display:flex; align-items: center; gap: 0.3rem;">
-                  <span style="font-size: 0.95rem;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
-                  <div style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.title }}</div>
+              <div v-for="a in dayObj.acts" :key="a.id" style="border-radius: 12px; padding: 0.5rem 0.8rem; font-size: 0.8rem; color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.3rem; cursor: pointer;" :style="{ background: getAssigneeGradient(a.assigned_to) }" @click.stop="navigateToDaily(dayObj.dateStr)">
+                <div style="display:flex; align-items: center; justify-content: space-between; gap: 0.2rem;">
+                  <div style="display:flex; align-items: center; gap: 0.3rem; flex: 1; min-width: 0;">
+                    <span style="font-size: 0.95rem; flex-shrink: 0;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
+                    <div style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.title }}</div>
+                  </div>
+                  <span v-if="a.bounty_amount" style="background: rgba(255,215,0,0.95); color: #854d0e; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.65rem; font-weight: 800; line-height: 1; flex-shrink: 0; white-space: nowrap;">+{{a.bounty_amount}}cc</span>
                 </div>
                 <div style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px; display: inline-block; font-size: 0.75rem; font-weight: 700; align-self: flex-start;">
                   {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}

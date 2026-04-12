@@ -170,7 +170,7 @@ meRouter.patch('/profile', validateBody({
          SET display_name = COALESCE($1, display_name),
              email = COALESCE($2, email)
          WHERE id = $3
-         RETURNING id, firebase_uid, email, display_name`,
+         RETURNING id, firebase_uid, email, display_name, avatar_url`,
         [displayName || null, email || null, me.id]
       );
 

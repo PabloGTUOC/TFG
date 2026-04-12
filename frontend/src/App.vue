@@ -53,9 +53,9 @@ const handleLogout = async () => {
         
         <div style="display:flex; align-items:center; gap: 1rem;">
           <!-- Coin Counter -->
-          <div v-if="families && families.length > 0" style="background: var(--success); color: white; padding: 0.4rem 0.8rem; border-radius: var(--radius-button); font-weight: 800; display:flex; align-items:center; gap:0.4rem; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);">
-            <span class="material-symbols-rounded" style="font-size:1.2rem;">toll</span>
-            {{ families[0].coin_balance }} cc
+          <div v-if="families && families.length > 0" style="background: var(--success); color: white; padding: 0.4rem 0.8rem; border-radius: 999px; font-weight: 800; display:flex; align-items:center; gap:0.5rem; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);">
+            <span style="background: rgba(255,255,255,0.25); padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.9rem;">{{ families[0].alias || familyStore.profile?.display_name || 'Caregiver' }}</span>
+            <span>{{ families[0].coin_balance }} cc</span>
           </div>
 
           <div class="pill-profile" ref="profileMenuRef">

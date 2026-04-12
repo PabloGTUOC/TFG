@@ -233,7 +233,9 @@ familiesRouter.post('/join-request', validateBody({
       await client.query(
         `INSERT INTO family_members (family_id, user_id, role, status, alias)
          VALUES ($1, $2, 'member', $3, $4)
-         ON CONFLICT (family_id, user_id) DO UPDATE SET alias = EXCLUDED.alias, status = EXCLUDED.status`,
+         ON CONFLICT (family_id, user_id) DO UPDATE 
+         SET alias = EXCLUDED.alias, 
+             status = CASE WHEN EXCLUDED.status = 'active' THEN 'active' ELSE family_members.status END`,
         [familyId, user.id, newStatus, alias ? alias.trim() : null]
       );
 
@@ -380,5 +382,105 @@ familiesRouter.post('/:familyId/actors/:actorId/avatar',
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to upload actor avatar.' });
+    }
+  });
+
+// ─────────────────────────────────────────────
+// GET /api/families/:familyId/invitations
+// Returns all pending invitations for the family (any member)
+// ─────────────────────────────────────────────
+familiesRouter.get('/:familyId/invitations', validateParams('familyId'), async (req, res) => {
+  const familyId = Number(req.params.familyId);
+  try {
+    const rows = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      const { rowCount } = await client.query(
+        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
+        [familyId, user.id]
+      );
+      if (!rowCount) return null;
+      const { rows } = await client.query(
+        `SELECT id, email, name, status, created_at
+         FROM family_invitations
+         WHERE family_id = $1 AND status = 'pending'
+         ORDER BY created_at DESC`,
+        [familyId]
+      );
+      return rows;
+    });
+    if (rows === null) return res.status(403).json({ error: 'Not a family member.' });
+    return res.json({ invitations: rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch invitations.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// GET /api/families/:familyId/members
+// Returns all active human members for the family (with avatars)
+// ─────────────────────────────────────────────
+familiesRouter.get('/:familyId/members', validateParams('familyId'), async (req, res) => {
+  const familyId = Number(req.params.familyId);
+  try {
+    const rows = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      const { rowCount } = await client.query(
+        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
+        [familyId, user.id]
+      );
+      if (!rowCount) return null;
+      const { rows } = await client.query(
+        `SELECT fm.user_id as id, COALESCE(fm.alias, u.display_name, u.email) as name, fm.role, fm.status, u.avatar_url
+         FROM family_members fm
+         JOIN users u ON u.id = fm.user_id
+         WHERE fm.family_id = $1 AND fm.status = 'active'
+         ORDER BY u.created_at ASC`,
+        [familyId]
+      );
+      return rows;
+    });
+    if (rows === null) return res.status(403).json({ error: 'Not a family member.' });
+    return res.json({ members: rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch members.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/families/:familyId/invitations
+// Creates an invitation by email (main_caregiver only)
+// ─────────────────────────────────────────────
+familiesRouter.post('/:familyId/invitations',
+  validateParams('familyId'),
+  validateBody({ email: [required(), string(1, 255)] }),
+  requireRole('main_caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    const { email, name } = req.body;
+
+    // Basic email format check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email address.' });
+    }
+
+    try {
+      const invitation = await withTransaction(async (client) => {
+        const user = await upsertUserFromAuth(client, req.auth);
+        const { rows } = await client.query(
+          `INSERT INTO family_invitations (family_id, email, name, invited_by)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (family_id, email) DO UPDATE
+             SET status = 'pending', name = EXCLUDED.name, invited_by = EXCLUDED.invited_by
+           RETURNING id, email, name, status, created_at`,
+          [familyId, email.toLowerCase().trim(), name?.trim() || null, user.id]
+        );
+        return rows[0];
+      });
+      return res.status(201).json({ invitation });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to create invitation.' });
     }
   });
