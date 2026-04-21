@@ -1,3 +1,11 @@
+export async function assertActiveMember(client, familyId, userId) {
+  const { rowCount } = await client.query(
+    `SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
+    [familyId, userId]
+  );
+  return rowCount > 0;
+}
+
 export async function upsertUserFromAuth(client, auth) {
   const { rows } = await client.query(
     `INSERT INTO users (firebase_uid, email, display_name)

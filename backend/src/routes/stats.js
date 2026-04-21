@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 
 export const statsRouter = Router();
 
@@ -12,11 +12,7 @@ statsRouter.get('/:familyId', async (req, res) => {
         const data = await withTransaction(async (client) => {
             const user = await upsertUserFromAuth(client, req.auth);
 
-            const membership = await client.query(
-                'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-                [familyId, user.id]
-            );
-            if (!membership.rowCount) return null;
+            if (!await assertActiveMember(client, familyId, user.id)) return null;
 
             // 1. Overall Lifetime Coins
             const { rows: kpis } = await client.query(

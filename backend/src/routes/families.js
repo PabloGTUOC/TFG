@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, validateParams, required, string } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 import multer from 'multer';
@@ -51,11 +51,7 @@ familiesRouter.get('/:familyId/budget', async (req, res) => {
     const data = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
 
-      const membership = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!membership.rowCount) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
 
       const { rows } = await client.query(`
         SELECT 
@@ -186,11 +182,13 @@ familiesRouter.get('/search', async (req, res) => {
   const { query } = req.query;
   if (!query || query.length < 2) return res.json([]);
   try {
-    const { rows } = await withTransaction(async (client) => {
-      return client.query(
+    const rows = await withTransaction(async (client) => {
+      await upsertUserFromAuth(client, req.auth);
+      const { rows } = await client.query(
         `SELECT id, name FROM families WHERE id::text = $1 OR name ILIKE $2 LIMIT 5`,
         [query, `%${query}%`]
       );
+      return rows;
     });
     res.json(rows);
   } catch (err) {
@@ -394,11 +392,7 @@ familiesRouter.get('/:familyId/invitations', validateParams('familyId'), async (
   try {
     const rows = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      const { rowCount } = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!rowCount) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
       const { rows } = await client.query(
         `SELECT id, email, name, status, created_at
          FROM family_invitations
@@ -425,11 +419,7 @@ familiesRouter.get('/:familyId/members', validateParams('familyId'), async (req,
   try {
     const rows = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      const { rowCount } = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!rowCount) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
       const { rows } = await client.query(
         `SELECT fm.user_id as id, COALESCE(fm.alias, u.display_name, u.email) as name, fm.role, fm.status, u.avatar_url
          FROM family_members fm

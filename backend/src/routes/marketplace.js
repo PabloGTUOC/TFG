@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, required, string, positiveInt, isoDate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 
@@ -14,8 +14,7 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
   try {
     const data = await withTransaction(async (client) => {
       const me = await upsertUserFromAuth(client, req.auth);
-      const member = await client.query('SELECT 1 FROM family_members WHERE family_id=$1 AND user_id=$2', [familyId, me.id]);
-      if (!member.rowCount) return null;
+      if (!await assertActiveMember(client, familyId, me.id)) return null;
 
       const { rows } = await client.query(
         `SELECT id, family_id, creator_id, title, description, cost, status, created_at,
@@ -125,7 +124,7 @@ marketplaceRouter.post('/rewards/:rewardId/redeem', async (req, res) => {
       }
 
       const { rows: buyerRows } = await client.query(
-        `SELECT coin_balance FROM family_members WHERE family_id=$1 AND user_id=$2 FOR UPDATE`,
+        `SELECT coin_balance FROM family_members WHERE family_id=$1 AND user_id=$2 AND status='active' FOR UPDATE`,
         [reward.family_id, me.id]
       );
       if (!buyerRows.length) return { error: { code: 403, message: 'Not a family member.' } };

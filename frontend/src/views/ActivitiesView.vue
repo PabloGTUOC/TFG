@@ -151,7 +151,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
           <VSelect v-model="createActivityForm.category" :options="categoryOptions" label="Category" />
           <VSelect v-model="createActivityForm.durationMinutes" :options="durationOptions" label="Duration" />
           
-          <label style="display: flex; align-items: center; gap: 0.5rem; color: #e2e8f0; font-size: 0.9rem; cursor: pointer;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; cursor: pointer;">
             <input type="checkbox" v-model="createActivityForm.isRecurrent" style="width: 1rem; height: 1rem; cursor: pointer;" />
             <span>🔁 This is a recurring activity</span>
           </label>
@@ -376,7 +376,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -10%);
+  transform: translate(-50%, 15%);
   width: 100%;
 }
 </style>

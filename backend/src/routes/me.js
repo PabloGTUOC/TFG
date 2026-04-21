@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, string, email } from '../middleware/validate.js';
 import multer from 'multer';
 import path from 'node:path';
@@ -175,8 +175,7 @@ meRouter.patch('/profile', validateBody({
       );
 
       if (familyId && alias !== undefined) {
-        const { rowCount } = await client.query('SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2', [familyId, me.id]);
-        if (rowCount > 0) {
+        if (await assertActiveMember(client, familyId, me.id)) {
           await client.query('UPDATE family_members SET alias = $1 WHERE family_id = $2 AND user_id = $3', [alias.trim() || null, familyId, me.id]);
         }
       }
@@ -220,11 +219,7 @@ meRouter.get('/ledger', async (req, res) => {
     const data = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
 
-      const { rows: membership } = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!membership.length) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
 
       const startOfMonth = new Date(`${monthStr}-01T00:00:00Z`);
       if (isNaN(startOfMonth.getTime())) throw new Error("Invalid month format");

@@ -19,7 +19,7 @@
  */
 
 import { pool } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 
 const ROLE_LEVELS = { main_caregiver: 3, caregiver: 2, member: 1 };
 
@@ -37,7 +37,7 @@ export function requireRole(role, getFamilyId) {
     try {
       const user = await upsertUserFromAuth(client, req.auth);
       const { rows } = await client.query(
-        `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2`,
+        `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
         [familyId, user.id]
       );
 
@@ -61,7 +61,7 @@ export function requireRole(role, getFamilyId) {
 
 export async function assertMemberRole(client, userId, familyId, role) {
   const { rows } = await client.query(
-    `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2`,
+    `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
     [familyId, userId]
   );
 

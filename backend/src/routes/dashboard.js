@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { runAutoCompleteSweep } from '../db/autoComplete.js';
 
 export const dashboardRouter = Router();
@@ -12,11 +12,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
   try {
     const data = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      const membership = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!membership.rowCount) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
 
       const familyRows = await client.query(
         'SELECT last_coin_distribution_month FROM families WHERE id = $1 FOR UPDATE',

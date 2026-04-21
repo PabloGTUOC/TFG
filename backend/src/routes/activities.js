@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth } from '../db/users.js';
+import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { runAutoCompleteSweep } from '../db/autoComplete.js';
 import { validateBody, validateParams, required, string, positiveInt, isoDate, oneOf } from '../middleware/validate.js';
 import { assertMemberRole } from '../middleware/rbac.js';
@@ -18,11 +18,7 @@ activitiesRouter.get('/', async (req, res) => {
   try {
     const activities = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      const membership = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, user.id]
-      );
-      if (!membership.rowCount) return null;
+      if (!await assertActiveMember(client, familyId, user.id)) return null;
 
       await runAutoCompleteSweep(client, familyId);
 
@@ -69,11 +65,7 @@ activitiesRouter.post('/', validateBody({
   try {
     const result = await withTransaction(async (client) => {
       const creator = await upsertUserFromAuth(client, req.auth);
-      const membership = await client.query(
-        'SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2',
-        [familyId, creator.id]
-      );
-      if (!membership.rowCount) return { error: { code: 403, message: 'Not a family member.' } };
+      if (!await assertActiveMember(client, familyId, creator.id)) return { error: { code: 403, message: 'Not a family member.' } };
 
       const { rows } = await client.query(
         `INSERT INTO activities
@@ -112,8 +104,10 @@ activitiesRouter.post('/:activityId/approve', validateParams('activityId'), asyn
       const approver = await upsertUserFromAuth(client, req.auth);
 
       const { rows: tmplRows } = await client.query(
-        `SELECT * FROM activities WHERE id = $1 AND is_template = true FOR UPDATE`,
-        [activityId]
+        `SELECT * FROM activities WHERE id = $1 AND is_template = true
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, approver.id]
       );
       if (!tmplRows.length) return { error: { code: 404, message: 'Template not found.' } };
 
@@ -248,8 +242,9 @@ activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), v
       const user = await upsertUserFromAuth(client, req.auth);
 
       const { rows: actRows } = await client.query(
-        `SELECT * FROM activities WHERE id = $1 AND is_template = false AND is_recurrent = true`,
-        [instanceId]
+        `SELECT * FROM activities WHERE id = $1 AND is_template = false AND is_recurrent = true
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')`,
+        [instanceId, user.id]
       );
       if (!actRows.length) return { error: { code: 404, message: 'Valid recurrent scheduled instance not found.' } };
 
@@ -374,21 +369,16 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows: actRows } = await client.query(
-        `SELECT id, family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1 FOR UPDATE`,
-        [activityId]
+        `SELECT id, family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, me.id]
       );
       if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
 
       const act = actRows[0];
       if (act.status !== 'pending_validation') return { error: { code: 409, message: 'Activity is not pending validation.' } };
       if (act.assigned_to === me.id) return { error: { code: 403, message: 'You cannot validate your own retroactive activity.' } };
-
-      // Ensure the validating user is actually in the family
-      const { rows: memRows } = await client.query(
-        `SELECT 1 FROM family_members WHERE family_id = $1 AND user_id = $2`,
-        [act.family_id, me.id]
-      );
-      if (!memRows.length) return { error: { code: 403, message: 'Not a family member.' } };
 
       // Make it completed
       await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [act.id]);
@@ -442,8 +432,10 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows: actRows } = await client.query(
-        `SELECT family_id, assigned_to, starts_at FROM activities WHERE id = $1 FOR UPDATE`,
-        [activityId]
+        `SELECT family_id, assigned_to, starts_at FROM activities WHERE id = $1
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, me.id]
       );
       if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = actRows[0];
@@ -452,7 +444,7 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
 
       // Check if they have enough money to offer this bounty realistically
       const { rows: memRows } = await client.query(
-        `SELECT coin_balance FROM family_members WHERE family_id = $1 AND user_id = $2`,
+        `SELECT coin_balance FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
         [act.family_id, me.id]
       );
       if (!memRows.length || memRows[0].coin_balance < bountyAmount) {
@@ -495,8 +487,10 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows: actRows } = await client.query(
-        `SELECT family_id, assigned_to, bounty_amount, bounty_offered_by, status FROM activities WHERE id = $1 FOR UPDATE`,
-        [activityId]
+        `SELECT family_id, assigned_to, bounty_amount, bounty_offered_by, status FROM activities WHERE id = $1
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, me.id]
       );
       if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = actRows[0];
@@ -505,10 +499,7 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
       if (act.assigned_to === me.id) return { error: { code: 409, message: 'You already own this shift.' } };
       if (!act.bounty_amount || !act.bounty_offered_by) return { error: { code: 409, message: 'No bounty available.' } };
 
-      const offererId = act.bounty_offered_by;
-      const amount = act.bounty_amount;
-
-      // Transfer ownership of shift natively, leave escrowed coins on the activity 
+      // Transfer ownership of shift natively, leave escrowed coins on the activity
       await client.query(
         `UPDATE activities SET assigned_to = $1 WHERE id = $2`,
         [me.id, activityId]
@@ -539,9 +530,11 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows } = await client.query(
-        `SELECT family_id, assigned_to, status, starts_at, bounty_amount, bounty_offered_by, title, category 
-         FROM activities WHERE id = $1 FOR UPDATE`,
-        [activityId]
+        `SELECT family_id, assigned_to, status, starts_at, bounty_amount, bounty_offered_by, title, category
+         FROM activities WHERE id = $1
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, me.id]
       );
       if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = rows[0];
@@ -549,9 +542,7 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       if (act.assigned_to !== me.id) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
       if (act.status !== 'approved' && act.status !== 'pending_validation') return { error: { code: 409, message: 'Can only un-schedule upcoming or pending validation activities.' } };
 
-      // Revert bounty if the person offered one recently and then panicked and dragged it off the calendar
-      // Wait, bounty_amount is in Escrow. If they dragged it off, the bounty wasn't taken.
-      // We don't owe them coins, because we only charged the bounty on ACCEPTANCE.
+      // Revert bounty if the person offered one — coins were charged at offer time, so refund them now.
 
       if (isSeries) {
         const { rows: refundRows } = await client.query(`
@@ -607,8 +598,10 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows } = await client.query(
-        `SELECT family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1 FOR UPDATE`,
-        [activityId]
+        `SELECT family_id, assigned_to, status, coin_value, bounty_amount, bounty_offered_by FROM activities WHERE id = $1
+         AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+         FOR UPDATE`,
+        [activityId, me.id]
       );
       if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = rows[0];
@@ -631,6 +624,12 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
         }
         if (bountyAmt > 0) {
           await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_reverted')`, [act.family_id, me.id, activityId, -bountyAmt]);
+          // Return escrowed coins to the original offerer
+          await client.query(
+            `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+            [bountyAmt, act.family_id, act.bounty_offered_by]
+          );
+          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_refunded')`, [act.family_id, act.bounty_offered_by, activityId, bountyAmt]);
         }
       }
 
