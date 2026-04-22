@@ -169,6 +169,24 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
       const isPast = endsAtDate < new Date();
       const initialStatus = isPast ? 'pending_validation' : 'approved';
 
+      // Check if user has an absence overlapping with the new activity
+      const { rows: absenceOverlap } = await client.query(
+        `SELECT id, title FROM absences
+         WHERE user_id = $1
+         AND family_id = $2
+         AND (start_time < $4 AND end_time > $3)`,
+        [user.id, t.family_id, start.toISOString(), endsAtDate.toISOString()]
+      );
+
+      if (absenceOverlap.length > 0) {
+        return {
+          error: {
+            code: 400,
+            message: `You are marked as absent during this time ("${absenceOverlap[0].title}").`
+          }
+        };
+      }
+
       // Insert a new instance row (is_template = false)
       const { rows } = await client.query(
         `INSERT INTO activities
@@ -273,7 +291,17 @@ activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), v
       let count = 0;
       for (const d of clones) {
         const startIso = d.toISOString();
-        const initialStatus = 'approved'; // Assuming future scheduling makes them approved
+        const endIso = new Date(d.getTime() + act.duration_minutes * 60000).toISOString();
+
+        // Check for absence overlap
+        const { rows: absenceOverlap } = await client.query(
+          `SELECT id FROM absences WHERE user_id = $1 AND family_id = $2 AND (start_time < $4 AND end_time > $3)`,
+          [act.assigned_to, act.family_id, startIso, endIso]
+        );
+
+        if (absenceOverlap.length > 0) continue; // Skip days where caregiver is absent
+
+        const initialStatus = 'approved'; 
 
         await client.query(`
           INSERT INTO activities

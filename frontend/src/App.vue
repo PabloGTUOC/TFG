@@ -237,7 +237,7 @@ const handleLogout = async () => {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
-  z-index: 50;
+  z-index: 20000;
 }
 .success-message {
   background-color: #10b981;

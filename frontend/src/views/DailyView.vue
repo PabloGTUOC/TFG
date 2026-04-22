@@ -40,6 +40,87 @@ const recurrenceForm = ref({ activityId: '', title: '', frequency: 'daily', unti
 const showDeleteModal = ref(false);
 const deleteTarget = ref(null);
 
+// --- Absence Management ---
+const absences = ref([]);
+const showAbsenceModal = ref(false);
+const isSubmittingAbsence = ref(false);
+const absenceForm = ref({ title: '', startTime: '', endTime: '' });
+const showAbsenceDetailModal = ref(false);
+const selectedAbsence = ref(null);
+
+const openAbsenceModal = () => {
+  absenceForm.value = { 
+    title: '', 
+    startTime: `${targetDateStr.value}T09:00`, 
+    endTime: `${targetDateStr.value}T17:00` 
+  };
+  showAbsenceModal.value = true;
+};
+
+const confirmAbsence = async () => {
+  if (!absenceForm.value.title || !absenceForm.value.startTime || !absenceForm.value.endTime) {
+    appStore.setError("Please fill in all fields.");
+    return;
+  }
+  
+  isSubmittingAbsence.value = true;
+  await appStore.runAction(async () => {
+    await appStore.request('/api/absences', {
+      method: 'POST',
+      headers: appStore.authHeaders(),
+      body: JSON.stringify({
+        familyId: Number(familyId.value),
+        title: absenceForm.value.title,
+        startTime: new Date(absenceForm.value.startTime).toISOString(),
+        endTime: new Date(absenceForm.value.endTime).toISOString()
+      })
+    });
+    showAbsenceModal.value = false;
+    await loadAbsences();
+  }, "Time off logged successfully!");
+  isSubmittingAbsence.value = false;
+};
+
+const openAbsenceDetail = (absence) => {
+  selectedAbsence.value = absence;
+  showAbsenceDetailModal.value = true;
+};
+
+const removeAbsence = async () => {
+  if (!selectedAbsence.value) return;
+  await appStore.runAction(async () => {
+    await appStore.request(`/api/absences/${selectedAbsence.value.id}`, {
+      method: 'DELETE',
+      headers: appStore.authHeaders()
+    });
+    showAbsenceDetailModal.value = false;
+    selectedAbsence.value = null;
+    await loadAbsences();
+    appStore.setSuccess('Time off record removed.');
+  });
+};
+
+const loadAbsences = () => appStore.runAction(async () => {
+  const fid = familyId.value;
+  if (!fid) return;
+  const data = await appStore.request(`/api/absences?familyId=${fid}`, { headers: appStore.authHeaders() });
+  absences.value = data.absences || [];
+});
+
+const absencesToday = computed(() => {
+  return absences.value.filter(a => {
+    const start = new Date(a.start_time);
+    const end = new Date(a.end_time);
+    const target = targetDate.value;
+    
+    // Check if the absence overlaps with targetDate
+    const dayStart = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, 0, 0);
+    const dayEnd = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59);
+    
+    return start <= dayEnd && end >= dayStart;
+  });
+});
+
 const confirmDeleteSingle = async () => {
   await unSchedule(deleteTarget.value.id, false);
   showDeleteModal.value = false;
@@ -151,9 +232,13 @@ const loadActivities = () => appStore.runAction(async () => {
 onMounted(async () => {
   await loadMembers();
   loadActivities();
+  loadAbsences();
 });
 
-watch(() => targetDateStr.value, () => loadActivities(), { immediate: true });
+watch(() => targetDateStr.value, () => {
+  loadActivities();
+  loadAbsences();
+}, { immediate: true });
 
 // Column 1: Unscheduled Templates
 const availableTemplates = computed(() => {
@@ -304,6 +389,20 @@ const confirmSchedule = async () => {
   const d = new Date(targetDate.value);
   d.setHours(Number(hh), Number(mm), 0, 0);
 
+  // Frontend check for absence overlap (user-specific)
+  const activityEnd = new Date(d.getTime() + 60 * 60000); 
+  const hasOverlap = absencesToday.value.some(a => {
+    const aStart = new Date(a.start_time);
+    const aEnd = new Date(a.end_time);
+    // Only block if the absence belongs to the current user (the one being assigned)
+    return String(a.user_id) === String(familyStore.profile?.id) && aStart < activityEnd && aEnd > d;
+  });
+
+  if (hasOverlap) {
+    appStore.setError("You cannot schedule activities during a logged absence.");
+    return;
+  }
+
   await appStore.runAction(async () => {
     const res = await appStore.request(`/api/activities/${scheduleForm.value.activityId}/schedule`, {
       method: 'POST',
@@ -340,7 +439,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   <div class="daily-fullscreen-overlay" @click.self="closeDailyView">
     <div class="daily-wrapper" @dragover.prevent @drop.prevent="dropOut($event)">
       <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h2 style="margin: 0;">Daily Schedule</h2>
+      <div style="display:flex; align-items: center; gap: 1.5rem;">
+        <h2 style="margin: 0;">Daily Schedule</h2>
+        <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+      </div>
       <div style="text-align: right;">
         <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
         <span style="color: var(--accent-primary); font-weight: 800;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
@@ -383,6 +485,18 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         
         <!-- COL 2: Scheduled Timeline -->
         <VCard :title="scheduledTitle" style="padding: 0; flex: 1; min-height: 600px; display: flex; flex-direction: column;">
+           <!-- All-Day Banner Row for Absences -->
+           <div v-if="absencesToday.length > 0" class="absence-banner-row">
+             <div v-for="a in absencesToday" :key="a.id" 
+                  style="background: white; border: 1px solid #fecaca; border-radius: 12px; padding: 0.6rem 1rem; font-size: 0.8rem; color: #b91c1c; display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
+                  @click="openAbsenceDetail(a)">
+               <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
+                 <span>✈️</span> {{ a.user_alias || a.user_name }}
+               </div>
+               <div style="font-weight: 700; line-height: 1.2;">{{ a.title }}</div>
+             </div>
+           </div>
+
            <div class="timeline-container" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
               <!-- Draw 18 hr lines -->
               <div class="hour-lines" style="position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column;">
@@ -554,6 +668,67 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
+  <!-- Absence Logging Modal -->
+  <div v-if="showAbsenceModal" class="modal-overlay">
+    <VCard title="Log Time Off" style="max-width: 400px; width: 100%;">
+      <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Record when you'll be unavailable. Coins for tasks during this time will be fairly distributed to caregivers who cover for you.
+      </p>
+      
+      <div style="margin-bottom: 1rem;">
+        <label class="modal-label">Title (e.g., Business Trip)</label>
+        <input type="text" v-model="absenceForm.title" class="modal-input" placeholder="Enter reason..." />
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.8rem;">
+        <div>
+          <label class="modal-label">Start Time</label>
+          <input type="datetime-local" v-model="absenceForm.startTime" class="modal-input" />
+        </div>
+        <div>
+          <label class="modal-label">End Time</label>
+          <input type="datetime-local" v-model="absenceForm.endTime" class="modal-input" />
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content: flex-end; gap: 1rem;">
+        <VButton type="secondary" @click="showAbsenceModal = false" :disabled="isSubmittingAbsence">Cancel</VButton>
+        <VButton type="primary" @click="confirmAbsence" :disabled="isSubmittingAbsence">
+          {{ isSubmittingAbsence ? 'Logging...' : 'Log Absence' }}
+        </VButton>
+      </div>
+    </VCard>
+  </div>
+
+  <!-- Absence Detail Modal -->
+  <div v-if="showAbsenceDetailModal" class="modal-overlay">
+    <VCard title="Absence Details" style="max-width: 350px; width: 100%;">
+      <div style="margin-bottom: 1.5rem;">
+        <div style="font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--primary);">
+          {{ selectedAbsence?.title }}
+        </div>
+        <div class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem;">
+          Caregiver: <strong>{{ selectedAbsence?.user_alias || selectedAbsence?.user_name }}</strong>
+        </div>
+        
+        <div style="background: var(--bg-color); padding: 0.8rem; border-radius: 12px; border: 1px solid var(--card-border);">
+          <div class="text-xs" style="text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.4rem;">Timeframe</div>
+          <div style="font-weight: 600; font-size: 0.9rem;">
+            {{ new Date(selectedAbsence?.start_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+            <br/>to<br/>
+            {{ new Date(selectedAbsence?.end_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction: column; gap: 0.8rem;">
+        <VButton v-if="selectedAbsence?.user_id == familyStore.profile?.id || role === 'main_caregiver'" 
+                 type="danger" block @click="removeAbsence">Remove Absence</VButton>
+        <VButton type="secondary" block @click="showAbsenceDetailModal = false">Close</VButton>
+      </div>
+    </VCard>
+  </div>
+
 </template>
 
 <style scoped>
@@ -588,6 +763,66 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   gap: 2rem;
   align-items: stretch;
   min-height: 70vh;
+}
+
+.log-off-btn {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.log-off-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.absence-banner-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.absence-indicator {
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: transform 0.1s;
+}
+.absence-indicator:hover {
+  transform: translateY(-1px);
+  border-color: var(--primary);
+}
+
+.modal-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-button);
+  font-size: 1rem;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
+  outline: none;
 }
 
 .col-card {

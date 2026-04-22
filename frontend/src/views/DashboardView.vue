@@ -19,6 +19,10 @@ const dashboard = ref({ members: [], calendar: [], objectsOfCare: [] });
 const familyActivities = ref([]);
 const claimedRewards = ref([]);
 const currentWeekOffset = ref(0);
+const absences = ref([]);
+const showAbsenceModal = ref(false);
+const absenceForm = ref({ title: '', startTime: '', endTime: '' });
+const isSubmittingAbsence = ref(false);
 
 const isMainCaregiver = computed(() => role.value === 'main_caregiver');
 
@@ -33,7 +37,54 @@ const loadDashboard = () => appStore.runAction(async () => {
     const rewardsData = await appStore.request(`/api/marketplace/rewards/${fid}`, { headers: appStore.authHeaders() });
     claimedRewards.value = rewardsData.claimed || [];
   } catch(e) {}
+  
+  await loadAbsences();
 }, 'Family dashboard loaded.');
+
+const loadAbsences = () => appStore.runAction(async () => {
+  const fid = familyId.value;
+  if (!fid) return;
+  const data = await appStore.request(`/api/absences?familyId=${fid}`, { headers: appStore.authHeaders() });
+  absences.value = data.absences || [];
+});
+
+const openAbsenceModal = () => {
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  absenceForm.value = { 
+    title: '', 
+    startTime: `${dateStr}T09:00`, 
+    endTime: `${dateStr}T17:00` 
+  };
+  showAbsenceModal.value = true;
+};
+
+const confirmAbsence = async () => {
+  if (!absenceForm.value.title || !absenceForm.value.startTime || !absenceForm.value.endTime) {
+    appStore.setError('Please fill in all fields.');
+    return;
+  }
+  
+  isSubmittingAbsence.value = true;
+  await appStore.runAction(async () => {
+    const payload = {
+      familyId: Number(familyId.value),
+      title: absenceForm.value.title,
+      startTime: new Date(absenceForm.value.startTime).toISOString(),
+      endTime: new Date(absenceForm.value.endTime).toISOString()
+    };
+    
+    await appStore.request('/api/absences', {
+      method: 'POST',
+      headers: appStore.authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    
+    showAbsenceModal.value = false;
+    await loadAbsences();
+  }, 'Time off logged successfully!');
+  isSubmittingAbsence.value = false;
+};
 
 watch(familyId, (newFid) => {
   if (newFid) loadDashboard();
@@ -126,7 +177,21 @@ const processedWeekDays = computed(() => {
      return { 
        date, 
        dateStr: `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`,
-       acts 
+       acts,
+       hasAbsence: absences.value.some(a => {
+         const start = new Date(a.start_time);
+         const end = new Date(a.end_time);
+         const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+         const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+         return start <= dayEnd && end >= dayStart;
+       }),
+       dayAbsences: absences.value.filter(a => {
+         const start = new Date(a.start_time);
+         const end = new Date(a.end_time);
+         const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+         const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+         return start <= dayEnd && end >= dayStart;
+       })
      };
   });
 });
@@ -391,6 +456,7 @@ const getAssigneeGradient = (assigned_to) => {
        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
           <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">This Week's Schedule</h2>
           <div style="display: flex; align-items: center; gap: 1rem;">
+             <button @click="openAbsenceModal" class="log-off-btn" style="margin-right: 1.5rem;">+ Log Time Off</button>
              <button @click="currentWeekOffset--" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&laquo;</button>
              <div style="font-weight: 800; font-size:1.1rem; color: var(--text-primary);">{{ weekLabel }}</div>
              <button @click="currentWeekOffset++" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&raquo;</button>
@@ -402,12 +468,22 @@ const getAssigneeGradient = (assigned_to) => {
                class="mockup-day-col"
                @click="navigateToDaily(dayObj.dateStr)">
             
-            <div style="text-align: center; padding: 1.2rem 0; border-bottom: 1px solid var(--card-border);" :style="dayObj.date.toDateString() === new Date().toDateString() ? 'background: #e0f2fe; color: var(--primary);' : 'color: #64748b;'">
+            <div style="text-align: center; padding: 1.2rem 0; border-bottom: 1px solid var(--card-border); position: relative;" 
+                 :style="dayObj.hasAbsence ? 'background: #fef2f2; color: #ef4444;' : (dayObj.date.toDateString() === new Date().toDateString() ? 'background: #e0f2fe; color: var(--primary);' : 'color: #64748b;')">
+              <div v-if="dayObj.hasAbsence" style="position: absolute; top: 5px; right: 5px; font-size: 0.8rem;" title="Absence recorded">✈️</div>
               <div style="font-weight: 800; font-size: 0.85rem; text-transform: uppercase;">{{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
               <div style="font-size: 1.6rem; font-weight: 800; margin-top: 0.2rem;">{{ dayObj.date.getDate() }}</div>
             </div>
 
             <div style="flex: 1; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
+              <!-- Small Absence Indicators in Column -->
+              <div v-for="abs in dayObj.dayAbsences" :key="abs.id" 
+                   style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.5rem 0.7rem; font-size: 0.75rem; color: #b91c1c; display: flex; flex-direction: column; gap: 0.2rem; box-shadow: 0 2px 4px rgba(185, 28, 28, 0.05);">
+                <div style="display: flex; align-items: center; gap: 0.3rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <span>✈️</span> {{ abs.user_alias || abs.user_name }}
+                </div>
+                <div style="font-weight: 700; opacity: 0.9; line-height: 1.2; word-break: break-word;">{{ abs.title }}</div>
+              </div>
               <div v-for="a in dayObj.acts" :key="a.id" style="border-radius: 12px; padding: 0.5rem 0.8rem; font-size: 0.8rem; color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.3rem; cursor: pointer;" :style="{ background: getAssigneeGradient(a.assigned_to) }" @click.stop="navigateToDaily(dayObj.dateStr)">
                 <div style="display:flex; align-items: center; justify-content: space-between; gap: 0.2rem;">
                   <div style="display:flex; align-items: center; gap: 0.3rem; flex: 1; min-width: 0;">
@@ -444,6 +520,38 @@ const getAssigneeGradient = (assigned_to) => {
       </VCard>
     </div>
 
+    <!-- Absence Logging Modal -->
+    <div v-if="showAbsenceModal" class="modal-overlay">
+      <VCard title="Log Time Off" style="max-width: 400px; width: 100%;">
+        <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Record when you'll be unavailable.
+        </p>
+        
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">Title (e.g., Business Trip)</label>
+          <input type="text" v-model="absenceForm.title" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" placeholder="Enter reason..." />
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.8rem;">
+          <div>
+            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">Start Time</label>
+            <input type="datetime-local" v-model="absenceForm.startTime" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" />
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">End Time</label>
+            <input type="datetime-local" v-model="absenceForm.endTime" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" />
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content: flex-end; gap: 1rem;">
+          <VButton type="secondary" @click="showAbsenceModal = false" :disabled="isSubmittingAbsence">Cancel</VButton>
+          <VButton type="primary" @click="confirmAbsence" :disabled="isSubmittingAbsence">
+            {{ isSubmittingAbsence ? 'Logging...' : 'Log Absence' }}
+          </VButton>
+        </div>
+      </VCard>
+    </div>
+
     <!-- Render child modal routes (e.g. Daily Details) -->
     <router-view />
   </div>
@@ -453,6 +561,23 @@ const getAssigneeGradient = (assigned_to) => {
 .dashboard-root {
   max-width: 1300px;
   margin: 0 auto;
+}
+
+.log-off-btn {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.log-off-btn:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-1px);
 }
 
 .mockup-member-card {

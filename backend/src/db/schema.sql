@@ -118,3 +118,16 @@ CREATE TABLE IF NOT EXISTS reward_redemptions (
 CREATE INDEX IF NOT EXISTS idx_activities_assignee_period ON activities (assigned_to, starts_at, ends_at);
 CREATE INDEX IF NOT EXISTS idx_activities_family_status ON activities (family_id, status);
 CREATE INDEX IF NOT EXISTS idx_marketplace_family_status ON marketplace_rewards (family_id, status);
+
+CREATE TABLE IF NOT EXISTS absences (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  title TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_time > start_time)
+);
+
+CREATE INDEX IF NOT EXISTS idx_absences_family_period ON absences (family_id, start_time, end_time);
