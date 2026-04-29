@@ -117,22 +117,17 @@ absencesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       if (!rows.length) return { error: { code: 404, message: 'Absence not found.' } };
       const absence = rows[0];
 
-      // Only the person who is absent or a main_caregiver should be able to delete?
-      // For now, let's allow any active member to delete if plans change, 
-      // but usually it would be the owner. The prompt says "user owner" though "no reason needed to be provided by user owner".
-      // Let's restrict to the owner of the absence for now, or main_caregiver.
-      
       const { rows: memberRows } = await client.query(
         `SELECT role FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
         [absence.family_id, user.id]
       );
 
       if (!memberRows.length) return { error: { code: 403, message: 'Not a family member.' } };
-      
-      const isOwner = absence.user_id === String(user.id); // Note: user.id might be BigInt/String
-      const isMainCaregiver = memberRows[0].role === 'main_caregiver';
 
-      if (!isOwner && !isMainCaregiver) {
+      const isOwner      = Number(absence.user_id) === Number(user.id);
+      const isCaregiver  = memberRows[0].role === 'caregiver';
+
+      if (!isOwner && !isCaregiver) {
         return { error: { code: 403, message: 'You do not have permission to delete this absence.' } };
       }
 

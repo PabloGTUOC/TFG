@@ -14,7 +14,7 @@ const rewards = ref([]);
 const claimedRewards = ref([]);
 const rewardForm = ref({ title: '', description: '', amount: '', maxUses: '', validFrom: '', validUntil: '' });
 
-const isMainCaregiver = computed(() => role.value === 'main_caregiver');
+const isCaregiver = computed(() => role.value === 'caregiver');
 
 const loadRewards = () => appStore.runAction(async () => {
   const fid = familyId.value;
@@ -150,7 +150,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
     </VCard>
 
     <!-- Admin Create Form -->
-    <VCard v-if="isMainCaregiver" title="Admins: Create New Reward">
+    <VCard v-if="isCaregiver" title="Create New Reward">
       <p class="text-sm" style="color:var(--text-secondary); margin-bottom: 1.5rem;">
         Add new treats that caregivers can purchase. Once created, they can be redeemed by anyone with enough coins.
         Set limits or deadlines to make them exclusive!

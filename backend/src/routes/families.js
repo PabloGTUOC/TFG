@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
-import { validateBody, validateParams, required, string } from '../middleware/validate.js';
+import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 import multer from 'multer';
 import path from 'node:path';
@@ -131,10 +131,9 @@ familiesRouter.post('/', validateBody({
       );
       const famId = createdFamily.rows[0].id;
 
-      // Add creator as main_caregiver, active
       await client.query(
         `INSERT INTO family_members (family_id, user_id, role, status, alias)
-         VALUES ($1, $2, 'main_caregiver', 'active', $3)`,
+         VALUES ($1, $2, 'caregiver', 'active', $3)`,
         [famId, user.id, alias ? alias.trim() : null]
       );
 
@@ -178,92 +177,129 @@ familiesRouter.post('/', validateBody({
   }
 });
 
-familiesRouter.get('/search', async (req, res) => {
-  const { query } = req.query;
-  if (!query || query.length < 2) return res.json([]);
-  try {
-    const rows = await withTransaction(async (client) => {
-      await upsertUserFromAuth(client, req.auth);
-      const { rows } = await client.query(
-        `SELECT id, name FROM families WHERE id::text = $1 OR name ILIKE $2 LIMIT 5`,
-        [query, `%${query}%`]
-      );
-      return rows;
-    });
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Search failed' });
-  }
-});
 
+// Accept an email-based invitation — only works if the user's email has a pending invite.
 familiesRouter.post('/join-request', validateBody({
-  identifier: [required(), string(1, 100)],
+  familyId: [required(), positiveInt()],
   alias: [string(1, 50)],
 }), async (req, res) => {
-  const { identifier, alias } = req.body;
-  if (!identifier) return res.status(400).json({ error: 'Family ID or name is required.' });
+  const { familyId, alias } = req.body;
 
   try {
-    const joined = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
 
-      let familyId;
-      if (!isNaN(identifier)) {
-        familyId = Number(identifier);
-      } else {
-        const { rows: fRows } = await client.query(`SELECT id FROM families WHERE name ILIKE $1 LIMIT 1`, [identifier.trim()]);
-        if (fRows.length === 0) throw new Error('Family not found');
-        familyId = fRows[0].id;
+      if (!user.email) {
+        return { error: { code: 400, message: 'Your account has no email address. Use an invite link instead.' } };
       }
 
-      const { rows: checkF } = await client.query('SELECT id FROM families WHERE id = $1', [familyId]);
-      if (checkF.length === 0) throw new Error('Family not found');
-
-      // Check if they have an invitation pending, if so, they can be 'active' immediately. Otherwise 'pending'.
       const { rows: invRows } = await client.query(
         `SELECT id FROM family_invitations WHERE family_id = $1 AND email = $2 AND status = 'pending'`,
-        [familyId, user.email]
+        [familyId, user.email.toLowerCase()]
       );
-
-      const newStatus = invRows.length > 0 ? 'active' : 'pending';
+      if (!invRows.length) {
+        return { error: { code: 403, message: 'No pending invitation found for your email address.' } };
+      }
 
       await client.query(
         `INSERT INTO family_members (family_id, user_id, role, status, alias)
-         VALUES ($1, $2, 'member', $3, $4)
-         ON CONFLICT (family_id, user_id) DO UPDATE 
-         SET alias = EXCLUDED.alias, 
-             status = CASE WHEN EXCLUDED.status = 'active' THEN 'active' ELSE family_members.status END`,
-        [familyId, user.id, newStatus, alias ? alias.trim() : null]
+         VALUES ($1, $2, 'caregiver', 'active', $3)
+         ON CONFLICT (family_id, user_id) DO UPDATE
+           SET status = 'active', alias = COALESCE(EXCLUDED.alias, family_members.alias)`,
+        [familyId, user.id, alias ? alias.trim() : null]
       );
 
-      if (newStatus === 'active') {
-        await client.query(`UPDATE family_invitations SET status = 'accepted' WHERE id = $1`, [invRows[0].id]);
-        await client.query(
-          `INSERT INTO actors (family_id, user_id, actor_type, name)
-           VALUES ($1, $2, 'person', $3)
-           ON CONFLICT (family_id, user_id) DO NOTHING`,
-          [familyId, user.id, user.display_name]
-        );
-      }
-      return { success: true, status: newStatus };
+      await client.query(`UPDATE family_invitations SET status = 'accepted' WHERE id = $1`, [invRows[0].id]);
+
+      await client.query(
+        `INSERT INTO actors (family_id, user_id, actor_type, name)
+         VALUES ($1, $2, 'person', $3)
+         ON CONFLICT (family_id, user_id) DO NOTHING`,
+        [familyId, user.id, user.display_name || user.email]
+      );
+
+      return { data: { success: true, status: 'active' } };
     });
 
-    return res.status(200).json(joined);
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.status(200).json(result.data);
   } catch (err) {
-    return res.status(400).json({ error: err.message || 'Failed to request join.' });
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to accept invitation.' });
+  }
+});
+
+// Join a family via a shareable invite link token.
+familiesRouter.post('/join-by-token', async (req, res) => {
+  const { token, alias } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required.' });
+  }
+
+  try {
+    const result = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+
+      const { rows: linkRows } = await client.query(
+        `SELECT id, family_id, max_uses, uses, expires_at, revoked FROM invite_links WHERE id = $1 FOR UPDATE`,
+        [token]
+      );
+      if (!linkRows.length) return { error: { code: 404, message: 'Invalid invite link.' } };
+
+      const link = linkRows[0];
+      if (link.revoked) return { error: { code: 410, message: 'This invite link has been revoked.' } };
+      if (link.expires_at && new Date(link.expires_at) < new Date()) {
+        return { error: { code: 410, message: 'This invite link has expired.' } };
+      }
+      if (link.max_uses !== null && link.uses >= link.max_uses) {
+        return { error: { code: 410, message: 'This invite link has reached its maximum uses.' } };
+      }
+
+      const { rows: existing } = await client.query(
+        `SELECT status FROM family_members WHERE family_id = $1 AND user_id = $2`,
+        [link.family_id, user.id]
+      );
+      if (existing.length && existing[0].status === 'active') {
+        return { error: { code: 409, message: 'You are already an active member of this family.' } };
+      }
+
+      await client.query(
+        `INSERT INTO family_members (family_id, user_id, role, status, alias)
+         VALUES ($1, $2, 'caregiver', 'active', $3)
+         ON CONFLICT (family_id, user_id) DO UPDATE
+           SET status = 'active', alias = COALESCE(EXCLUDED.alias, family_members.alias)`,
+        [link.family_id, user.id, alias ? alias.trim() : null]
+      );
+
+      await client.query(
+        `INSERT INTO actors (family_id, user_id, actor_type, name)
+         VALUES ($1, $2, 'person', $3)
+         ON CONFLICT (family_id, user_id) DO NOTHING`,
+        [link.family_id, user.id, user.display_name || user.email]
+      );
+
+      await client.query(`UPDATE invite_links SET uses = uses + 1 WHERE id = $1`, [link.id]);
+
+      return { data: { success: true, familyId: link.family_id } };
+    });
+
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to join family.' });
   }
 });
 
 familiesRouter.patch('/:familyId/members/:userId/role',
   validateParams('familyId', 'userId'),
-  requireRole('main_caregiver', r => r.params.familyId),
+  requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const userId = Number(req.params.userId);
     const { role } = req.body;
 
-    if (!['main_caregiver', 'caregiver', 'member'].includes(role)) {
+    if (!['caregiver', 'member'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role.' });
     }
 
@@ -291,7 +327,7 @@ familiesRouter.patch('/:familyId/members/:userId/role',
 
 familiesRouter.post('/:familyId/members/:userId/approve',
   validateParams('familyId', 'userId'),
-  requireRole('main_caregiver', r => r.params.familyId),
+  requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const userId = Number(req.params.userId);
@@ -323,7 +359,7 @@ familiesRouter.post('/:familyId/members/:userId/approve',
 familiesRouter.post('/:familyId/actors',
   validateParams('familyId'),
   validateBody({ name: [required(), string(1, 100)] }),
-  requireRole('main_caregiver', r => r.params.familyId),
+  requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const { name, actorType, careTime } = req.body;
@@ -358,7 +394,7 @@ familiesRouter.post('/:familyId/actors',
 familiesRouter.post('/:familyId/actors/:actorId/avatar',
   upload.single('avatar'),
   validateParams('familyId', 'actorId'),
-  requireRole('main_caregiver', r => r.params.familyId),
+  requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No avatar image uploaded.' });
 
@@ -440,12 +476,12 @@ familiesRouter.get('/:familyId/members', validateParams('familyId'), async (req,
 
 // ─────────────────────────────────────────────
 // POST /api/families/:familyId/invitations
-// Creates an invitation by email (main_caregiver only)
+// Creates an email invitation (caregiver only)
 // ─────────────────────────────────────────────
 familiesRouter.post('/:familyId/invitations',
   validateParams('familyId'),
   validateBody({ email: [required(), string(1, 255)] }),
-  requireRole('main_caregiver', r => r.params.familyId),
+  requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const { email, name } = req.body;

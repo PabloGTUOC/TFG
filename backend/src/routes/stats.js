@@ -29,7 +29,7 @@ statsRouter.get('/:familyId', async (req, res) => {
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name
                  FROM family_members fm
                  JOIN users u ON u.id = fm.user_id
-                 WHERE fm.family_id = $1 AND fm.role IN ('main_caregiver', 'caregiver') AND fm.status = 'active'`,
+                 WHERE fm.family_id = $1 AND fm.role = 'caregiver' AND fm.status = 'active'`,
                 [familyId]
             );
             const activeCaregivers = caregiversList.map(c => c.name);

@@ -7,7 +7,6 @@ export const ACTIVITY_STATUS = {
 };
 
 export const MEMBER_ROLE = {
-  MAIN_CAREGIVER: 'main_caregiver',
   CAREGIVER: 'caregiver',
   MEMBER: 'member',
 };

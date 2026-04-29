@@ -37,6 +37,13 @@ export default defineConfig({
     })
   ],
   server: {
-    host: true   // binds to 0.0.0.0 — accessible on your home network
+    host: true,   // binds to 0.0.0.0 — accessible on your home network
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+    }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
   }
 });

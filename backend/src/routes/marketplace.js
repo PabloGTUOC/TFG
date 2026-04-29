@@ -64,7 +64,7 @@ marketplaceRouter.post('/rewards',
     validFrom: [isoDate()],
     validUntil: [isoDate()]
   }),
-  requireRole('main_caregiver', r => r.body.familyId),
+  requireRole('caregiver', r => r.body.familyId),
   async (req, res) => {
     const { familyId, title, description, cost, maxUses, validFrom, validUntil } = req.body;
     if (!familyId || !title || !cost) return res.status(400).json({ error: 'familyId, title and cost are required.' });

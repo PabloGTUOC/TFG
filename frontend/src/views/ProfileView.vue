@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
+import QRCode from 'qrcode';
 import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
 import VCard from '../components/VCard.vue';
@@ -53,7 +54,7 @@ const handleActorAvatarUpload = async (event, actorId, fid) => {
 
 // ── Current family ────────────────────────────────────────
 const { family, role, familyId } = useCurrentFamily();
-const isMainCaregiver = computed(() => role.value === 'main_caregiver');
+const isCaregiver = computed(() => role.value === 'caregiver');
 
 // ── Add Dependent ─────────────────────────────────────────
 const typeOptions = [
@@ -96,7 +97,7 @@ const loadInvitations = async () => {
     familyMembers.value = memData.members || [];
   } catch { /* silent */ }
 
-  if (!isMainCaregiver.value) return;
+  if (!isCaregiver.value) return;
   try {
     const data = await appStore.request(`/api/families/${fid}/invitations`, { headers: appStore.authHeaders() });
     invitations.value = data.invitations || [];
@@ -167,9 +168,55 @@ const uncheckActivity = async (item) => {
   }, 'Activity unchecked and bank reverted.');
 };
 
+// ── Invite link (QR + share) ──────────────────────────────
+const inviteLink     = ref('');
+const inviteQr       = ref('');
+const generatingLink = ref(false);
+const linkCopied     = ref(false);
+const canShare       = computed(() => !!navigator.share);
+
+const generateInviteLink = async () => {
+  const fid = familyId.value;
+  if (!fid) return;
+  generatingLink.value = true;
+  try {
+    const data = await appStore.request(`/api/families/${fid}/invite-links`, {
+      method: 'POST',
+      headers: appStore.authHeaders(),
+      body: JSON.stringify({})
+    });
+    const token = data.link.id;
+    const base  = window.location.origin;
+    inviteLink.value = `${base}/join?token=${token}`;
+    inviteQr.value   = await QRCode.toDataURL(inviteLink.value, { width: 200, margin: 2 });
+  } catch (err) {
+    appStore.setError(err.message || 'Failed to generate invite link.');
+  } finally {
+    generatingLink.value = false;
+  }
+};
+
+const copyInviteLink = async () => {
+  try {
+    await navigator.clipboard.writeText(inviteLink.value);
+    linkCopied.value = true;
+    setTimeout(() => { linkCopied.value = false; }, 2000);
+  } catch {
+    appStore.setError('Could not copy to clipboard.');
+  }
+};
+
+const shareInviteLink = () => {
+  navigator.share({
+    title: 'Join my CareCoins family',
+    text: 'I\'ve invited you to join my family on CareCoins.',
+    url: inviteLink.value
+  }).catch(() => {});
+};
+
 onMounted(() => { loadLedger(); loadInvitations(); });
 watch(currentMonth, () => loadLedger());
-watch(isMainCaregiver, (v) => { if (v) loadInvitations(); });
+watch(isCaregiver, (v) => { if (v) loadInvitations(); });
 
 // ── Computed helpers ──────────────────────────────────────
 const combinedCircleItems = computed(() => {
@@ -201,7 +248,6 @@ const actorBadge = (type) => {
     child:   { label: 'Junior Explorer', color: '#6366f1' },
     pet:     { label: 'Furry Friend',    color: '#10b981' },
     elderly: { label: 'Guiding Star',   color: '#f59e0b' },
-    main_caregiver: { label: 'Main Caregiver', color: '#4f46e5' },
     caregiver: { label: 'Caregiver', color: '#059669' },
     member: { label: 'Family Member', color: '#3b82f6' },
     person:  { label: 'Family Member',  color: '#3b82f6' },
@@ -300,7 +346,7 @@ const formatLedgerDate = (ds) => {
         <div class="family-circle-section">
           <div class="section-header">
             <h2>Family Circle</h2>
-            <div v-if="isMainCaregiver" style="display:flex; gap:0.6rem;">
+            <div v-if="isCaregiver" style="display:flex; gap:0.6rem;">
               <button class="add-member-btn" @click="showAddActor = !showAddActor; showInviteForm = false">
                 ➕ Add Dependent
               </button>
@@ -331,7 +377,7 @@ const formatLedgerDate = (ds) => {
           <div v-else class="empty-circle">No dependents added yet.</div>
 
           <!-- Add form -->
-          <div v-if="isMainCaregiver && showAddActor" class="add-actor-form">
+          <div v-if="isCaregiver && showAddActor" class="add-actor-form">
             <div class="form-row">
               <div class="form-field">
                 <label>Name</label>
@@ -352,8 +398,8 @@ const formatLedgerDate = (ds) => {
             </div>
           </div>
 
-          <!-- Invite form -->
-          <div v-if="isMainCaregiver && showInviteForm" class="add-actor-form">
+          <!-- Invite form (email-based) -->
+          <div v-if="isCaregiver && showInviteForm" class="add-actor-form">
             <div class="form-row">
               <div class="form-field">
                 <label>Email Address *</label>
@@ -364,15 +410,48 @@ const formatLedgerDate = (ds) => {
                 <input v-model="inviteForm.name" type="text" class="text-input" placeholder="e.g. Maria" />
               </div>
             </div>
-            <p class="invite-hint">💡 They can join by searching for this family by name or ID on the app. Their invitation pre-approves them to join instantly.</p>
             <div style="display:flex; gap:1rem; margin-top:1rem;">
               <button class="update-btn" @click="sendInvite">Send Invite</button>
               <button class="cancel-btn" @click="showInviteForm = false">Cancel</button>
             </div>
           </div>
 
+          <!-- Shareable invite link + QR code (caregivers only) -->
+          <div v-if="isCaregiver" class="invite-link-section">
+            <div class="invite-link-header">
+              <span class="invite-link-title">Shareable Invite Link</span>
+              <button class="gen-link-btn" @click="generateInviteLink" :disabled="generatingLink">
+                {{ generatingLink ? 'Generating…' : inviteLink ? '↻ New Link' : '🔗 Generate Link' }}
+              </button>
+            </div>
+
+            <div v-if="inviteLink" class="invite-link-body">
+              <!-- QR code -->
+              <div class="qr-wrap">
+                <img :src="inviteQr" alt="Invite QR Code" class="qr-img" />
+                <p class="qr-hint">Scan with phone camera</p>
+              </div>
+
+              <!-- Link + actions -->
+              <div class="link-actions">
+                <div class="link-box">{{ inviteLink }}</div>
+                <div class="action-btns">
+                  <button class="action-btn copy-btn" @click="copyInviteLink">
+                    {{ linkCopied ? '✓ Copied!' : '📋 Copy Link' }}
+                  </button>
+                  <button v-if="canShare" class="action-btn share-btn" @click="shareInviteLink">
+                    📤 Share
+                  </button>
+                </div>
+                <p class="link-note">Anyone with this link can join the family as a Caregiver.</p>
+              </div>
+            </div>
+
+            <p v-else class="link-empty">Generate a link to share with caregivers via WhatsApp, email, or QR code.</p>
+          </div>
+
           <!-- Pending Invitations -->
-          <div v-if="isMainCaregiver && invitations.length > 0" class="pending-invitations">
+          <div v-if="isCaregiver && invitations.length > 0" class="pending-invitations">
             <div class="pending-title">⏳ Pending Invitations</div>
             <div v-for="inv in invitations" :key="inv.id" class="pending-row">
               <div>
@@ -998,6 +1077,76 @@ const formatLedgerDate = (ds) => {
   border-radius: 9999px;
   padding: 0.2rem 0.65rem;
 }
+
+/* ── Shareable Invite Link ────────────────────────────────── */
+.invite-link-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+.invite-link-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.invite-link-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+.gen-link-btn {
+  background: #eef2ff;
+  color: #6366f1;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 9999px;
+  padding: 0.35rem 1rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gen-link-btn:hover:not(:disabled) { background: #e0e7ff; }
+.gen-link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.invite-link-body {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.qr-wrap { text-align: center; flex-shrink: 0; }
+.qr-img  { width: 140px; height: 140px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.qr-hint { font-size: 0.72rem; color: #94a3b8; margin-top: 0.4rem; }
+
+.link-actions { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.75rem; }
+.link-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.75rem;
+  color: #475569;
+  word-break: break-all;
+  font-family: monospace;
+}
+.action-btns { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.action-btn {
+  border: none;
+  border-radius: 9999px;
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.copy-btn  { background: #6366f1; color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
+.share-btn { background: #10b981; color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.3); }
+.action-btn:hover { transform: scale(1.04); }
+.link-note  { font-size: 0.75rem; color: #94a3b8; margin: 0; }
+.link-empty { font-size: 0.82rem; color: #94a3b8; font-style: italic; margin: 0; }
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {

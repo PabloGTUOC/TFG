@@ -65,7 +65,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
 
             // Split and distribute
             const { rows: caretakers } = await client.query(
-              `SELECT id FROM family_members WHERE family_id = $1 AND role IN ('main_caregiver', 'caregiver') AND status = 'active'`,
+              `SELECT id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
               [familyId]
             );
 
@@ -138,7 +138,8 @@ dashboardRouter.get('/:familyId', async (req, res) => {
 
     if (!data) return res.status(403).json({ error: 'Not a family member.' });
     return res.json(data);
-  } catch {
+  } catch (err) {
+    console.error('DASHBOARD ERROR:', err);
     return res.status(500).json({ error: 'Failed to load dashboard.' });
   }
 });

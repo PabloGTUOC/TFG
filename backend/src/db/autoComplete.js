@@ -5,25 +5,42 @@
  */
 export async function runAutoCompleteSweep(client, familyId) {
   const { rows: expired } = await client.query(
-    `SELECT id, assigned_to, coin_value FROM activities
+    `SELECT id, assigned_to, coin_value, bounty_amount, bounty_offered_by FROM activities
      WHERE family_id = $1 AND status = 'approved' AND ends_at <= NOW()
      FOR UPDATE`,
     [familyId]
   );
 
   for (const act of expired) {
+    const bountyAmt = act.bounty_amount || 0;
+    const totalAward = (act.coin_value || 0) + bountyAmt;
+
     await client.query(
       `UPDATE activities SET status = 'completed', bounty_amount = 0, bounty_offered_by = NULL WHERE id = $1`,
       [act.id]
     );
-    await client.query(
-      `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
-      [act.coin_value, familyId, act.assigned_to]
-    );
-    await client.query(
-      `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
-       VALUES ($1, $2, $3, $4, 'activity_completed')`,
-      [familyId, act.assigned_to, act.id, act.coin_value]
-    );
+
+    if (totalAward > 0) {
+      await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+        [totalAward, familyId, act.assigned_to]
+      );
+    }
+
+    if (act.coin_value > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
+         VALUES ($1, $2, $3, $4, 'activity_completed')`,
+        [familyId, act.assigned_to, act.id, act.coin_value]
+      );
+    }
+
+    if (bountyAmt > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
+         VALUES ($1, $2, $3, $4, 'bounty_earned')`,
+        [familyId, act.assigned_to, act.id, bountyAmt]
+      );
+    }
   }
 }

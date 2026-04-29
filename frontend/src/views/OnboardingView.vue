@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watchEffect } from 'vue';
+import { ref, watchEffect, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
 import { useRouter } from 'vue-router';
@@ -12,7 +12,7 @@ const appStore = useAuthStore();
 const familyStore = useFamilyStore();
 const router = useRouter();
 
-const mode = ref('selection'); // 'selection', 'create', 'join'
+const mode = ref('selection'); // 'selection', 'create', 'join', 'token'
 
 const createForm = ref({ 
   name: '',
@@ -32,31 +32,42 @@ watchEffect(() => {
   }
 });
 
-const joinForm = ref({ identifier: '', alias: '' });
-const searchResults = ref([]);
-let searchTimeout;
+const pendingInvites = ref([]);
+const joinForm = ref({ familyId: '', alias: '' });
+const tokenForm = ref({ token: '', alias: '' });
 
-const handleSearch = (e) => {
-  const query = e.target.value;
-  joinForm.value.identifier = query;
-  clearTimeout(searchTimeout);
-  if (query.trim().length < 2) {
-    searchResults.value = [];
-    return;
-  }
-  searchTimeout = setTimeout(async () => {
-    try {
-      searchResults.value = await appStore.request(`/api/families/search?query=${encodeURIComponent(query)}`, { headers: appStore.authHeaders() });
-    } catch {
-      searchResults.value = [];
-    }
-  }, 300);
+const loadPendingInvites = async () => {
+  try {
+    const data = await appStore.request('/api/me/invites', { headers: appStore.authHeaders() });
+    pendingInvites.value = data.invites || [];
+  } catch { /* silent */ }
 };
 
-const selectFamily = (match) => {
-  joinForm.value.identifier = String(match.name);
-  searchResults.value = [];
-};
+const acceptInvite = (invite) => appStore.runAction(async () => {
+  await appStore.request('/api/families/join-request', {
+    method: 'POST',
+    headers: appStore.authHeaders(),
+    body: JSON.stringify({ familyId: invite.family_id, alias: joinForm.value.alias || undefined })
+  });
+  await familyStore.fetchUserData();
+  router.push('/dashboard');
+}, 'You joined the family!');
+
+const joinByToken = () => appStore.runAction(async () => {
+  let token = tokenForm.value.token.trim();
+  // Accept either the full URL or just the UUID
+  const match = token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (!match) throw new Error('No valid invite token found. Paste the full invite link or just the token.');
+  token = match[0];
+
+  await appStore.request('/api/families/join-by-token', {
+    method: 'POST',
+    headers: appStore.authHeaders(),
+    body: JSON.stringify({ token, alias: tokenForm.value.alias.trim() || undefined })
+  });
+  await familyStore.fetchUserData();
+  router.push('/dashboard');
+}, 'You joined the family!');
 
 const addCaretaker = () => {
   createForm.value.caretakers.push({ name: '', email: '' });
@@ -83,6 +94,8 @@ const careTimeOptions = [
   { value: 'part_time', label: 'Part Time (12 coins/day)' }
 ];
 
+onMounted(() => { loadPendingInvites(); });
+
 const createFamily = () => appStore.runAction(async () => {
   if (!createForm.value.name) throw new Error("Family name is required.");
   
@@ -105,28 +118,6 @@ const createFamily = () => appStore.runAction(async () => {
   router.push('/dashboard');
 }, 'Family created successfully!');
 
-const joinFamily = () => appStore.runAction(async () => {
-  if (!joinForm.value.identifier) throw new Error("Family ID or Name is required.");
-
-  const res = await appStore.request(`/api/families/join-request`, {
-    method: 'POST',
-    headers: appStore.authHeaders(),
-    body: JSON.stringify({
-      identifier: joinForm.value.identifier,
-      alias: joinForm.value.alias
-    })
-  });
-
-  await familyStore.fetchUserData();
-
-  if (res.status === 'active') {
-    appStore.setSuccess("You have successfully joined the family!");
-    router.push('/dashboard');
-  } else {
-    appStore.setSuccess("Join request sent! Pending approval from the main caregiver.");
-    mode.value = 'selection';
-  }
-});
 </script>
 
 <template>
@@ -141,16 +132,30 @@ const joinFamily = () => appStore.runAction(async () => {
     </div>
 
     <!-- SELECTION MODE -->
-    <div v-if="mode === 'selection'" class="grid two">
-      <VCard title="Create a New Family">
-        <p class="desc">Start fresh as the Main Caregiver, invite others, and define who needs care.</p>
-        <VButton type="primary" block @click="mode = 'create'" style="margin-top: 1rem;">Create Family</VButton>
-      </VCard>
+    <div v-if="mode === 'selection'">
+      <!-- Pending email invitations -->
+      <div v-if="pendingInvites.length > 0" class="invites-section">
+        <h3 class="invites-title">You have been invited to join:</h3>
+        <div v-for="inv in pendingInvites" :key="inv.id" class="invite-row">
+          <div>
+            <div class="invite-family">{{ inv.family_name }}</div>
+            <div class="invite-meta" v-if="inv.inviter_name">Invited as {{ inv.inviter_name }}</div>
+          </div>
+          <VButton type="primary" @click="acceptInvite(inv)">Accept</VButton>
+        </div>
+      </div>
 
-      <VCard title="Join an Existing Family">
-        <p class="desc">Enter a Family ID or exact Family Name to request access from the Main Caregiver.</p>
-        <VButton type="secondary" block @click="mode = 'join'" style="margin-top: 1rem;">Join Family</VButton>
-      </VCard>
+      <div class="grid two">
+        <VCard title="Create a New Family">
+          <p class="desc">Start fresh as the Main Caregiver, invite others, and define who needs care.</p>
+          <VButton type="primary" block @click="mode = 'create'" style="margin-top: 1rem;">Create Family</VButton>
+        </VCard>
+
+        <VCard title="Join via Invite Link">
+          <p class="desc">Received an invite link or QR code? Paste the link here to join instantly.</p>
+          <VButton type="secondary" block @click="mode = 'token'" style="margin-top: 1rem;">Use Invite Link</VButton>
+        </VCard>
+      </div>
     </div>
 
     <!-- CREATE MODE -->
@@ -207,26 +212,15 @@ const joinFamily = () => appStore.runAction(async () => {
       <VButton type="primary" block @click="createFamily" style="margin-top: 1rem;">Complete Setup</VButton>
     </VCard>
 
-    <!-- JOIN MODE -->
-    <VCard v-if="mode === 'join'" title="Join an Existing Family" style="max-width: 500px; margin: 0 auto;">
+    <!-- TOKEN MODE -->
+    <VCard v-if="mode === 'token'" title="Join via Invite Link" style="max-width: 500px; margin: 0 auto;">
       <VButton type="outline" @click="mode = 'selection'" style="margin-bottom: 2rem;">&larr; Back</VButton>
-      <p class="desc">Enter the exact Family Name or Family ID to send a join request, along with the alias you want to go by.</p>
-      <div style="display: flex; flex-direction: column; gap: 1rem; position: relative;">
-        <div style="position: relative;">
-          <!-- Custom Input instead of VInput so we can bind the raw input event cleanly -->
-          <label style="display: block; font-weight: 800; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Family Identifier</label>
-          <input type="text" :value="joinForm.identifier" @input="handleSearch" placeholder="Type Family Name to search..." style="width: 100%; box-sizing: border-box; background: var(--input-bg); border: 2px solid var(--input-border); color: var(--text-primary); padding: 0.75rem 1rem; border-radius: 8px; font-weight: 500; font-size: 1rem; transition: border-color 0.2s;" />
-          
-          <div v-if="searchResults.length > 0" class="search-dropdown">
-            <div v-for="res in searchResults" :key="'s'+res.id" class="search-item" @click="selectFamily(res)">
-               <span style="font-weight: 800; color: #1e293b;">{{ res.name }}</span>
-               <span style="font-size: 0.8rem; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">ID: {{ res.id }}</span>
-            </div>
-          </div>
-        </div>
-        <VInput v-model="joinForm.alias" label="Your Alias (Role)" placeholder="e.g. Dada, Uncle Joe" />
+      <p class="desc">Paste the full invite link (or just the token) you received, then choose an alias for yourself.</p>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <VInput v-model="tokenForm.token" label="Invite Link or Token" placeholder="https://…/join?token=… or paste the token" />
+        <VInput v-model="tokenForm.alias" label="Your Alias (optional)" placeholder="e.g. Dada, Uncle Joe" />
       </div>
-      <VButton type="primary" block @click="joinFamily" style="margin-top: 1.5rem;">Send Join Request</VButton>
+      <VButton type="primary" block @click="joinByToken" style="margin-top: 1.5rem;">Join Family</VButton>
     </VCard>
 
   </div>
@@ -298,31 +292,29 @@ hr {
   text-align: center;
   margin-bottom: 2rem;
 }
-.search-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  margin-top: 4px;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-  z-index: 50;
-  overflow: hidden;
+.invites-section {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
 }
-.search-item {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
+.invites-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #15803d;
+  margin: 0 0 1rem;
+}
+.invite-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid #dcfce7;
 }
-.search-item:last-child {
-  border-bottom: none;
-}
-.search-item:hover {
-  background: #f1f5f9;
-}
+.invite-family { font-weight: 800; color: #1e293b; font-size: 0.95rem; }
+.invite-meta   { font-size: 0.78rem; color: #64748b; margin-top: 0.15rem; }
 </style>

@@ -533,7 +533,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                   </div>
                   <div v-else-if="['pending', 'approved'].includes(a.status)" style="display: flex; align-items: center; gap: 0.4rem;">
                     <!-- My Task -> I can offer Bribe -->
-                    <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && ['main_caregiver', 'caregiver'].includes(role)" 
+                    <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'" 
                             @click.stop="openBountyModal(a)" class="validate-btn" style="background: rgba(0,0,0,0.15); border: 2px solid rgba(255,165,0,0.5); color: #fff;">
                       💸 Delegate (-cc)
                     </button>
@@ -542,7 +542,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                       Offering: {{ a.bounty_amount }}cc
                     </span>
                     <!-- Other User's Task with Bribe -> I can ACCEPT Bribe -->
-                    <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && ['main_caregiver', 'caregiver'].includes(role)" 
+                    <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
                             @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: rgba(16, 185, 129, 0.4); border: 2px solid #10b981;">
                       🤑 Take Over (+{{a.bounty_amount}}cc)
                     </button>
@@ -722,7 +722,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       </div>
 
       <div style="display:flex; flex-direction: column; gap: 0.8rem;">
-        <VButton v-if="selectedAbsence?.user_id == familyStore.profile?.id || role === 'main_caregiver'" 
+        <VButton v-if="selectedAbsence?.user_id == familyStore.profile?.id || role === 'caregiver'"
                  type="danger" block @click="removeAbsence">Remove Absence</VButton>
         <VButton type="secondary" block @click="showAbsenceDetailModal = false">Close</VButton>
       </div>

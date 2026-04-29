@@ -1,27 +1,27 @@
 /**
  * Role-based access control.
  *
- * Role hierarchy (highest → lowest): main_caregiver > caregiver > member
+ * Role hierarchy (highest → lowest): caregiver > member
  *
  * Two exports:
  *
  *   requireRole(role, getFamilyId)
  *     Express middleware. Use when familyId is available in req (params/body/query).
  *     Example:
- *       router.patch('/:familyId/…', requireRole('main_caregiver', r => r.params.familyId), handler)
+ *       router.patch('/:familyId/…', requireRole('caregiver', r => r.params.familyId), handler)
  *
  *   assertMemberRole(client, userId, familyId, role)
  *     In-transaction helper. Use when familyId is derived from a prior DB query.
  *     Returns { error: { code, message } } on failure, null on success.
  *     Example (inside withTransaction):
- *       const rbacErr = await assertMemberRole(client, user.id, act.family_id, 'main_caregiver');
+ *       const rbacErr = await assertMemberRole(client, user.id, act.family_id, 'caregiver');
  *       if (rbacErr) return rbacErr;
  */
 
 import { pool } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 
-const ROLE_LEVELS = { main_caregiver: 3, caregiver: 2, member: 1 };
+const ROLE_LEVELS = { caregiver: 2, member: 1 };
 
 function meetsRole(userRole, requiredRole) {
   return (ROLE_LEVELS[userRole] ?? 0) >= (ROLE_LEVELS[requiredRole] ?? 0);

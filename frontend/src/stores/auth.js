@@ -13,7 +13,7 @@ import {
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:3000',
+    apiBase: import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://localhost:3000'),
     user: null,
     token: '',
     authReady: false,

@@ -189,6 +189,28 @@ meRouter.patch('/profile', validateBody({
   }
 });
 
+meRouter.get('/invites', async (req, res) => {
+  try {
+    const invites = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      if (!user.email) return [];
+      const { rows } = await client.query(
+        `SELECT fi.id, fi.family_id, f.name AS family_name, fi.name AS inviter_name, fi.created_at
+         FROM family_invitations fi
+         JOIN families f ON f.id = fi.family_id
+         WHERE fi.email = $1 AND fi.status = 'pending'
+         ORDER BY fi.created_at DESC`,
+        [user.email.toLowerCase()]
+      );
+      return rows;
+    });
+    return res.json({ invites });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch invitations.' });
+  }
+});
+
 meRouter.get('/login-history', async (req, res) => {
   try {
     const rows = await withTransaction(async (client) => {

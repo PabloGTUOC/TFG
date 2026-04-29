@@ -11,6 +11,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { statsRouter } from './routes/stats.js';
 import { absencesRouter } from './routes/absences.js';
+import { inviteLinksRouter } from './routes/inviteLinks.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,12 +20,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    // Allow all origins in development (solves network IP blocking)
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -50,6 +50,7 @@ app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/marketplace', requireAuth, marketplaceRouter);
 app.use('/api/stats', requireAuth, statsRouter);
 app.use('/api/absences', requireAuth, absencesRouter);
+app.use('/api/families', requireAuth, inviteLinksRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

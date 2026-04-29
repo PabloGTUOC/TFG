@@ -30,6 +30,16 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Missing Bearer token.' });
   }
 
+  // TEST ENVIRONMENT BYPASS
+  if (process.env.NODE_ENV === 'test' && token === 'test-token') {
+    req.auth = {
+      uid: 'test-user-123',
+      email: 'test@example.com',
+      name: 'Test User'
+    };
+    return next();
+  }
+
   try {
     const app = getFirebaseApp();
 

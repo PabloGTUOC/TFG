@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS family_members (
   id BIGSERIAL PRIMARY KEY,
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('main_caregiver', 'caregiver', 'member')),
+  role TEXT NOT NULL CHECK (role IN ('caregiver', 'member')),
   alias TEXT,
   coin_balance INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
@@ -64,13 +64,14 @@ CREATE TABLE IF NOT EXISTS activities (
   duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 15),
   coin_value INTEGER NOT NULL CHECK (coin_value >= 0),
   status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'pending_validation')) DEFAULT 'pending',
+  is_template BOOLEAN NOT NULL DEFAULT true,
   is_recurrent BOOLEAN NOT NULL DEFAULT false,
   approved_by BIGINT REFERENCES users(id),
   approved_at TIMESTAMPTZ,
   bounty_amount INTEGER NOT NULL DEFAULT 0,
   bounty_offered_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (ends_at > starts_at)
+  CHECK ((ends_at > starts_at) OR (starts_at IS NULL AND ends_at IS NULL))
 );
 
 CREATE TABLE IF NOT EXISTS coin_ledger (
@@ -131,3 +132,16 @@ CREATE TABLE IF NOT EXISTS absences (
 );
 
 CREATE INDEX IF NOT EXISTS idx_absences_family_period ON absences (family_id, start_time, end_time);
+
+CREATE TABLE IF NOT EXISTS invite_links (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  family_id  BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  created_by BIGINT NOT NULL REFERENCES users(id),
+  max_uses   INTEGER,
+  uses       INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ,
+  revoked    BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_links_family ON invite_links (family_id);

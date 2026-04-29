@@ -94,7 +94,7 @@ activitiesRouter.post('/', validateBody({
 
 // ─────────────────────────────────────────────
 // POST /api/activities/:activityId/approve
-// Approves a template (main_caregiver only)
+// Approves a template (caregiver only)
 // ─────────────────────────────────────────────
 activitiesRouter.post('/:activityId/approve', validateParams('activityId'), async (req, res) => {
   const activityId = Number(req.params.activityId);
@@ -116,7 +116,7 @@ activitiesRouter.post('/:activityId/approve', validateParams('activityId'), asyn
         return { error: { code: 409, message: 'Only pending templates can be approved.' } };
       }
 
-      const rbacErr = await assertMemberRole(client, approver.id, tmpl.family_id, 'main_caregiver');
+      const rbacErr = await assertMemberRole(client, approver.id, tmpl.family_id, 'caregiver');
       if (rbacErr) return rbacErr;
 
       await client.query(
@@ -156,7 +156,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
          WHERE id = $1
            AND is_template = true
            AND status = 'approved'
-           AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2)`,
+           AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')`,
         [activityId, user.id]
       );
       if (!tmpl.length) {
@@ -247,7 +247,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
 // Spawns future instances from a scheduled recurrent instance
 // ─────────────────────────────────────────────
 activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), validateBody({
-  frequency: [required(), string(1, 20)],
+  frequency: [required(), oneOf(['daily', 'weekdays', 'weekly'])],
   untilDate: [required(), isoDate()]
 }), async (req, res) => {
   const instanceId = Number(req.params.activityId);
@@ -347,6 +347,7 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
            AND is_template = false
            AND assigned_to = $2
            AND status = 'approved'
+           AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
          FOR UPDATE`,
         [instanceId, user.id]
       );

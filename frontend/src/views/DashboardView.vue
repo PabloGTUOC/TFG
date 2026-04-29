@@ -24,7 +24,7 @@ const showAbsenceModal = ref(false);
 const absenceForm = ref({ title: '', startTime: '', endTime: '' });
 const isSubmittingAbsence = ref(false);
 
-const isMainCaregiver = computed(() => role.value === 'main_caregiver');
+const isCaregiver = computed(() => role.value === 'caregiver');
 
 const loadDashboard = () => appStore.runAction(async () => {
   const fid = familyId.value;
@@ -328,7 +328,7 @@ const getAssigneeGradient = (assigned_to) => {
                   class="mockup-member-card" :class="'color-' + (i % 4)">
                 <div class="member-avatar"
                      :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''">
-                   {{ m.avatar_url ? '' : (m.role === 'main_caregiver' || m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
+                   {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
                 </div>
                 <div style="font-weight: 800; font-size: 1.15rem; color: #1e293b; margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
                 <div style="font-size: 0.8rem; font-weight: 800; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;" :class="`text-color-${i % 4}`">
