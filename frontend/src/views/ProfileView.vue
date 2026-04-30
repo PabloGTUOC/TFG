@@ -69,6 +69,14 @@ const timeOptions = [
 const addActorForm = ref({ name: '', actorType: 'child', careTime: 'full_time' });
 const showAddActor = ref(false);
 
+const removeActor = (actorId, fid) => appStore.runAction(async () => {
+  await appStore.request(`/api/families/${fid}/actors/${actorId}`, {
+    method: 'DELETE',
+    headers: appStore.authHeaders()
+  });
+  await familyStore.fetchUserData();
+}, 'Pet removed successfully.');
+
 const addActor = () => appStore.runAction(async () => {
   const fid = familyId.value;
   if (!fid) throw new Error('No family found.');
@@ -255,6 +263,20 @@ const actorBadge = (type) => {
   return map[type] || { label: type.replace(/_/g, ' '), color: '#94a3b8' };
 };
 
+const formatLedgerLabel = (item) => {
+  const title = item.activity_title;
+  switch (item.reason) {
+    case 'activity_completed': return title || 'Activity completed';
+    case 'activity_reverted':  return title ? `Reverted: ${title}` : 'Activity reverted';
+    case 'bounty_escrow':
+    case 'bounty_paid':        return title ? `You paid for not doing: ${title}` : 'Bounty paid';
+    case 'bounty_earned':      return title ? `Bounty earned: ${title}` : 'Bounty earned';
+    case 'bounty_refunded':    return title ? `Bounty refunded: ${title}` : 'Bounty refunded';
+    case 'bounty_reverted':    return title ? `Bounty reverted: ${title}` : 'Bounty reverted';
+    default: return title || item.reason;
+  }
+};
+
 const formatLedgerDate = (ds) => {
   if (!ds) return '';
   const d = new Date(ds);
@@ -372,6 +394,11 @@ const formatLedgerDate = (ds) => {
               <div class="circle-badge" :style="`color: ${actorBadge(a.actor_type).color}; border-color: ${actorBadge(a.actor_type).color}33;`">
                 {{ actorBadge(a.actor_type).label.toUpperCase() }}
               </div>
+              <button
+                v-if="isCaregiver && a.actor_type === 'pet'"
+                class="remove-actor-btn"
+                @click.stop="removeActor(a.id, a.family_id)"
+                title="Remove pet">✕</button>
             </div>
           </div>
           <div v-else class="empty-circle">No dependents added yet.</div>
@@ -479,7 +506,7 @@ const formatLedgerDate = (ds) => {
           <div class="ledger-preview">
             <div v-for="item in recentLedger" :key="item.id" class="ledger-preview-row">
               <div class="lp-info">
-                <div class="lp-title">{{ item.activity_title || item.reason }}</div>
+                <div class="lp-title">{{ formatLedgerLabel(item) }}</div>
                 <div class="lp-date">{{ formatLedgerDate(item.created_at) }}</div>
               </div>
               <div class="lp-amount" :class="item.amount > 0 ? 'positive' : 'negative'">
@@ -503,7 +530,7 @@ const formatLedgerDate = (ds) => {
           <div v-if="ledgerInfo.length > 0" class="ledger-list">
             <div v-for="item in ledgerInfo" :key="item.id" class="ledger-item">
               <div class="ledger-details">
-                <strong class="ledger-title">{{ item.activity_title || item.reason }}</strong>
+                <strong class="ledger-title">{{ formatLedgerLabel(item) }}</strong>
                 <span class="ledger-date">{{ formatLedgerDate(item.created_at) }}</span>
                 <span v-if="item.duration_minutes" class="ledger-duration">{{ item.duration_minutes }} min</span>
               </div>
@@ -802,6 +829,21 @@ const formatLedgerDate = (ds) => {
   border-radius: 9999px;
   padding: 0.15rem 0.6rem;
 }
+.remove-actor-btn {
+  margin-top: 0.4rem;
+  background: none;
+  border: 1px solid #fca5a5;
+  color: #ef4444;
+  border-radius: 9999px;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.65rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.remove-actor-btn:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 .empty-circle {
   color: #94a3b8;
   background: #f8fafc;

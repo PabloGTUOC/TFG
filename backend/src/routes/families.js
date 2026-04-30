@@ -391,6 +391,43 @@ familiesRouter.post('/:familyId/actors',
     }
   });
 
+familiesRouter.delete('/:familyId/actors/:actorId',
+  validateParams('familyId', 'actorId'),
+  requireRole('caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    const actorId = Number(req.params.actorId);
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const { rows } = await client.query(
+          `SELECT * FROM actors WHERE id = $1 AND family_id = $2`,
+          [actorId, familyId]
+        );
+        if (!rows.length) return { error: { code: 404, message: 'Actor not found.' } };
+
+        const actor = rows[0];
+        if (actor.actor_type !== 'pet') {
+          return { error: { code: 403, message: 'Only pets can be removed.' } };
+        }
+
+        const budgetDecrease = actor.care_time === 'full_time' ? 720 : 360;
+        await client.query(`DELETE FROM actors WHERE id = $1`, [actorId]);
+        await client.query(
+          `UPDATE families SET monthly_coin_budget = monthly_coin_budget - $1 WHERE id = $2`,
+          [budgetDecrease, familyId]
+        );
+        return { data: actor };
+      });
+
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json({ message: 'Pet removed successfully.' });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to remove pet.' });
+    }
+  });
+
 familiesRouter.post('/:familyId/actors/:actorId/avatar',
   upload.single('avatar'),
   validateParams('familyId', 'actorId'),

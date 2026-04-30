@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
@@ -15,6 +15,10 @@ const router = useRouter();
 const closeDailyView = () => {
   router.push('/dashboard');
 };
+
+const onKeyDown = (e) => { if (e.key === 'Escape') closeDailyView(); };
+onMounted(() => window.addEventListener('keydown', onKeyDown));
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown));
 
 // Extract the date param (e.g. '2026-03-24')
 const targetDateStr = computed(() => route.params.date);
@@ -581,6 +585,14 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     
     </div> <!-- end daily-grid -->
     </div> <!-- end daily-wrapper -->
+
+    <!-- Back FAB -->
+    <button class="daily-back-fab" @click="closeDailyView" aria-label="Back to Family Hub">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+    </button>
+
   </div> <!-- end daily-fullscreen-overlay -->
 
   <!-- Recurrence Modal -->
@@ -949,4 +961,29 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   width: max-content;
 }
 
+.daily-back-fab {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 10001;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary, #6366f1);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.daily-back-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.32);
+}
+.daily-back-fab:active {
+  transform: scale(0.95);
+}
 </style>
