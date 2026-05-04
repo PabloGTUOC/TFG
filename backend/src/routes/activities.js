@@ -187,28 +187,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         };
       }
 
-      // Insert a new instance row (is_template = false)
-      const { rows } = await client.query(
-        `INSERT INTO activities
-           (family_id, created_by, assigned_to, title, category,
-            starts_at, ends_at, duration_minutes, coin_value,
-            status, is_template, is_recurrent, approved_by, approved_at)
-         VALUES ($1, $2, $3, $4, $5,
-                 $6::timestamptz,
-                 $6::timestamptz + ($7::int || ' minutes')::interval,
-                 $7::int, $8::int,
-                 $11, false, $12, $9, $10)
-         RETURNING *`,
-        [
-          t.family_id, t.created_by, user.id,
-          t.title, t.category,
-          start.toISOString(),
-          Number(t.duration_minutes), Number(t.coin_value),
-          t.approved_by, t.approved_at,
-          initialStatus, t.is_recurrent
-        ]
-      );
-      // Check if this exceeds the monthly budget
+      // Check if this exceeds the monthly budget (before inserting)
       const { rows: budgetRows } = await client.query(`
         SELECT 
           f.monthly_coin_budget,
@@ -230,6 +209,28 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
           warning = 'budget_exceeded';
         }
       }
+
+      // Insert a new instance row (is_template = false)
+      const { rows } = await client.query(
+        `INSERT INTO activities
+           (family_id, created_by, assigned_to, title, category,
+            starts_at, ends_at, duration_minutes, coin_value,
+            status, is_template, is_recurrent, approved_by, approved_at)
+         VALUES ($1, $2, $3, $4, $5,
+                 $6::timestamptz,
+                 $6::timestamptz + ($7::int || ' minutes')::interval,
+                 $7::int, $8::int,
+                 $11, false, $12, $9, $10)
+         RETURNING *`,
+        [
+          t.family_id, t.created_by, user.id,
+          t.title, t.category,
+          start.toISOString(),
+          Number(t.duration_minutes), Number(t.coin_value),
+          t.approved_by, t.approved_at,
+          initialStatus, t.is_recurrent
+        ]
+      );
 
       return { data: rows[0], warning };
     });
@@ -524,7 +525,9 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
       if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = actRows[0];
 
-      if (act.status === 'completed') return { error: { code: 409, message: 'Activity already completed.' } };
+      if (act.status === 'completed' || act.status === 'pending_validation') {
+        return { error: { code: 409, message: 'Cannot accept bounty for a completed or pending validation activity.' } };
+      }
       if (act.assigned_to === me.id) return { error: { code: 409, message: 'You already own this shift.' } };
       if (!act.bounty_amount || !act.bounty_offered_by) return { error: { code: 409, message: 'No bounty available.' } };
 

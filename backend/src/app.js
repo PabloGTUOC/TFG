@@ -35,6 +35,7 @@ app.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
+  keyGenerator: (req) => req.auth?.uid || req.ip,
 }));
 
 app.get('/health', (_req, res) => {

@@ -1027,7 +1027,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   position: fixed;
   bottom: 2rem;
   left: 2rem;
-  z-index: 10001;
+  z-index: 9998;
   width: 52px;
   height: 52px;
   border-radius: 50%;

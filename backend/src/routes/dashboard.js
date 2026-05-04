@@ -65,7 +65,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
 
             // Split and distribute
             const { rows: caretakers } = await client.query(
-              `SELECT id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
+              `SELECT id, user_id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
               [familyId]
             );
 
@@ -77,6 +77,13 @@ dashboardRouter.get('/:familyId', async (req, res) => {
                   `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE id = ANY($2::bigint[])`,
                   [share, cIds]
                 );
+
+                for (const c of caretakers) {
+                  await client.query(
+                    `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1, $2, $3, 'monthly_distribution')`,
+                    [familyId, c.user_id, share]
+                  );
+                }
               }
             }
           }
