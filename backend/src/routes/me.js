@@ -4,6 +4,7 @@ import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, string, email } from '../middleware/validate.js';
 import multer from 'multer';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,11 +14,12 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads/'));
+    const dir = path.join(__dirname, '../../uploads/users', req.auth.uid);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'avatar' + path.extname(file.originalname).toLowerCase());
   }
 });
 
@@ -89,7 +91,7 @@ meRouter.post('/avatar', (req, res, next) => {
     return res.status(400).json({ error: 'No avatar image uploaded.' });
   }
 
-  const avatarUrl = `/uploads/${req.file.filename}`;
+  const avatarUrl = `/uploads/users/${req.auth.uid}/${req.file.filename}`;
 
   try {
     const user = await withTransaction(async (client) => {

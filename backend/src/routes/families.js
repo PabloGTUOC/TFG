@@ -5,20 +5,36 @@ import { validateBody, validateParams, required, string, positiveInt } from '../
 import { requireRole } from '../middleware/rbac.js';
 import multer from 'multer';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads/'));
+    const dir = path.join(__dirname, '../../uploads/families', req.params.familyId, 'actors', req.params.actorId);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'avatar' + path.extname(file.originalname).toLowerCase());
   }
 });
-const upload = multer({ storage: storage });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: function (_req, file, cb) {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, and WebP images are allowed.'));
+    }
+  }
+});
 
 export const familiesRouter = Router();
 
@@ -437,7 +453,7 @@ familiesRouter.post('/:familyId/actors/:actorId/avatar',
 
     const familyId = Number(req.params.familyId);
     const actorId = Number(req.params.actorId);
-    const avatarUrl = `/uploads/${req.file.filename}`;
+    const avatarUrl = `/uploads/families/${req.params.familyId}/actors/${req.params.actorId}/${req.file.filename}`;
 
     try {
       const result = await withTransaction(async (client) => {
