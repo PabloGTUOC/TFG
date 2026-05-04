@@ -7,6 +7,7 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { insertDefaultActivities } from '../db/defaultActivities.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -182,6 +183,9 @@ familiesRouter.post('/', validateBody({
           );
         }
       }
+
+      // Seed default templates tailored to this family's objects of care
+      await insertDefaultActivities(client, famId, user.id, objectsOfCare);
 
       return createdFamily.rows[0];
     });

@@ -29,14 +29,24 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// 1. Keep a loose global limiter as a DoS shield
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
-  keyGenerator: (req) => req.auth?.uid || req.ip,
 }));
+
+// 2. Add a tighter per-user limiter applied after auth
+const perUserLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+  keyGenerator: (req) => req.auth.uid, // auth is guaranteed set by this point
+});
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
@@ -44,14 +54,14 @@ app.get('/health', (_req, res) => {
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-app.use('/api/me', requireAuth, meRouter);
-app.use('/api/families', requireAuth, familiesRouter);
-app.use('/api/activities', requireAuth, activitiesRouter);
-app.use('/api/dashboard', requireAuth, dashboardRouter);
-app.use('/api/marketplace', requireAuth, marketplaceRouter);
-app.use('/api/stats', requireAuth, statsRouter);
-app.use('/api/absences', requireAuth, absencesRouter);
-app.use('/api/families', requireAuth, inviteLinksRouter);
+app.use('/api/me', requireAuth, perUserLimiter, meRouter);
+app.use('/api/families', requireAuth, perUserLimiter, familiesRouter);
+app.use('/api/activities', requireAuth, perUserLimiter, activitiesRouter);
+app.use('/api/dashboard', requireAuth, perUserLimiter, dashboardRouter);
+app.use('/api/marketplace', requireAuth, perUserLimiter, marketplaceRouter);
+app.use('/api/stats', requireAuth, perUserLimiter, statsRouter);
+app.use('/api/absences', requireAuth, perUserLimiter, absencesRouter);
+app.use('/api/families', requireAuth, perUserLimiter, inviteLinksRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
