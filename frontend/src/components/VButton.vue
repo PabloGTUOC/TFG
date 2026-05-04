@@ -32,6 +32,7 @@ defineEmits(['click']);
   border: none;
   outline: none;
   white-space: nowrap;
+  min-height: 44px; /* Mobile touch target accessibility */
 }
 
 .block {

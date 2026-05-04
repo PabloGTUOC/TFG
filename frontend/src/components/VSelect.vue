@@ -55,7 +55,7 @@ defineEmits(['update:modelValue']);
   color: var(--text-primary);
   padding: 0.6rem 2.5rem 0.6rem 0.8rem;
   border-radius: var(--radius-button, 9999px);
-  font-size: 1rem;
+  font-size: 16px; /* Prevent iOS Safari auto-zoom */
   transition: all 0.2s ease;
   width: 100%;
   box-sizing: border-box;

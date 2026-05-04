@@ -32,6 +32,7 @@ body {
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1,
@@ -192,4 +193,32 @@ pre {
 .text-4xl {
   font-size: 2.25rem;
   line-height: 2.5rem;
+}
+
+/* -------------------
+   Global Mobile Responsiveness 
+------------------- */
+@media (max-width: 768px) {
+  /* Typography Scale Down */
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1rem; }
+  .text-4xl { font-size: 1.75rem; line-height: 2rem; }
+  .text-3xl { font-size: 1.5rem; line-height: 1.75rem; }
+  .text-2xl { font-size: 1.25rem; line-height: 1.5rem; }
+  
+  /* Reduce container padding on mobile */
+  li { padding: 0.8rem; }
+  
+  /* Modal adjustments for mobile */
+  .modal-overlay {
+    align-items: flex-start;
+    padding-top: 3rem; /* Leave room for mobile top bars and prevent keyboard squishing */
+    padding-bottom: 3rem;
+  }
+
+  /* Force parallel grids to stack */
+  .grid.two, .grid.three {
+    grid-template-columns: 1fr !important;
+  }
 }

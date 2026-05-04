@@ -303,15 +303,15 @@ const getAssigneeGradient = (assigned_to) => {
 <template>
   <div class="dashboard-root" v-if="dashboard.members.length > 0" style="padding-top: 1rem;">
     <!-- Title Section -->
-    <div style="margin-bottom: 3rem;">
-       <h1 style="color: #1e1b4b; font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
+    <div class="dash-title-section" style="margin-bottom: 3rem;">
+       <h1 class="dash-title" style="color: #1e1b4b; font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
        <p style="color: #64748b; font-size: 1.1rem; max-width: 600px; margin: 0; line-height: 1.5;">
          {{ timeGreeting }}, {{ familyStore.families?.[0]?.alias || familyStore.profile?.display_name || 'Caregiver' }}! Your family has earned <strong>{{ todayCoins || 0 }} coins</strong> today. <strong>{{ todayPendingTasks }} major tasks</strong> are still waiting for attention.
        </p>
     </div>
 
     <!-- Main Grid: Left (Members + Stats) | Right (Recent) -->
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 3rem;">
+    <div class="dashboard-main-grid">
        
        <!-- LEFT COLUMN -->
        <div>
@@ -395,29 +395,27 @@ const getAssigneeGradient = (assigned_to) => {
           </div>
 
           <!-- Giant Stats Bar -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+          <div class="stats-pills-grid">
              <!-- Coins Pill -->
-             <div @click="navigateToStats"
-                  style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; background: #0055ff; color: white; border-radius: 9999px; padding: 2.5rem 3rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0, 85, 255, 0.4);"
-                  onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 15px 35px rgba(0, 85, 255, 0.5)';"
-                  onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 30px rgba(0, 85, 255, 0.4)';">
+             <div class="stat-pill stat-pill--blue" @click="navigateToStats"
+                  onmouseover="this.style.transform='scale(1.02)'"
+                  onmouseout="this.style.transform='scale(1)'">
                 <div>
                   <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Coins Earned</div>
-                  <div style="font-size: 3.5rem; font-weight: 800; line-height: 1;">{{ dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString() }}</div>
+                  <div class="stat-pill-value">{{ dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString() }}</div>
                 </div>
-                <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items:center; justify-content: center; font-size: 2.5rem;">🪙</div>
+                <div class="stat-pill-icon">🪙</div>
              </div>
-             
+
              <!-- Tasks Pill -->
-             <div @click="navigateToStats"
-                  style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; background: #33ff99; color: #064e3b; border-radius: 9999px; padding: 2.5rem 3rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(51, 255, 153, 0.4);"
-                  onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 15px 35px rgba(51, 255, 153, 0.5)';"
-                  onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 30px rgba(51, 255, 153, 0.4)';">
+             <div class="stat-pill stat-pill--green" @click="navigateToStats"
+                  onmouseover="this.style.transform='scale(1.02)'"
+                  onmouseout="this.style.transform='scale(1)'">
                 <div>
                   <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Tasks Completed Today</div>
-                  <div style="font-size: 3.5rem; font-weight: 800; line-height: 1;">{{ completedToday.length }}<span style="opacity:0.4; font-size: 2rem;">/{{ scheduledInstances.length }}</span></div>
+                  <div class="stat-pill-value">{{ completedToday.length }}<span style="opacity:0.4; font-size: 2rem;">/{{ scheduledInstances.length }}</span></div>
                 </div>
-                <div style="width: 80px; height: 80px; background: rgba(0,0,0,0.08); border-radius: 50%; display: flex; align-items:center; justify-content: center; font-size: 2.5rem;">✔</div>
+                <div class="stat-pill-icon">✔</div>
              </div>
           </div>
 
@@ -452,17 +450,20 @@ const getAssigneeGradient = (assigned_to) => {
     </div>
 
     <!-- FULL-WIDTH BOTTOM ROW -->
-    <div style="margin-top: 4rem; margin-bottom: 4rem;">
-       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">This Week's Schedule</h2>
-          <div style="display: flex; align-items: center; gap: 1rem;">
-             <button @click="openAbsenceModal" class="log-off-btn" style="margin-right: 1.5rem;">+ Log Time Off</button>
-             <button @click="currentWeekOffset--" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&laquo;</button>
-             <div style="font-weight: 800; font-size:1.1rem; color: var(--text-primary);">{{ weekLabel }}</div>
-             <button @click="currentWeekOffset++" style="background: var(--input-bg); border: 1px solid var(--input-border); width: 36px; height: 36px; border-radius: 50%; color: var(--primary); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&raquo;</button>
+    <div class="week-section">
+       <div class="week-header">
+          <div class="week-title-row">
+            <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">This Week's Schedule</h2>
+            <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+          </div>
+          <div class="week-pagination-row">
+             <button @click="currentWeekOffset--" class="pagination-btn">&laquo;</button>
+             <div class="pagination-label">{{ weekLabel }}</div>
+             <button @click="currentWeekOffset++" class="pagination-btn">&raquo;</button>
           </div>
        </div>
 
+       <div class="week-scroll">
        <div class="mockup-weekly-row" style="background: white; border-radius: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; border: 1px solid var(--card-border); min-height: 250px; overflow: hidden;">
           <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
                class="mockup-day-col"
@@ -500,6 +501,7 @@ const getAssigneeGradient = (assigned_to) => {
             
           </div>
        </div>
+       </div><!-- end week-scroll -->
     </div>
 
     <!-- Add Care Object Modal -->
@@ -632,6 +634,138 @@ const getAssigneeGradient = (assigned_to) => {
   justify-content: center;
   font-size: 3rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* ── Section spacing ─────────────────────────────────────── */
+.week-section { margin-top: 4rem; margin-bottom: 4rem; }
+.week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.week-title-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.week-pagination-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.pagination-btn {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--primary);
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.pagination-btn:hover {
+  background: #f1f5f9;
+}
+.pagination-label {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+/* ── Stats pills ─────────────────────────────────────────── */
+.stat-pill {
+  cursor: pointer;
+  border-radius: 9999px;
+  padding: 2.5rem 3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-pill--blue  { background: #0055ff; color: white; box-shadow: 0 10px 30px rgba(0, 85, 255, 0.4); }
+.stat-pill--green { background: #33ff99; color: #064e3b; box-shadow: 0 10px 30px rgba(51, 255, 153, 0.4); }
+.stat-pill-value  { font-size: 3.5rem; font-weight: 800; line-height: 1; }
+.stat-pill-icon   { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+.stat-pill--blue  .stat-pill-icon { background: rgba(255,255,255,0.2); }
+.stat-pill--green .stat-pill-icon { background: rgba(0,0,0,0.08); }
+
+/* ── Main layout grids ───────────────────────────────────── */
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 3rem;
+}
+
+.stats-pills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+/* ── Weekly scroll wrapper ───────────────────────────────── */
+.week-scroll {
+  overflow-x: auto;
+  border-radius: 32px;
+  -webkit-overflow-scrolling: touch;
+}
+.week-scroll .mockup-weekly-row { min-width: 700px; }
+.week-scroll .mockup-day-col    { min-width: 100px; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-root { padding: 1rem; }
+  .dash-title { font-size: 2.2rem; letter-spacing: -0.5px; }
+
+  /* Collapse main 2-col → 1-col */
+  .dashboard-main-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+
+  /* Stats pills stack + become rectangular */
+  .stats-pills-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .stat-pill { border-radius: 24px; padding: 1.5rem 2rem; }
+  .stat-pill-value { font-size: 2.5rem; }
+  .stat-pill-icon { width: 60px; height: 60px; font-size: 2rem; }
+
+  .week-section { margin-top: 2rem; margin-bottom: 2rem; }
+  .week-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.2rem;
+  }
+  .week-title-row {
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .week-pagination-row {
+    justify-content: space-between;
+    background: white;
+    border: 1px solid var(--card-border);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  }
+
+  /* Transform to Vertical Agenda Calendar */
+  .week-scroll .mockup-weekly-row {
+    flex-direction: column;
+    min-width: 0;
+  }
+  .mockup-weekly-row .mockup-day-col {
+    border-right: none;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .mockup-weekly-row .mockup-day-col:last-child {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-title { font-size: 1.8rem; }
+  .stat-pill { padding: 1.25rem 1.5rem; }
 }
 
 </style>

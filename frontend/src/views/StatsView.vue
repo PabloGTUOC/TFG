@@ -66,7 +66,8 @@ const trendOptions = computed(() => {
     });
     return {
       tooltip: { trigger: 'axis' },
-      legend: { data: caregivers.value, top: 0 },
+      legend: { data: caregivers.value, top: 0, type: 'scroll' },
+      grid: { top: '20%', bottom: '3%', left: '3%', right: '4%', containLabel: true },
       xAxis: { type: 'category', data: months },
       yAxis: { type: 'value' },
       series
@@ -121,7 +122,8 @@ const categoryOptions = computed(() => {
      });
      return {
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { data: caregivers.value, top: 0 },
+        legend: { data: caregivers.value, top: 0, type: 'scroll' },
+        grid: { top: '20%', bottom: '3%', left: '3%', right: '4%', containLabel: true },
         xAxis: { type: 'category', data: ['Care', 'Household'] },
         yAxis: { type: 'value' },
         series
@@ -133,10 +135,10 @@ const categoryOptions = computed(() => {
      
      return {
         tooltip: { trigger: 'item' },
-        legend: { bottom: '0%', left: 'center' },
+        legend: { bottom: '0%', left: 'center', type: 'scroll' },
         series: [{
           type: 'pie',
-          radius: ['40%', '70%'],
+          radius: ['40%', '65%'],
           itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
           label: { show: false },
           data: [
@@ -159,7 +161,7 @@ const coinFlowOptions = computed(() => {
   const presentReasons = reasons.filter(r => flowData.some(d => d.reason === r));
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: presentReasons.map(r => labels[r]), top: 0 },
+    legend: { data: presentReasons.map(r => labels[r]), top: 0, type: 'scroll' },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
     xAxis: { type: 'category', data: months },
     yAxis: { type: 'value' },
@@ -214,9 +216,9 @@ const statusDistOptions = computed(() => {
   const labelMap   = { completed: 'Completed', approved: 'Approved', pending: 'Pending', rejected: 'Rejected', pending_validation: 'Pending Validation' };
   return {
     tooltip: { trigger: 'item' },
-    legend: { bottom: '0%', left: 'center' },
+    legend: { bottom: '0%', left: 'center', type: 'scroll' },
     series: [{
-      type: 'pie', radius: ['40%', '70%'],
+      type: 'pie', radius: ['40%', '65%'],
       itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
       label: { show: false },
       data: stats.value.statusDistribution.map(d => ({ name: labelMap[d.status] || d.status, value: d.count, itemStyle: { color: colorMap[d.status] || '#94a3b8' } }))
@@ -231,7 +233,7 @@ const bountyOptions = computed(() => {
   const names = data.map(d => d.name);
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['Offered', 'Earned', 'Refunded'], top: 0 },
+    legend: { data: ['Offered', 'Earned', 'Refunded'], top: 0, type: 'scroll' },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
     xAxis: { type: 'value' },
     yAxis: { type: 'category', data: names },
@@ -310,8 +312,8 @@ const frequencyOptions = computed(() => {
      
      return {
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { data: caregivers.value, top: 0 },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        legend: { data: caregivers.value, top: 0, type: 'scroll' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
         xAxis: { type: 'value' },
         yAxis: { type: 'category', data: [...topTasks].reverse() },
         series: series.map(s => ({ ...s, data: [...s.data].reverse() }))
@@ -338,8 +340,8 @@ const frequencyOptions = computed(() => {
   <div class="stats-container">
     <!-- Header with Toggle integrated -->
     <div class="stats-header">
-      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <div style="display: flex; align-items: center; gap: 2rem;">
+      <div class="stats-header-row">
+        <div class="stats-header-left">
           <button @click="navigateBack" class="back-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #475569"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             <span style="font-weight: 800; color: #475569;">Family Hub</span>
@@ -541,6 +543,7 @@ const frequencyOptions = computed(() => {
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
+.grid-2-cols > * { min-width: 0; }
 .chart-box {
   background: white;
   border-radius: 32px;
@@ -642,6 +645,42 @@ input:checked + .slider:before { transform: translateX(26px); }
   font-size: 0.78rem;
   color: #94a3b8;
   margin: -1rem 0 1.2rem;
+}
+
+/* Desktop base styles for new header classes */
+.stats-header-row  { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.stats-header-left { display: flex; align-items: center; gap: 2rem; }
+
+/* Tablet / large phone — stack grids at 768px */
+@media (max-width: 768px) {
+  .stats-container { padding: 1.5rem 1rem; }
+
+  /* Header */
+  .stats-header { margin-bottom: 1.5rem; }
+  .stats-header-row  { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .stats-header-left { gap: 1rem; flex-wrap: wrap; }
+  .stats-title { font-size: 1.8rem; }
+
+  /* KPI cards — 2→1 column */
+  .kpi-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .kpi-card { padding: 1.5rem; }
+  .kpi-value { font-size: 2.5rem; letter-spacing: -1px; }
+
+  /* All 2-col chart grids stack */
+  .grid-2-cols { grid-template-columns: 1fr; gap: 1rem; }
+}
+
+/* Phone tweaks */
+@media (max-width: 480px) {
+  .stats-title { font-size: 1.5rem; }
+  .back-btn { padding: 0.5rem 1rem; }
+  .kpi-value { font-size: 1.8rem; }
+  .chart-box { padding: 1.25rem; }
+  .chart-title { font-size: 1rem; margin-bottom: 1rem; }
+  .chart { height: 260px; }
+  .chart-sub { margin: 0.25rem 0 1rem; }
+  .chart-empty { height: 140px; }
+  .section-divider { margin-top: 2rem; }
 }
 .chart-empty {
   height: 200px;

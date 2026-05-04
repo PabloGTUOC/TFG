@@ -80,7 +80,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 </script>
 
 <template>
-  <div style="display: flex; flex-direction: column; gap: 2rem;">
+  <div class="marketplace-container" style="display: flex; flex-direction: column; gap: 2rem;">
 
     <!-- Available Rewards -->
     <VCard title="The Reward Store">
@@ -293,5 +293,11 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .marketplace-container {
+    padding: 0 1rem;
+  }
 }
 </style>

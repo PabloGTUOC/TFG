@@ -103,7 +103,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 </script>
 
 <template>
-  <div style="display: flex; flex-direction: column; gap: 1rem;">
+  <div class="activities-container" style="display: flex; flex-direction: column; gap: 1rem;">
     <!-- Header -->
     <h2 style="margin-bottom: 1rem; font-weight: 800; letter-spacing: -0.02em;">Family Admin and Budget Hub</h2>
 
@@ -198,7 +198,7 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
             </svg>
             
             <div class="gauge-content">
-              <div class="text-4xl" style="font-weight: 800; color: var(--text-primary); line-height: 1; font-size: 3.5rem; margin-top: 1rem;">
+              <div class="gauge-text" style="font-weight: 800; color: var(--text-primary); line-height: 1; margin-top: 1rem;">
                 {{ budgetInfo.remainingBudget }}<span class="text-xl" style="color: var(--accent-primary); margin-left: 0.2rem;">cc</span>
               </div>
             </div>
@@ -378,6 +378,25 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   left: 50%;
   transform: translate(-50%, 15%);
   width: 100%;
+}
+.gauge-text {
+  font-size: 3.5rem;
+}
+
+@media (max-width: 768px) {
+  .activities-container {
+    padding: 0 1rem;
+  }
+  :deep(.fixed-card) {
+    height: auto;
+    min-height: 400px;
+  }
+  :deep(.fixed-card .v-card-body) {
+    overflow: visible;
+  }
+  .gauge-text {
+    font-size: 2.5rem;
+  }
 }
 </style>
 

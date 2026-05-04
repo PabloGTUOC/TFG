@@ -387,6 +387,16 @@ const dropOnTimeline = (event) => {
   } catch(e) {}
 };
 
+const tapToSchedule = (activity) => {
+  if (window.innerWidth <= 768) {
+    scheduleForm.value.activityId = activity.id;
+    const now = new Date();
+    scheduleHour.value = String(now.getHours()).padStart(2, '0');
+    scheduleMinute.value = now.getMinutes() >= 30 ? '30' : '00';
+    showScheduleModal.value = true;
+  }
+};
+
 const confirmSchedule = async () => {
   const hh = scheduleHour.value;
   const mm = scheduleMinute.value;
@@ -442,16 +452,16 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 <template>
   <div class="daily-fullscreen-overlay" @click.self="closeDailyView">
     <div class="daily-wrapper" @dragover.prevent @drop.prevent="dropOut($event)">
-      <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <div style="display:flex; align-items: center; gap: 1.5rem;">
-        <h2 style="margin: 0;">Daily Schedule</h2>
-        <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+      <div class="daily-header-row">
+        <div class="daily-header-left">
+          <h2 style="margin: 0;">Daily Schedule</h2>
+          <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+        </div>
+        <div class="daily-header-right">
+          <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
+          <span style="color: var(--accent-primary); font-weight: 800;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
+        </div>
       </div>
-      <div style="text-align: right;">
-        <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
-        <span style="color: var(--accent-primary); font-weight: 800;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
-      </div>
-    </div>
 
     <!-- 3 Column Layout -->
     <div class="daily-grid">
@@ -466,7 +476,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                {{ category === 'care' ? 'CARE & WELLNESS' : 'HOUSEHOLD' }}
              </div>
              
-             <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)">
+             <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)" @click="tapToSchedule(a)">
                 <div style="width: 40px; height: 40px; background: #e0e7ff; color: #3730a3; border-radius: 50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                   <span style="font-size: 1.2rem;">{{ category === 'care' ? '❤️' : '🧹' }}</span>
                 </div>
@@ -501,7 +511,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
              </div>
            </div>
 
-           <div class="timeline-container" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
+           <!-- Desktop/Tablet Timeline -->
+           <div class="timeline-container desktop-only" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
+             <div class="timeline-inner">
               <!-- Draw 18 hr lines -->
               <div class="hour-lines" style="position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column;">
                  <div v-for="h in 19" :key="h" class="h-line">
@@ -557,7 +569,57 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                   </div>
                 </div>
               </div>
+             </div>
            </div>
+         
+         <!-- Mobile Agenda View -->
+         <div class="mobile-agenda mobile-only" style="padding: 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
+           <div v-if="scheduledToday.length === 0" style="text-align: center; color: var(--text-secondary); padding: 2rem; font-weight: 600;">
+             No activities scheduled yet. Tap a task below to add one!
+           </div>
+           
+           <div v-for="a in scheduledToday" :key="a.id" 
+                style="border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.8rem;" 
+                :style="{ background: getAssigneeGradient(a.assigned_to, a.category) }">
+             <div style="display:flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
+               <div style="display:flex; align-items: center; gap: 0.8rem; flex: 1;">
+                 <span style="font-size: 1.8rem; background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
+                 <div>
+                   <div style="font-weight: 800; font-size: 1.15rem; line-height: 1.2;">{{ a.title }}</div>
+                   <div style="font-size: 0.85rem; font-weight: 600; opacity: 0.9; margin-top: 0.2rem;" v-if="a.bounty_amount">🪙 +{{a.bounty_amount}}cc Bounty</div>
+                 </div>
+               </div>
+               <div style="background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 10px; font-size: 0.95rem; font-weight: 800; flex-shrink: 0;">
+                 {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+               </div>
+             </div>
+             
+             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1);">
+               <div style="font-size: 0.8rem; font-weight: 700; opacity: 0.9;">
+                 {{ a.assigned_alias || 'Caregiver' }}
+               </div>
+               
+               <div style="display: flex; align-items: center; gap: 0.5rem;">
+                 <div v-if="a.status === 'pending_validation'">
+                   <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn" style="padding: 0.4rem 1rem;">✓ Validate</button>
+                 </div>
+                 <div v-else-if="a.status === 'completed'" style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 0.85rem;">
+                   ✓ Done
+                 </div>
+                 <div v-else-if="['pending', 'approved'].includes(a.status)">
+                   <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'" 
+                           @click.stop="openBountyModal(a)" class="validate-btn" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 0.4rem 1rem;">
+                     Delegate
+                   </button>
+                   <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
+                           @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: white; color: #10b981; border: none; padding: 0.4rem 1rem;">
+                     Take Over
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </div>
+        </div>
         </VCard>
 
         <!-- Horizontal Completed Bar -->
@@ -985,5 +1047,54 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 .daily-back-fab:active {
   transform: scale(0.95);
+}
+
+.daily-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.daily-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.daily-header-right {
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .daily-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .daily-header-left {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .daily-header-right {
+    text-align: left;
+  }
+  .daily-grid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column-reverse; /* Put Task Library below the Agenda */
+  }
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+  .timeline-container {
+    overflow-x: auto;
+  }
+  .timeline-inner {
+    min-width: 600px;
+    height: 100%;
+    position: relative;
+  }
+  .daily-fullscreen-overlay {
+    padding: 1rem 0.5rem;
+  }
 }
 </style>

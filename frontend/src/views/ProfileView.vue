@@ -368,7 +368,7 @@ const formatLedgerDate = (ds) => {
         <div class="family-circle-section">
           <div class="section-header">
             <h2>Family Circle</h2>
-            <div v-if="isCaregiver" style="display:flex; gap:0.6rem;">
+            <div v-if="isCaregiver" class="section-actions">
               <button class="add-member-btn" @click="showAddActor = !showAddActor; showInviteForm = false">
                 ➕ Add Dependent
               </button>
@@ -606,6 +606,7 @@ const formatLedgerDate = (ds) => {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  min-width: 0;
 }
 
 /* ── Account Settings card ───────────────────────────────── */
@@ -1163,7 +1164,7 @@ const formatLedgerDate = (ds) => {
 .qr-img  { width: 140px; height: 140px; border-radius: 12px; border: 1px solid #e2e8f0; }
 .qr-hint { font-size: 0.72rem; color: #94a3b8; margin-top: 0.4rem; }
 
-.link-actions { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.75rem; }
+.link-actions { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .link-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -1192,7 +1193,39 @@ const formatLedgerDate = (ds) => {
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .two-col-grid { grid-template-columns: 1fr; }
+  .personal-area { padding: 1.5rem 1rem; }
+  .two-col-grid { grid-template-columns: 1fr; gap: 1.5rem; }
   .page-heading h1 { font-size: 2rem; }
+
+  /* Form fields stack */
+  .form-row { grid-template-columns: 1fr; }
+
+  /* Family circle */
+  .section-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .section-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
+  .section-actions button { flex: 1; min-width: 0; }
+
+  /* QR / invite section stacks vertically */
+  .invite-link-body { flex-direction: column; align-items: center; }
+  .link-actions { min-width: unset; width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .page-heading h1 { font-size: 1.5rem; }
+  .page-heading p  { font-size: 0.85rem; }
+
+  /* Avatar row */
+  .avatar-row { gap: 1rem; }
+  .user-avatar { width: 60px; height: 60px; font-size: 1.5rem; }
+
+  /* Family circle */
+  .circle-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .circle-avatar { width: 60px; height: 60px; font-size: 1.4rem; }
+
+  /* Balance widget */
+  .balance-amount { font-size: 1.8rem !important; }
+
+  /* QR */
+  .qr-img { width: 100px; height: 100px; }
 }
 </style>

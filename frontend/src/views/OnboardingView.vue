@@ -317,4 +317,11 @@ hr {
 }
 .invite-family { font-weight: 800; color: #1e293b; font-size: 0.95rem; }
 .invite-meta   { font-size: 0.78rem; color: #64748b; margin-top: 0.15rem; }
+
+@media (max-width: 768px) {
+  .list-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 </style>
