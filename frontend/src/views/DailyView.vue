@@ -527,7 +527,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            <!-- All-Day Banner Row for Absences -->
            <div v-if="absencesToday.length > 0" class="absence-banner-row">
              <div v-for="a in absencesToday" :key="a.id" 
-                  style="background: var(--danger-soft); border: 1px solid #FECACA; border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.8rem; color: var(--danger); display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer;"
+                  style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.8rem; color: var(--danger); display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer;"
                   @click="openAbsenceDetail(a)">
                <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
                  <span>✈️</span> {{ a.user_alias || a.user_name }}
@@ -590,7 +590,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                     </span>
                     <!-- Other User's Task with Bribe -> I can ACCEPT Bribe -->
                     <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
-                            @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: rgba(16, 185, 129, 0.4); border: 2px solid #10b981;">
+                            @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: var(--success-soft); border: 2px solid var(--success); color: var(--success);">
                       🤑 Take Over (+{{a.bounty_amount}}cc)
                     </button>
                     <!-- Other User's Task with NO bribe -->
@@ -643,7 +643,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                      Delegate
                    </button>
                    <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
-                           @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: white; color: #10b981; border: none; padding: 0.4rem 1rem;">
+                           @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: var(--success-soft); color: var(--success); border: none; padding: 0.4rem 1rem;">
                      Take Over
                    </button>
                  </div>
@@ -897,19 +897,19 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.8rem 1rem;
-  background: #f1f5f9;
-  border-bottom: 1px solid var(--card-border);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 
 .absence-indicator {
-  background: white;
-  border: 1px solid #cbd5e1;
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 0.3rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.8rem;
   color: var(--text-primary);
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(14,23,38,0.05);
   transition: transform 0.1s;
 }
 .absence-indicator:hover {
@@ -1035,31 +1035,31 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 
 /* Completed (Col 3) */
 .confetti-bg {
-  background-image: radial-gradient(#bae6fd 1px, transparent 1px), radial-gradient(#d8b4fe 1px, transparent 1px);
+  background-image: radial-gradient(var(--primary-soft) 1px, transparent 1px), radial-gradient(var(--success-soft) 1px, transparent 1px);
   background-size: 20px 20px;
   background-position: 0 0, 10px 10px;
 }
 .completed-chip {
-  background: var(--card-bg);
-  border-radius: 16px;
+  background: var(--surface);
+  border-radius: var(--r-md);
   padding: 1rem 1.2rem;
   margin-bottom: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid var(--card-border);
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(14,23,38,0.04);
 }
 .mock-check {
-  background: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.2rem;
+  background: var(--success); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items:center; justify-content:center; font-weight:bold; font-size:1.2rem;
 }
 .daily-tallies {
   margin-top: auto;
   text-align: center;
-  background: #1e293b;
+  background: var(--text-primary);
   padding: 1.25rem 1rem;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border-radius: var(--r-md);
+  box-shadow: 0 4px 12px rgba(14,23,38,0.12);
 }
 
 .empty-pill {
@@ -1076,7 +1076,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--primary, #6366f1);
+  background: var(--primary);
   color: #fff;
   border: none;
   cursor: pointer;
