@@ -1,28 +1,39 @@
 :root {
-  --font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-family: var(--font);
 
-  --bg-color: #F8FAFC;
-  --card-bg: #FFFFFF;
-  --card-border: #E2E8F0;
+  --bg:           #F7F8FA;
+  --surface:      #FFFFFF;
+  --border:       #E5E8EE;
 
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
+  --text-primary:   #0E1726;
+  --text-secondary: #5B6478;
 
-  --accent-primary: #2563EB;
+  --primary:      #2563EB;  --primary-soft:  #E8EFFE;
+  --success:      #16A34A;  --success-soft:  #E7F6EC;
+  --warning:      #D97706;  --warning-soft:  #FEF1E1;
+  --danger:       #DC2626;  --danger-soft:   #FCE8E8;
+
+  --r-sm:   8px;
+  --r-md:   16px;
+  --r-lg:   24px;
+  --r-pill: 999px;
+
+  /* Legacy aliases — kept during the redesign migration. Do not use in new code. */
+  --bg-color: var(--bg);
+  --card-bg: var(--surface);
+  --card-border: var(--border);
+  --accent-primary: var(--primary);
   --accent-secondary: #60A5FA;
-  --accent-gradient: linear-gradient(135deg, #2563EB, #60A5FA);
-
+  --accent-gradient: linear-gradient(135deg, var(--primary), #60A5FA);
   --input-bg: #F1F5F9;
   --input-border: #CBD5E1;
-  --input-focus: #2563EB;
-
-  --error: #F43F5E;
-  --success: #22C55E;
-  --color-blue: #2563EB;
+  --input-focus: var(--primary);
+  --error: var(--danger);
+  --color-blue: var(--primary);
   --color-slate-800: #1e293b;
-
-  --radius-button: 9999px;
-  --radius-card: 32px;
+  --radius-button: var(--r-pill);
+  --radius-card: var(--r-lg);
 }
 
 body {

@@ -6,6 +6,7 @@ import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
+import KpiCard from '../components/KpiCard.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
 
@@ -394,29 +395,34 @@ const getAssigneeGradient = (assigned_to) => {
              </div>
           </div>
 
-          <!-- Giant Stats Bar -->
-          <div class="stats-pills-grid">
-             <!-- Coins Pill -->
-             <div class="stat-pill stat-pill--blue" @click="navigateToStats"
-                  onmouseover="this.style.transform='scale(1.02)'"
-                  onmouseout="this.style.transform='scale(1)'">
-                <div>
-                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Coins Earned</div>
-                  <div class="stat-pill-value">{{ dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString() }}</div>
-                </div>
-                <div class="stat-pill-icon">🪙</div>
-             </div>
-
-             <!-- Tasks Pill -->
-             <div class="stat-pill stat-pill--green" @click="navigateToStats"
-                  onmouseover="this.style.transform='scale(1.02)'"
-                  onmouseout="this.style.transform='scale(1)'">
-                <div>
-                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Tasks Completed Today</div>
-                  <div class="stat-pill-value">{{ completedToday.length }}<span style="opacity:0.4; font-size: 2rem;">/{{ scheduledInstances.length }}</span></div>
-                </div>
-                <div class="stat-pill-icon">✔</div>
-             </div>
+          <!-- KPI Grid -->
+          <div class="kpi-grid" @click="navigateToStats" style="cursor: pointer;">
+             <KpiCard
+                label="Family Balance"
+                accent="primary"
+                :value="dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString()"
+                unit="cc"
+                :subtitle="`across ${dashboard.members.length} ${dashboard.members.length === 1 ? 'member' : 'members'}`"
+             />
+             <KpiCard
+                label="Tasks Today"
+                accent="success"
+                :value="`${completedToday.length}/${scheduledInstances.length}`"
+                :subtitle="todayPendingTasks > 0 ? `${todayPendingTasks} awaiting validation` : 'on track'"
+                :progress="scheduledInstances.length ? (completedToday.length / scheduledInstances.length) * 100 : 0"
+             />
+             <KpiCard
+                label="Open Bounties"
+                accent="warning"
+                :value="availableOffers.length"
+                :subtitle="availableOffers.length ? `${availableOffers.reduce((s, o) => s + (o.bounty_amount || 0), 0)} cc up for grabs` : 'No bounties open'"
+             />
+             <KpiCard
+                label="Recent Activity"
+                accent="ink"
+                :value="recentActivitiesList.length"
+                :subtitle="recentActivitiesList.length ? 'completed recently' : 'no recent activity'"
+             />
           </div>
 
        </div>
@@ -561,7 +567,7 @@ const getAssigneeGradient = (assigned_to) => {
 
 <style scoped>
 .dashboard-root {
-  max-width: 1300px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
@@ -705,6 +711,20 @@ const getAssigneeGradient = (assigned_to) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
 }
 
 /* ── Weekly scroll wrapper ───────────────────────────────── */

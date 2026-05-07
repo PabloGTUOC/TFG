@@ -659,7 +659,7 @@ const formatLedgerDate = (ds) => {
 <style scoped>
 /* ── Root ────────────────────────────────────────────────── */
 .personal-area {
-  max-width: 1200px;
+  max-width: 1080px;
   margin: 0 auto;
   padding-top: 1rem;
 }

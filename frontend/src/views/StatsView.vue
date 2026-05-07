@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
+import KpiCard from '../components/KpiCard.vue';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { BarChart, LineChart, PieChart } from 'echarts/charts';
@@ -363,22 +364,30 @@ const frequencyOptions = computed(() => {
     <div v-if="!isLoading && stats" class="stats-body">
       <!-- Top KPIs -->
       <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-label">LIFETIME WEALTH GENERATED</div>
-          <div class="kpi-value text-blue">{{ stats.kpis.total_lifetime_coins.toLocaleString() }} <span style="font-size: 1.2rem;">Coins</span></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">TOTAL ACTIVITIES COMPLETED</div>
-          <div class="kpi-value text-green">{{ stats.kpis.total_lifetime_tasks.toLocaleString() }} <span style="font-size: 1.2rem;">Tasks</span></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">BOUNTIES OFFERED</div>
-          <div class="kpi-value text-red">{{ (stats.kpis.total_bounties_offered ?? 0).toLocaleString() }} <span style="font-size: 1.2rem;">Bounties</span></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">REWARDS CLAIMED</div>
-          <div class="kpi-value text-purple">{{ (stats.kpis.total_rewards_claimed ?? 0).toLocaleString() }} <span style="font-size: 1.2rem;">Redeemed</span></div>
-        </div>
+        <KpiCard
+          label="Lifetime Wealth Generated"
+          accent="primary"
+          :value="stats.kpis.total_lifetime_coins.toLocaleString()"
+          unit="Coins"
+        />
+        <KpiCard
+          label="Total Activities Completed"
+          accent="success"
+          :value="stats.kpis.total_lifetime_tasks.toLocaleString()"
+          unit="Tasks"
+        />
+        <KpiCard
+          label="Bounties Offered"
+          accent="danger"
+          :value="(stats.kpis.total_bounties_offered ?? 0).toLocaleString()"
+          unit="Bounties"
+        />
+        <KpiCard
+          label="Rewards Claimed"
+          accent="warning"
+          :value="(stats.kpis.total_rewards_claimed ?? 0).toLocaleString()"
+          unit="Redeemed"
+        />
       </div>
 
       <!-- Trend Chart -->
@@ -475,12 +484,12 @@ const frequencyOptions = computed(() => {
 }
 .stats-header {
   margin-bottom: 2.5rem;
-  max-width: 1300px;
+  max-width: 1080px;
   margin-left: auto;
   margin-right: auto;
 }
 .stats-body {
-  max-width: 1300px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 .back-btn {

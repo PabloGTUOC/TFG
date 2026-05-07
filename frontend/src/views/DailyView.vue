@@ -826,7 +826,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: transparent;
   border: none;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1080px;
   min-height: 80vh;
   margin: 0 auto;
 }
