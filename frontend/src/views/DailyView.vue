@@ -944,6 +944,14 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   height: calc(100vh - 4rem); /* Occupy full viewport height minus padding */
 }
 
+/* Fix VCard internal layout to properly constrain height for the scrollable child */
+.col-card :deep(.v-card-body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Template Grid (Col 1) */
 .template-grid {
   display: flex;
