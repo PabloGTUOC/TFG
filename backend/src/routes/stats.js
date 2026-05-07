@@ -203,6 +203,6 @@ statsRouter.get('/:familyId', async (req, res) => {
         return res.json(data);
     } catch (err) {
         console.error('Failed to load stats:', err);
-        res.status(500).json({ error: 'Failed to load statistics.' });
+        return res.status(500).json({ error: 'Failed to load statistics.' });
     }
 });
