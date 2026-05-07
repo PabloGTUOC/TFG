@@ -1,0 +1,14 @@
+- `[x]` **Database Schema Updates**
+  - `[x]` Add `is_deleted` to `users` table
+  - `[x]` Add `inactive` to `family_members` status check
+  - `[x]` Create `family_deletion_requests` and `family_deletion_approvals` tables
+- `[x]` **Backend Routes Updates**
+  - `[x]` Implement `DELETE /api/me` (soft delete, clear future activities, mark inactive)
+  - `[x]` Update `DELETE /api/families/:id` (check caregivers, auto-delete or create requests/email)
+  - `[x]` Implement `GET /api/families/:id/deletion-requests`
+  - `[x]` Implement `POST /api/families/:id/deletion-requests/:requestId/approve`
+  - `[x]` Implement `POST /api/families/:id/deletion-requests/:requestId/reject`
+- `[x]` **Frontend Component Updates**
+  - `[x]` Add "Delete Account" button to Settings/Profile view
+  - `[x]` Add "Delete Family" button to FamilyAdmin view
+  - `[x]` Show pending family deletion requests and approval/rejection UI

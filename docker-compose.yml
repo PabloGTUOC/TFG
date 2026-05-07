@@ -10,6 +10,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  db-init:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://carecoins:carecoins@postgres:5432/carecoins
+    depends_on:
+      postgres:
+        condition: service_started
+    command: npm run db:init
+
   backend:
     build: ./backend
     environment:
@@ -17,7 +26,10 @@ services:
       PORT: 3000
       FIREBASE_PROJECT_ID: local-dev
     depends_on:
-      - postgres
+      db-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
     ports:
       - '3000:3000'
 

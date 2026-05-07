@@ -100,6 +100,12 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   await appStore.request(`/api/activities/${activityId}/approve`, { method: 'POST', headers: appStore.authHeaders() });
   await fetchActivities();
 }, 'Activity approved! It is now available to drag onto the Family Times calendar.');
+
+const deleteActivity = (activityId) => appStore.runAction(async () => {
+  if (!confirm('Are you sure you want to delete this activity template?')) return;
+  await appStore.request(`/api/activities/${activityId}`, { method: 'DELETE', headers: appStore.authHeaders() });
+  await fetchActivities();
+}, 'Activity template deleted.');
 </script>
 
 <template>
@@ -132,7 +138,12 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
              </div>
              
              <!-- Action Button -->
-             <button v-if="a.status === 'pending'" class="action-btn pending-btn" @click="approveActivity(a.id)">Approve</button>
+             <div class="action-group">
+               <button v-if="a.status === 'pending'" class="action-btn pending-btn" @click="approveActivity(a.id)">Approve</button>
+               <button class="action-btn delete-btn" title="Delete Template" @click="deleteActivity(a.id)">
+                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+               </button>
+             </div>
           </div>
           
           <div v-if="templates.length === 0" style="color:var(--text-secondary); text-align: center; margin-top: 2rem;">
@@ -278,16 +289,20 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   border: 1px solid var(--card-border);
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
   color: var(--text-primary);
+  gap: 1rem;
 }
 .pill-info {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 .pill-title {
   font-size: 1rem;
   font-weight: 800;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 .pill-meta {
@@ -307,6 +322,12 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
 }
 
 /* Claim / Approve Buttons inside Pills */
+.action-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
 .action-btn {
   border: none;
   border-radius: 20px;
@@ -315,7 +336,10 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   font-size: 0.85rem;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
-  transition: transform 0.1s;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .action-btn:active { transform: scale(0.95); }
 .claim-btn {
@@ -327,6 +351,17 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   background: #fff;
   color: #f59e0b;
   border: 1px solid #f59e0b;
+}
+.delete-btn {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.4rem;
+  border-radius: 50%;
+}
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Registration Form Specifics */

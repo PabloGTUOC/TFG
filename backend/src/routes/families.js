@@ -9,6 +9,12 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { insertDefaultActivities } from '../db/defaultActivities.js';
 
+async function sendFamilyDeletionRequestEmail(email, familyName, requestedByName) {
+  console.log(`[MOCK EMAIL] To: ${email}`);
+  console.log(`[MOCK EMAIL] Subject: Family Deletion Request: ${familyName}`);
+  console.log(`[MOCK EMAIL] Body: ${requestedByName} has requested to delete the family "${familyName}". Please log in to approve or reject this request.`);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -565,5 +571,198 @@ familiesRouter.post('/:familyId/invitations',
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to create invitation.' });
+    }
+  });
+
+// ─────────────────────────────────────────────
+// DELETE /api/families/:familyId
+// Delete a family or request deletion
+// ─────────────────────────────────────────────
+familiesRouter.delete('/:familyId',
+  validateParams('familyId'),
+  requireRole('caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+
+        const { rows: caregivers } = await client.query(
+          `SELECT u.id, u.email, u.display_name 
+           FROM family_members fm
+           JOIN users u ON u.id = fm.user_id
+           WHERE fm.family_id = $1 AND fm.role = 'caregiver' AND fm.status = 'active'`,
+          [familyId]
+        );
+
+        const { rows: familyRows } = await client.query(`SELECT name FROM families WHERE id = $1`, [familyId]);
+        if (!familyRows.length) return { error: { code: 404, message: 'Family not found.' } };
+        const familyName = familyRows[0].name;
+
+        if (caregivers.length <= 1) {
+          await client.query(`DELETE FROM families WHERE id = $1`, [familyId]);
+          return { data: { success: true, deleted: true } };
+        } else {
+          const { rows: existing } = await client.query(
+            `SELECT id FROM family_deletion_requests WHERE family_id = $1 AND status = 'pending'`,
+            [familyId]
+          );
+          if (existing.length > 0) {
+            return { error: { code: 409, message: 'A deletion request is already pending.' } };
+          }
+
+          const { rows: reqRows } = await client.query(
+            `INSERT INTO family_deletion_requests (family_id, requested_by) VALUES ($1, $2) RETURNING id`,
+            [familyId, me.id]
+          );
+          const reqId = reqRows[0].id;
+
+          for (const cg of caregivers) {
+            if (cg.id !== me.id) {
+              await client.query(
+                `INSERT INTO family_deletion_approvals (request_id, caregiver_id) VALUES ($1, $2)`,
+                [reqId, cg.id]
+              );
+              if (cg.email) {
+                await sendFamilyDeletionRequestEmail(cg.email, familyName, me.display_name || me.email);
+              }
+            }
+          }
+
+          return { data: { success: true, pendingApproval: true } };
+        }
+      });
+
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json(result.data);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to delete family.' });
+    }
+  });
+
+// ─────────────────────────────────────────────
+// GET /api/families/:familyId/deletion-requests
+// ─────────────────────────────────────────────
+familiesRouter.get('/:familyId/deletion-requests',
+  validateParams('familyId'),
+  requireRole('caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    try {
+      const rows = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+        
+        const { rows: reqs } = await client.query(
+          `SELECT r.id, r.status, r.created_at, u.display_name as requested_by_name
+           FROM family_deletion_requests r
+           JOIN users u ON u.id = r.requested_by
+           WHERE r.family_id = $1 AND r.status = 'pending'`,
+          [familyId]
+        );
+        
+        if (!reqs.length) return [];
+        
+        const reqData = reqs[0];
+        
+        const { rows: approvals } = await client.query(
+          `SELECT a.status, u.display_name as caregiver_name, a.caregiver_id
+           FROM family_deletion_approvals a
+           JOIN users u ON u.id = a.caregiver_id
+           WHERE a.request_id = $1`,
+          [reqData.id]
+        );
+        
+        reqData.approvals = approvals;
+        return [reqData];
+      });
+      return res.json({ deletionRequests: rows });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to fetch deletion requests.' });
+    }
+  });
+
+// ─────────────────────────────────────────────
+// POST /api/families/:familyId/deletion-requests/:requestId/approve
+// ─────────────────────────────────────────────
+familiesRouter.post('/:familyId/deletion-requests/:requestId/approve',
+  validateParams('familyId', 'requestId'),
+  requireRole('caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const familyId = Number(req.params.familyId);
+    const requestId = Number(req.params.requestId);
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+
+        const { rows: approvalRows } = await client.query(
+          `UPDATE family_deletion_approvals 
+           SET status = 'approved', responded_at = NOW() 
+           WHERE request_id = $1 AND caregiver_id = $2 
+           RETURNING id`,
+          [requestId, me.id]
+        );
+
+        if (!approvalRows.length) return { error: { code: 404, message: 'Approval record not found or not yours.' } };
+
+        // Check if all approvals are met
+        const { rows: pending } = await client.query(
+          `SELECT id FROM family_deletion_approvals WHERE request_id = $1 AND status != 'approved'`,
+          [requestId]
+        );
+
+        if (pending.length === 0) {
+          await client.query(`UPDATE family_deletion_requests SET status = 'approved' WHERE id = $1`, [requestId]);
+          await client.query(`DELETE FROM families WHERE id = $1`, [familyId]);
+          return { data: { success: true, deleted: true } };
+        }
+
+        return { data: { success: true, pendingApproval: true } };
+      });
+
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json(result.data);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to approve deletion.' });
+    }
+  });
+
+// ─────────────────────────────────────────────
+// POST /api/families/:familyId/deletion-requests/:requestId/reject
+// ─────────────────────────────────────────────
+familiesRouter.post('/:familyId/deletion-requests/:requestId/reject',
+  validateParams('familyId', 'requestId'),
+  requireRole('caregiver', r => r.params.familyId),
+  async (req, res) => {
+    const requestId = Number(req.params.requestId);
+
+    try {
+      const result = await withTransaction(async (client) => {
+        const me = await upsertUserFromAuth(client, req.auth);
+
+        const { rows: approvalRows } = await client.query(
+          `UPDATE family_deletion_approvals 
+           SET status = 'rejected', responded_at = NOW() 
+           WHERE request_id = $1 AND caregiver_id = $2 
+           RETURNING id`,
+          [requestId, me.id]
+        );
+
+        if (!approvalRows.length) return { error: { code: 404, message: 'Approval record not found or not yours.' } };
+
+        await client.query(`UPDATE family_deletion_requests SET status = 'rejected' WHERE id = $1`, [requestId]);
+
+        return { data: { success: true } };
+      });
+
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json(result.data);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to reject deletion.' });
     }
   });

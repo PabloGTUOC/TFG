@@ -14,6 +14,7 @@ const { families } = storeToRefs(familyStore);
 const showDropdown = ref(false);
 const profileMenuRef = ref(null);
 const isMenuOpen = ref(false);
+const isScrolled = ref(false);
 
 const closeDropdown = (e) => {
   if (showDropdown.value && profileMenuRef.value && !profileMenuRef.value.contains(e.target)) {
@@ -21,8 +22,19 @@ const closeDropdown = (e) => {
   }
 };
 
-onMounted(() => document.addEventListener('click', closeDropdown));
-onUnmounted(() => document.removeEventListener('click', closeDropdown));
+const handleScroll = () => {
+  isScrolled.value = window.scrollY > 20;
+};
+
+onMounted(() => {
+  document.addEventListener('click', closeDropdown);
+  window.addEventListener('scroll', handleScroll);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdown);
+  window.removeEventListener('scroll', handleScroll);
+});
 
 const handleLogout = async () => {
   await authStore.logout();
@@ -38,7 +50,7 @@ const handleLogout = async () => {
     
     <!-- Floating Pill Navigation -->
     <header class="pill-header" v-if="user">
-      <div class="pill-container">
+      <div class="pill-container" :class="{ 'is-scrolled': isScrolled }">
         
         <div class="logo" @click="router.push('/dashboard')" style="cursor: pointer;" title="Go to Family Hub">
           <span class="text-2xl">🪙</span> 
@@ -169,6 +181,13 @@ const handleLogout = async () => {
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,0.05);
   box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+}
+
+.pill-container.is-scrolled {
+  background: #fdfbf7;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.18);
+  border-color: rgba(0,0,0,0.12);
 }
 
 .logo {

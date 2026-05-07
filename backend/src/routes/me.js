@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, string, email } from '../middleware/validate.js';
+import { deleteFirebaseUser } from '../middleware/auth.js';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -266,5 +267,45 @@ meRouter.get('/ledger', async (req, res) => {
   } catch (err) {
     console.error('Ledger Error:', err);
     return res.status(500).json({ error: 'Failed to fetch ledger.' });
+  }
+});
+
+meRouter.delete('/', async (req, res) => {
+  try {
+    await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+
+      // 1. Delete future activities assigned to the user
+      await client.query(`
+        DELETE FROM activities 
+        WHERE assigned_to = $1 AND starts_at > NOW()
+      `, [user.id]);
+
+      // 2. Mark family_members status as inactive
+      await client.query(`
+        UPDATE family_members 
+        SET status = 'inactive' 
+        WHERE user_id = $1
+      `, [user.id]);
+
+      // 3. Anonymize user record
+      await client.query(`
+        UPDATE users 
+        SET email = NULL, 
+            display_name = 'Deleted User', 
+            firebase_uid = 'deleted_' || id, 
+            is_deleted = true,
+            avatar_url = NULL
+        WHERE id = $1
+      `, [user.id]);
+
+      // 4. Delete from Firebase Auth
+      await deleteFirebaseUser(req.auth.uid);
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /me error:', err);
+    return res.status(500).json({ error: 'Failed to delete account.' });
   }
 });

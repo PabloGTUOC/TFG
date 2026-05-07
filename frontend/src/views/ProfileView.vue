@@ -127,6 +127,47 @@ const sendInvite = () => appStore.runAction(async () => {
   await loadInvitations();
 }, 'Invitation saved! They can now join using the Family ID.');
 
+// ── Family Deletion ───────────────────────────────────────
+const deletionRequests = ref([]);
+
+const loadDeletionRequests = async () => {
+  const fid = familyId.value;
+  if (!fid || !isCaregiver.value) return;
+  try {
+    const data = await appStore.request(`/api/families/${fid}/deletion-requests`, { headers: appStore.authHeaders() });
+    deletionRequests.value = data.deletionRequests || [];
+  } catch { /* silent */ }
+};
+
+const deleteFamily = () => {
+  if (!confirm('Are you SURE you want to delete this family? If there are other caregivers, this will send them a deletion request. This action cannot be undone!')) return;
+  appStore.runAction(async () => {
+    const res = await appStore.request(`/api/families/${familyId.value}`, {
+      method: 'DELETE',
+      headers: appStore.authHeaders()
+    });
+    if (res.deleted) {
+      window.location.href = '/';
+    } else if (res.pendingApproval) {
+      alert('Deletion request sent to other caregivers. Please wait for their approval.');
+      await loadDeletionRequests();
+    }
+  }, 'Family deletion processed.');
+};
+
+const respondToDeletionRequest = (reqId, action) => appStore.runAction(async () => {
+  const endpoint = action === 'approve' ? 'approve' : 'reject';
+  const res = await appStore.request(`/api/families/${familyId.value}/deletion-requests/${reqId}/${endpoint}`, {
+    method: 'POST',
+    headers: appStore.authHeaders()
+  });
+  if (res.deleted) {
+    window.location.href = '/';
+  } else {
+    await loadDeletionRequests();
+  }
+}, `Deletion request ${action}d.`);
+
 // ── Profile form ──────────────────────────────────────────
 const profileForm = ref({
   displayName: familyStore.profile?.display_name || '',
@@ -147,6 +188,17 @@ const updateProfile = () => appStore.runAction(async () => {
   });
   await familyStore.fetchUserData();
 }, 'Personal details updated successfully!');
+
+const deleteAccount = () => {
+  if (!confirm('Are you SURE you want to delete your account? This will anonymize your profile and cannot be undone. All your pending activities will be deleted.')) return;
+  appStore.runAction(async () => {
+    await appStore.request('/api/me', {
+      method: 'DELETE',
+      headers: appStore.authHeaders()
+    });
+    await appStore.logout();
+  }, 'Account deleted.');
+};
 
 // ── Coin ledger ───────────────────────────────────────────
 const today = new Date();
@@ -222,9 +274,9 @@ const shareInviteLink = () => {
   }).catch(() => {});
 };
 
-onMounted(() => { loadLedger(); loadInvitations(); });
+onMounted(() => { loadLedger(); loadInvitations(); loadDeletionRequests(); });
 watch(currentMonth, () => loadLedger());
-watch(isCaregiver, (v) => { if (v) loadInvitations(); });
+watch(isCaregiver, (v) => { if (v) { loadInvitations(); loadDeletionRequests(); } });
 
 // ── Computed helpers ──────────────────────────────────────
 const combinedCircleItems = computed(() => {
@@ -312,6 +364,27 @@ const formatLedgerDate = (ds) => {
       </div>
     </div>
 
+    <!-- ── Deletion Requests Banner ──────────────────────── -->
+    <div v-if="deletionRequests.length > 0" class="deletion-requests-banner" style="background: #fee2e2; border: 1px solid #fca5a5; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; color: #991b1b;">
+      <h3 style="margin-top: 0; color: #b91c1c; display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.2rem;">⚠️</span> Pending Family Deletion Requests</h3>
+      <div v-for="req in deletionRequests" :key="req.id" style="background: rgba(255,255,255,0.6); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+        <p style="margin: 0 0 0.5rem 0;"><strong>{{ req.requested_by_name }}</strong> has requested to permanently delete this family.</p>
+        
+        <div style="font-size: 0.85rem; color: #7f1d1d; margin-bottom: 1rem;">
+          <div><strong>Approvals Status:</strong></div>
+          <div v-for="a in req.approvals" :key="a.caregiver_id" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem;">
+            <span>{{ a.caregiver_name }}:</span> 
+            <span :style="{ fontWeight: 'bold', color: a.status === 'approved' ? '#166534' : a.status === 'rejected' ? '#991b1b' : '#b45309' }">{{ a.status.toUpperCase() }}</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+          <button @click="respondToDeletionRequest(req.id, 'approve')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: bold; cursor: pointer;">Approve Deletion</button>
+          <button @click="respondToDeletionRequest(req.id, 'reject')" style="background: #fff; color: #ef4444; border: 1px solid #ef4444; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: bold; cursor: pointer;">Reject</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Two-column grid ──────────────────────────────── -->
     <div class="two-col-grid">
 
@@ -360,7 +433,12 @@ const formatLedgerDate = (ds) => {
                 <input v-model="profileForm.alias" type="text" class="text-input" placeholder="e.g. Papa, Mama…" />
               </div>
             </div>
-            <button class="update-btn" @click="updateProfile">Update Profile</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+              <button class="update-btn" @click="updateProfile">Update Profile</button>
+              <button class="action-btn delete-btn" @click="deleteAccount" title="Delete Account" style="color: #ef4444; border: 1px solid #ef4444; background: none; border-radius: 9999px; padding: 0.5rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.15s, color 0.15s;">
+                Delete Account
+              </button>
+            </div>
           </div>
         </div>
 
@@ -475,6 +553,14 @@ const formatLedgerDate = (ds) => {
             </div>
 
             <p v-else class="link-empty">Generate a link to share with caregivers via WhatsApp, email, or QR code.</p>
+          </div>
+
+          <!-- Delete Family Button (caregivers only) -->
+          <div v-if="isCaregiver" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #f1f5f9; text-align: center;">
+            <button class="action-btn delete-btn" @click="deleteFamily" style="background: none; color: #ef4444; border: 1px solid #ef4444; border-radius: 9999px; padding: 0.5rem 1.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;">
+              🗑️ Delete Family
+            </button>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">This action is permanent and cannot be undone.</p>
           </div>
 
           <!-- Pending Invitations -->

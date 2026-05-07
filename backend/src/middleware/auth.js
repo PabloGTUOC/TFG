@@ -61,3 +61,12 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired token.' });
   }
 }
+
+export async function deleteFirebaseUser(uid) {
+  if (process.env.NODE_ENV === 'test') return;
+  const app = getFirebaseApp();
+  if (app) {
+    await admin.auth().deleteUser(uid);
+  }
+}
+

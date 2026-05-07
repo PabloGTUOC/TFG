@@ -1,9 +1,12 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
   firebase_uid TEXT UNIQUE NOT NULL,
   email TEXT UNIQUE,
   display_name TEXT,
   avatar_url TEXT,
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -23,7 +26,7 @@ CREATE TABLE IF NOT EXISTS family_members (
   role TEXT NOT NULL CHECK (role IN ('caregiver', 'member')),
   alias TEXT,
   coin_balance INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'inactive')),
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (family_id, user_id)
 );
@@ -145,3 +148,20 @@ CREATE TABLE IF NOT EXISTS invite_links (
 );
 
 CREATE INDEX IF NOT EXISTS idx_invite_links_family ON invite_links (family_id);
+
+CREATE TABLE IF NOT EXISTS family_deletion_requests (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  requested_by BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS family_deletion_approvals (
+  id BIGSERIAL PRIMARY KEY,
+  request_id BIGINT NOT NULL REFERENCES family_deletion_requests(id) ON DELETE CASCADE,
+  caregiver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  responded_at TIMESTAMPTZ,
+  UNIQUE (request_id, caregiver_id)
+);

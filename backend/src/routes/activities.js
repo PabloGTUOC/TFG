@@ -562,7 +562,7 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       const me = await upsertUserFromAuth(client, req.auth);
 
       const { rows } = await client.query(
-        `SELECT family_id, assigned_to, status, starts_at, bounty_amount, bounty_offered_by, title, category
+        `SELECT family_id, assigned_to, created_by, status, starts_at, bounty_amount, bounty_offered_by, title, category, is_template
          FROM activities WHERE id = $1
          AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
          FOR UPDATE`,
@@ -570,6 +570,15 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       );
       if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
       const act = rows[0];
+
+      if (act.is_template) {
+        const roleErr = await assertMemberRole(client, me.id, act.family_id, 'caregiver');
+        if (roleErr && act.created_by !== me.id) {
+          return { error: { code: 403, message: 'Only caregivers or the creator can delete an activity template.' } };
+        }
+        await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+        return { data: { success: true } };
+      }
 
       if (act.assigned_to !== me.id) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
       if (act.status !== 'approved' && act.status !== 'pending_validation') return { error: { code: 409, message: 'Can only un-schedule upcoming or pending validation activities.' } };
