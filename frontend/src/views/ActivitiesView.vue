@@ -133,7 +133,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
                  <span v-if="a.status === 'approved'" class="mock-badge">approved</span>
                </div>
                <div class="pill-meta">
-                 {{ a.category }} · {{ Math.floor(a.duration_minutes / 60) > 0 ? Math.floor(a.duration_minutes / 60) + 'h ' : '' }}{{ a.duration_minutes % 60 > 0 ? (a.duration_minutes % 60) + 'm' : '' }} · <span style="color: #f59e0b;">🪙 {{ a.coin_value }}cc</span>
+                 {{ a.category }} · {{ Math.floor(a.duration_minutes / 60) > 0 ? Math.floor(a.duration_minutes / 60) + 'h ' : '' }}{{ a.duration_minutes % 60 > 0 ? (a.duration_minutes % 60) + 'm' : '' }} · <span style="color: var(--warning);">🪙 {{ a.coin_value }}cc</span>
                </div>
              </div>
              
@@ -171,7 +171,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
           <div class="mock-slider-box">
             <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
               <label class="text-sm" style="color: var(--text-secondary);">Coin Value Reward (cc)</label>
-              <strong style="color: #c084fc;">{{ createActivityForm.coinValue }} cc</strong>
+              <strong style="color: var(--primary);">{{ createActivityForm.coinValue }} cc</strong>
             </div>
             <input type="range" 
                    v-model="createActivityForm.coinValue" 
@@ -202,7 +202,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
               <!-- Background Arc -->
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
               <!-- Foreground Arc (Dynamic) -->
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#a855f7" stroke-width="14" stroke-linecap="round"
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="14" stroke-linecap="round"
                     :stroke-dasharray="252" 
                     :stroke-dashoffset="252 - (252 * (budgetInfo.remainingBudget / budgetInfo.monthlyBudget))" 
                     style="transition: stroke-dashoffset 1s ease-in-out;" />
@@ -227,7 +227,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
             </div>
             <div style="display:flex; justify-content: space-between; border-top: 1px dashed var(--input-border); padding-top: 0.8rem;">
               <span style="color: var(--text-secondary);">Estimated Rate</span>
-              <strong style="color: #fbbf24; font-size: 1.05rem;">~{{ budgetInfo.baseRatePerHour }} cc / hr</strong>
+              <strong style="color: var(--warning); font-size: 1.05rem;">~{{ budgetInfo.baseRatePerHour }} cc / hr</strong>
             </div>
           </div>
           
@@ -264,8 +264,8 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   transition: all 0.2s;
 }
 .filter-btn.active {
-  color: #c084fc;
-  border-bottom: 2px solid #c084fc;
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary);
   font-weight: 600;
 }
 
@@ -274,7 +274,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   width: 6px;
 }
 .activity-scroll-area::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
+  background: var(--border);
   border-radius: 3px;
 }
 
@@ -311,7 +311,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   margin-top: 0.2rem;
 }
 .mock-badge {
-  background: #10b981;
+  background: var(--success);
   color: #fff;
   font-size: 0.75rem;
   padding: 2px 6px;
@@ -343,25 +343,25 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
 }
 .action-btn:active { transform: scale(0.95); }
 .claim-btn {
-  background: #7c3aed;
+  background: var(--primary);
   color: #fff;
-  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
 }
 .pending-btn {
-  background: #fff;
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid var(--warning);
 }
 .delete-btn {
   background: transparent;
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   padding: 0.4rem;
   border-radius: 50%;
 }
 .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.5);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
 /* Registration Form Specifics */
@@ -369,29 +369,28 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   margin-top: 0.5rem;
   background: transparent;
   padding: 1rem 0;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid var(--border);
 }
 .mock-create-btn {
   margin-top: 1.5rem;
   width: 100%;
-  background: linear-gradient(to right, #a855f7, #ec4899);
+  background: var(--primary);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   padding: 0.9rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   transition: opacity 0.2s;
-  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
 }
-.mock-create-btn:hover { opacity: 0.9; }
+.mock-create-btn:hover { opacity: 0.88; }
 
 /* Range Slider Styling */
 .v-slider {
   -webkit-appearance: none;
   appearance: none;
-  background: #334155;
+  background: var(--border);
   height: 6px;
   border-radius: 3px;
   outline: none;
@@ -402,7 +401,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #38bdf8;
+  background: var(--primary);
   cursor: pointer;
 }
 

@@ -510,5 +510,25 @@ const coinAliasInitial = computed(() => {
 
 @media (max-width: 480px) {
   .main-content { padding: 8px 0 24px; }
+  /* Ensure 44px minimum tap area for hamburger */
+  .hamburger-btn {
+    width: 44px;
+    height: 44px;
+  }
+  /* Pill nav links at very small screens get full padding */
+  .pill-nav a {
+    padding: 10px 10px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-nav a,
+  .avatar-block,
+  .avatar-block:hover,
+  .hamburger-btn {
+    transition: none;
+  }
+  .avatar-block:hover { transform: none; }
 }
 </style>
