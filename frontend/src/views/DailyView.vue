@@ -240,8 +240,16 @@ watch(() => targetDateStr.value, () => {
 }, { immediate: true });
 
 // Column 1: Unscheduled Templates
+const searchQuery = ref('');
+const categoryFilter = ref('all');
+
 const availableTemplates = computed(() => {
-  return familyActivities.value.filter(a => a.is_template && a.status === 'approved');
+  return familyActivities.value.filter(a => {
+    if (!a.is_template || a.status !== 'approved') return false;
+    if (categoryFilter.value !== 'all' && a.category !== categoryFilter.value) return false;
+    if (searchQuery.value && !a.title.toLowerCase().includes(searchQuery.value.toLowerCase())) return false;
+    return true;
+  });
 });
 
 const START_HOUR = 6;
@@ -470,7 +478,18 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       
       <!-- COL 1: Task Library -->
       <VCard title="Task Library" class="col-card" style="box-shadow: none; border: none; background: transparent;">
-         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem;">Drag icons to the timeline to schedule your day.</p>
+         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem; flex-shrink: 0;">Drag icons to the timeline to schedule your day.</p>
+         
+         <!-- Search and Filter -->
+         <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; flex-shrink: 0;">
+           <input type="text" v-model="searchQuery" placeholder="Search tasks..." style="width: 100%; padding: 0.6rem 1rem; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);" />
+           <div style="display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+             <button @click="categoryFilter = 'all'" :style="{ background: categoryFilter === 'all' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'all' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'all' ? 'var(--primary)' : 'var(--border)'), padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }">All</button>
+             <button @click="categoryFilter = 'care'" :style="{ background: categoryFilter === 'care' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'care' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'care' ? 'var(--primary)' : 'var(--border)'), padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }">Care</button>
+             <button @click="categoryFilter = 'household'" :style="{ background: categoryFilter === 'household' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'household' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'household' ? 'var(--primary)' : 'var(--border)'), padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }">Household</button>
+           </div>
+         </div>
+
          <div class="template-grid">
            
            <template v-for="category in ['care', 'household']" :key="category">
@@ -492,6 +511,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                 </div>
              </div>
            </template>
+           <!-- Empty state for search -->
+           <div v-if="availableTemplates.length === 0" style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">
+             No tasks found matching your filters.
+           </div>
            
          </div>
       </VCard>
@@ -916,6 +939,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 .col-card {
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 2rem;
+  height: calc(100vh - 4rem); /* Occupy full viewport height minus padding */
 }
 
 /* Template Grid (Col 1) */
@@ -923,6 +949,20 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  padding-bottom: 1rem;
+}
+.template-grid::-webkit-scrollbar {
+  width: 6px;
+}
+.template-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+.template-grid::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 10px;
 }
 .task-template-row {
   background: var(--surface);
@@ -1089,6 +1129,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   }
   .template-grid {
     grid-template-columns: 1fr;
+    overflow-y: visible;
+  }
+  .col-card {
+    position: static;
+    height: auto;
   }
   .timeline-container {
     overflow-x: auto;

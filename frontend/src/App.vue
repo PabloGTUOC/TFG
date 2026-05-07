@@ -58,26 +58,26 @@ const coinAliasInitial = computed(() => {
 
         <div class="logo" @click="router.push('/dashboard')" title="Go to Family Hub">
           <span class="logo-mark">
-            <CircleDollarSign :size="15" :stroke-width="2" />
+            <CircleDollarSign :size="18" :stroke-width="2" />
           </span>
           <strong class="logo-text">CareCoins</strong>
         </div>
 
         <nav class="pill-nav desktop-only" v-if="families && families.length > 0">
           <router-link to="/dashboard">
-            <Home :size="15" :stroke-width="2" />
+            <Home :size="18" :stroke-width="2" />
             <span>Family</span>
           </router-link>
           <router-link to="/activities">
-            <Calendar :size="15" :stroke-width="2" />
+            <Calendar :size="18" :stroke-width="2" />
             <span>Activities</span>
           </router-link>
           <router-link to="/marketplace">
-            <ShoppingBag :size="15" :stroke-width="2" />
+            <ShoppingBag :size="18" :stroke-width="2" />
             <span>Marketplace</span>
           </router-link>
           <router-link to="/profile">
-            <User :size="15" :stroke-width="2" />
+            <User :size="18" :stroke-width="2" />
             <span>Personal</span>
           </router-link>
         </nav>
@@ -172,8 +172,8 @@ const coinAliasInitial = computed(() => {
    Floating Pill Navigation
 ------------------- */
 .pill-header {
-  width: 92%;
-  max-width: 1080px;
+  width: 96%;
+  max-width: 1140px;
   margin: 18px auto 8px;
   position: sticky;
   top: 18px;
@@ -194,7 +194,7 @@ const coinAliasInitial = computed(() => {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 8px 16px;
+  padding: 12px 24px;
   border-radius: var(--r-pill);
   border: 1px solid rgba(14, 23, 38, 0.06);
   box-shadow: 0 4px 24px rgba(14, 23, 38, 0.06);
@@ -212,8 +212,8 @@ const coinAliasInitial = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   background: var(--primary);
   color: #fff;
   border-radius: var(--r-sm);
@@ -222,24 +222,24 @@ const coinAliasInitial = computed(() => {
 .logo-text {
   color: var(--text-primary);
   font-weight: 800;
-  font-size: 16px;
+  font-size: 20px;
   letter-spacing: -0.3px;
 }
 
 .pill-nav {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 .pill-nav a {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--text-secondary);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 10px 18px;
   border-radius: var(--r-pill);
   transition: color 0.2s, background 0.2s;
 }
@@ -263,8 +263,8 @@ const coinAliasInitial = computed(() => {
 .coin-counter {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px 5px 5px;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--r-pill);
@@ -274,25 +274,25 @@ const coinAliasInitial = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
   font-weight: 800;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .coin-amount {
   color: var(--text-primary);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .coin-unit {
   color: var(--text-secondary);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 /* Profile avatar */
@@ -313,14 +313,14 @@ const coinAliasInitial = computed(() => {
 .avatar {
   background: var(--text-primary);
   color: #fff;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .avatar.avatar-lg {
@@ -370,8 +370,8 @@ const coinAliasInitial = computed(() => {
 
 /* Hamburger */
 .hamburger-btn {
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 50%;
