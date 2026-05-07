@@ -213,17 +213,12 @@ const loadMembers = () => appStore.runAction(async () => {
   familyMembers.value = (data.members || []).sort((a, b) => b.coin_balance - a.coin_balance);
 });
 
-const gradients = [
-  'linear-gradient(to right, #3b82f6, #2563eb)', // Blue
-  'linear-gradient(to right, #10b981, #059669)', // Green
-  'linear-gradient(to right, #eab308, #ca8a04)', // Yellow
-  'linear-gradient(to right, #ef4444, #dc2626)'  // Red
-];
-const getAssigneeGradient = (assigned_to, category) => {
-  if (!assigned_to) return category === 'care' ? 'linear-gradient(to right, #ec4899, #db2777)' : 'linear-gradient(to right, #f97316, #ea580c)';
+const MEMBER_COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626'];
+const getAssigneeColor = (assigned_to, category) => {
+  if (!assigned_to) return category === 'care' ? '#16A34A' : '#D97706';
   const idx = familyMembers.value.findIndex(m => m.id === assigned_to);
-  if (idx === -1) return category === 'care' ? 'linear-gradient(to right, #ec4899, #db2777)' : 'linear-gradient(to right, #f97316, #ea580c)';
-  return gradients[idx % gradients.length];
+  if (idx === -1) return category === 'care' ? '#16A34A' : '#D97706';
+  return MEMBER_COLORS[idx % MEMBER_COLORS.length];
 };
 
 const loadActivities = () => appStore.runAction(async () => {
@@ -251,6 +246,13 @@ const availableTemplates = computed(() => {
 
 const START_HOUR = 6;
 const TOTAL_HOURS = 18;
+
+const nowLineTop = computed(() => {
+  const now = new Date();
+  const hour = now.getHours() + now.getMinutes() / 60;
+  if (hour < START_HOUR || hour > START_HOUR + TOTAL_HOURS) return null;
+  return ((hour - START_HOUR) / TOTAL_HOURS) * 100;
+});
 
 const scheduledToday = computed(() => {
   let acts = familyActivities.value.filter(a => {
@@ -476,8 +478,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                {{ category === 'care' ? 'CARE & WELLNESS' : 'HOUSEHOLD' }}
              </div>
              
-             <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="mock-gradient-pill" draggable="true" @dragstart="dragStart($event, a)" @click="tapToSchedule(a)">
-                <div style="width: 40px; height: 40px; background: #e0e7ff; color: #3730a3; border-radius: 50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+             <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="task-template-row" draggable="true" @dragstart="dragStart($event, a)" @click="tapToSchedule(a)">
+                <div style="width: 40px; height: 40px; background: var(--primary-soft); color: var(--primary); border-radius: 50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                   <span style="font-size: 1.2rem;">{{ category === 'care' ? '❤️' : '🧹' }}</span>
                 </div>
                 <div style="flex:1;">
@@ -502,7 +504,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            <!-- All-Day Banner Row for Absences -->
            <div v-if="absencesToday.length > 0" class="absence-banner-row">
              <div v-for="a in absencesToday" :key="a.id" 
-                  style="background: white; border: 1px solid #fecaca; border-radius: 12px; padding: 0.6rem 1rem; font-size: 0.8rem; color: #b91c1c; display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
+                  style="background: var(--danger-soft); border: 1px solid #FECACA; border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.8rem; color: var(--danger); display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer;"
                   @click="openAbsenceDetail(a)">
                <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
                  <span>✈️</span> {{ a.user_alias || a.user_name }}
@@ -522,10 +524,16 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                  </div>
               </div>
 
+               <!-- Now line -->
+               <div v-if="nowLineTop !== null" :style="{ position: 'absolute', top: nowLineTop + '%', left: '60px', right: '10px', zIndex: 50, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '0' }">
+                 <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex-shrink: 0;"></div>
+                 <div style="flex: 1; height: 2px; background: var(--danger);"></div>
+               </div>
+
                <!-- Absolute positioned chips -->
-               <div v-for="a in scheduledToday" :key="a.id" 
+               <div v-for="a in scheduledToday" :key="a.id"
                     class="scheduled-chip"
-                    :style="[a._style, { background: getAssigneeGradient(a.assigned_to, a.category) }, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
+                    :style="[a._style, { background: getAssigneeColor(a.assigned_to, a.category) }, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
                     :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
                     @click="a.is_recurrent && a.status !== 'completed' ? openRecurrenceModal(a) : null">
                  <div style="display:flex; align-items:center; gap: 0.8rem;">
@@ -580,7 +588,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            
            <div v-for="a in scheduledToday" :key="a.id" 
                 style="border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.8rem;" 
-                :style="{ background: getAssigneeGradient(a.assigned_to, a.category) }">
+                :style="{ background: getAssigneeColor(a.assigned_to, a.category) }">
              <div style="display:flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
                <div style="display:flex; align-items: center; gap: 0.8rem; flex: 1;">
                  <span style="font-size: 1.8rem; background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
@@ -623,23 +631,29 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         </VCard>
 
         <!-- Horizontal Completed Bar -->
-        <div style="background: var(--card-bg); color: var(--text-primary); padding: 1.2rem 2rem; border-radius: 32px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--card-border); margin-top: 0.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; flex: 1;">
-             
-             <div v-if="completedToday.length === 0" style="font-weight: 600; font-size: 0.95rem; color: var(--text-secondary);">
-               Nothing finished yet today. Get to work!
+        <div style="background: var(--surface); color: var(--text-primary); padding: 1rem 1.5rem; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); margin-top: 0.5rem; box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
+           <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; flex: 1;">
+
+             <div v-if="completedToday.length === 0" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">
+               Nothing finished yet today.
              </div>
 
-             <div v-for="a in completedToday" :key="a.id" :class="[a.category === 'care' ? 'gradient-pink' : 'gradient-orange']" style="display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 1.2rem; border-radius: 9999px; font-size: 0.95rem; color: white;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: white; flex-shrink: 0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-                <strong style="line-height: 1; font-weight: 800;">{{ a.title }}</strong>
+             <div v-for="a in completedToday.slice(0, 5)" :key="a.id"
+                  :style="{ background: a.category === 'care' ? 'var(--success)' : 'var(--warning)', color: 'white' }"
+                  style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-radius: var(--r-pill); font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M20 6L9 17l-5-5"/></svg>
+                <strong style="font-weight: 800;">{{ a.title }}</strong>
+             </div>
+             <div v-if="completedToday.length > 5"
+                  style="background: var(--bg); border: 1px solid var(--border); padding: 0.4rem 0.8rem; border-radius: var(--r-pill); font-size: 0.8rem; font-weight: 800; color: var(--text-secondary);">
+               +{{ completedToday.length - 5 }} more
              </div>
            </div>
 
            <!-- Totals at the end -->
-           <div v-if="todayCoins > 0" style="margin-left: 1rem; display: flex; align-items: center; gap: 0.6rem; background: var(--bg-color); color: var(--text-primary); padding: 0.5rem 1.2rem; border-radius: 9999px; border: 1px solid var(--input-border);">
-              <span style="font-size: 0.85rem; font-weight: 800; text-transform: uppercase;">Total Earned</span>
-              <strong style="font-size: 1.3rem; font-weight: 800; color: var(--accent-primary);">{{ todayCoins }}cc</strong>
+           <div v-if="todayCoins > 0" style="margin-left: 1rem; display: flex; align-items: center; gap: 0.5rem; background: var(--bg); color: var(--text-primary); padding: 0.4rem 1rem; border-radius: var(--r-pill); border: 1px solid var(--border); flex-shrink: 0;">
+              <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-secondary);">Earned</span>
+              <strong style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">{{ todayCoins }}cc</strong>
            </div>
         </div>
         
@@ -826,7 +840,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: transparent;
   border: none;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1080px;
   min-height: 80vh;
   margin: 0 auto;
 }
@@ -910,27 +924,27 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   flex-direction: column;
   gap: 1rem;
 }
-.mock-gradient-pill {
-  background: #ffffff;
-  border: 1px solid var(--card-border);
-  border-radius: 9999px; /* Re-applied Pill Radius since they are now horizontal */
-  padding: 0.8rem 1.2rem;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+.task-template-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0.8rem 1rem;
   cursor: grab;
-  transition: transform 0.1s;
+  transition: transform 0.1s, box-shadow 0.15s;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.8rem;
   text-align: left;
 }
-.mock-gradient-pill:active { cursor: grabbing; transform: scale(0.98); }
+.task-template-row:hover { box-shadow: 0 4px 12px rgba(14,23,38,0.08); }
+.task-template-row:active { cursor: grabbing; transform: scale(0.98); }
 
 /* Timeline (Col 2) */
 .timeline-container {
   flex: 1;
   position: relative;
   min-height: 800px;
-  background: #f8fafc;
+  background: var(--bg);
   overflow: hidden;
 }
 .h-line {
@@ -941,32 +955,23 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 .h-label {
   width: 60px;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding-left: 0.5rem;
   padding-top: 0.2rem;
 }
 .h-border {
   flex: 1;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--border);
 }
 
-.gradient-pink {
-  background: linear-gradient(to right, #a855f7, #ec4899);
-}
-.gradient-orange {
-  background: linear-gradient(to right, #f97316, #eab308);
-}
-.gradient-green {
-  background: linear-gradient(to right, #10b981, #059669);
-}
 .scheduled-chip {
-  border-radius: 9999px; /* Real Pill radius without oval distortion */
+  border-radius: var(--r-md);
   color: #fff;
   padding: 0.6rem 1.2rem;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
   z-index: 10;
   display: flex;
-  flex-direction: row; /* Horizontal alignment */
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   overflow: hidden;

@@ -6,6 +6,7 @@ import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import VSelect from '../components/VSelect.vue';
+import KpiCard from '../components/KpiCard.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
 
@@ -231,18 +232,18 @@ const recentActivitiesList = computed(() => {
      .filter(a => a.status === 'completed' && a.starts_at)
      .map(a => ({
         id: `act-${a.id}`,
-        icon: '✓', color: '#0055ff', bg: '#e0e7ff',
+        icon: '✓', color: '#2563EB', bg: '#E8EFFE',
         title: `${a.assigned_to_name || 'Someone'} completed ${a.title}`,
         time: new Date(a.starts_at),
-        coinText: `+${a.coin_value} Coins`, coinColor: '#2563eb'
+        coinText: `+${a.coin_value} cc`, coinColor: '#16A34A'
      }));
    
    const rews = claimedRewards.value.map(r => ({
         id: `rew-${r.redemption_id}`,
-        icon: '🛍️', color: '#ff4444', bg: '#fee2e2',
+        icon: '🛍️', color: '#DC2626', bg: '#FCE8E8',
         title: `${r.buyer_name || 'Someone'} got ${r.title}`,
         time: new Date(r.redeemed_at),
-        coinText: `-${r.cost} Coins`, coinColor: '#ff4444'
+        coinText: `-${r.cost} cc`, coinColor: '#DC2626'
      }));
      
    let all = [...acts, ...rews];
@@ -285,28 +286,23 @@ const getActorRemainingGdp = (actor) => {
    return Math.max(0, Math.floor(max - usedShare));
 };
 
-const gradients = [
-  'linear-gradient(to right, #3b82f6, #2563eb)', // Blue
-  'linear-gradient(to right, #10b981, #059669)', // Green
-  'linear-gradient(to right, #eab308, #ca8a04)', // Yellow
-  'linear-gradient(to right, #ef4444, #dc2626)'  // Red
-];
+const MEMBER_COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626'];
 
-const getAssigneeGradient = (assigned_to) => {
-  if (!assigned_to) return 'linear-gradient(to right, #94a3b8, #64748b)'; // Fallback gray
+const getAssigneeColor = (assigned_to) => {
+  if (!assigned_to) return '#94A3B8';
   const index = activeMembers.value.findIndex(m => m.user_id === assigned_to);
-  if (index === -1) return 'linear-gradient(to right, #94a3b8, #64748b)';
-  return gradients[index % gradients.length];
+  if (index === -1) return '#94A3B8';
+  return MEMBER_COLORS[index % MEMBER_COLORS.length];
 };
 </script>
 
 <template>
   <div class="dashboard-root" v-if="dashboard.members.length > 0" style="padding-top: 1rem;">
     <!-- Title Section -->
-    <div class="dash-title-section" style="margin-bottom: 3rem;">
-       <h1 class="dash-title" style="color: #1e1b4b; font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
-       <p style="color: #64748b; font-size: 1.1rem; max-width: 600px; margin: 0; line-height: 1.5;">
-         {{ timeGreeting }}, {{ familyStore.families?.[0]?.alias || familyStore.profile?.display_name || 'Caregiver' }}! Your family has earned <strong>{{ todayCoins || 0 }} coins</strong> today. <strong>{{ todayPendingTasks }} major tasks</strong> are still waiting for attention.
+    <div class="dash-title-section" style="margin-bottom: 2.5rem;">
+       <h1 class="dash-title" style="color: var(--text-primary); font-size: 38px; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
+       <p style="color: var(--text-secondary); font-size: 14px; max-width: 600px; margin: 0; line-height: 1.5;">
+         {{ timeGreeting }}, {{ familyStore.families?.[0]?.alias || familyStore.profile?.display_name || 'Caregiver' }}! Your family has earned <strong style="color: var(--text-primary);">{{ todayCoins || 0 }} cc</strong> today. <strong style="color: var(--text-primary);">{{ todayPendingTasks }} tasks</strong> are waiting for attention.
        </p>
     </div>
 
@@ -324,45 +320,41 @@ const getAssigneeGradient = (assigned_to) => {
 
           <!-- Members Grid -->
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 3rem;">
-             <div v-for="(m, i) in activeMembers" :key="m.user_id" 
+             <div v-for="(m, i) in activeMembers" :key="m.user_id"
                   class="mockup-member-card" :class="'color-' + (i % 4)">
                 <div class="member-avatar"
-                     :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : ''">
+                     :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center;` : ''">
                    {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
                 </div>
-                <div style="font-weight: 800; font-size: 1.15rem; color: #1e293b; margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
-                <div style="font-size: 0.8rem; font-weight: 800; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;" :class="`text-color-${i % 4}`">
-                   <div style="width: 12px; height: 12px; border-radius: 50%; background: currentColor;"></div>
-                   {{ m.coin_balance }}
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
+                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
+                   ● {{ m.coin_balance }} cc
                 </div>
              </div>
-             
+
              <!-- Objects of Care -->
-             <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id" 
+             <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
                   class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
                 <div class="member-avatar"
-                     :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center; border-color: transparent;` : 'background: #fbbf24; border-color: #f59e0b;'">
+                     :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center;` : ''">
                    {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
                 </div>
-                <div style="font-weight: 800; font-size: 1.15rem; color: #1e293b; margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
-                 <div style="font-size: 0.8rem; font-weight: 800; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
-                    <div style="width: 12px; height: 12px; border-radius: 50%; background: currentColor;"></div>
-                    {{ getActorRemainingGdp(o).toLocaleString() }}
-                 </div>
-              </div>
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
+                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
+                   ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
+                </div>
+             </div>
 
              <!-- Pending Members -->
-             <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id" 
-                  style="border: 2px dashed #cbd5e1; background: #f8fafc; border-radius: 32px; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
-                <div class="member-avatar" style="background: #e2e8f0; border-color: #cbd5e1; color: #64748b; font-size: 2rem;">
+             <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
+                  style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+                <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
                    ⏳
                 </div>
-                <div style="font-weight: 800; font-size: 1.15rem; color: #64748b; margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
-                <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-top: 0.2rem;">
-                   Pending Approval
-                </div>
-                <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: #22c55e; color: white; border: none; padding: 0.5rem; border-radius: 9999px; font-weight: 800; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(34,197,94,0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                   APPROVE
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
+                <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
+                   Approve
                 </button>
              </div>
            </div>
@@ -394,37 +386,42 @@ const getAssigneeGradient = (assigned_to) => {
              </div>
           </div>
 
-          <!-- Giant Stats Bar -->
-          <div class="stats-pills-grid">
-             <!-- Coins Pill -->
-             <div class="stat-pill stat-pill--blue" @click="navigateToStats"
-                  onmouseover="this.style.transform='scale(1.02)'"
-                  onmouseout="this.style.transform='scale(1)'">
-                <div>
-                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Coins Earned</div>
-                  <div class="stat-pill-value">{{ dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString() }}</div>
-                </div>
-                <div class="stat-pill-icon">🪙</div>
-             </div>
-
-             <!-- Tasks Pill -->
-             <div class="stat-pill stat-pill--green" @click="navigateToStats"
-                  onmouseover="this.style.transform='scale(1.02)'"
-                  onmouseout="this.style.transform='scale(1)'">
-                <div>
-                  <div style="text-transform: uppercase; font-size: 0.8rem; font-weight: 800; opacity: 0.85; letter-spacing: 1px; margin-bottom: 0.5rem;">Tasks Completed Today</div>
-                  <div class="stat-pill-value">{{ completedToday.length }}<span style="opacity:0.4; font-size: 2rem;">/{{ scheduledInstances.length }}</span></div>
-                </div>
-                <div class="stat-pill-icon">✔</div>
-             </div>
+          <!-- KPI Grid -->
+          <div class="kpi-grid" @click="navigateToStats" style="cursor: pointer;">
+             <KpiCard
+                label="Family Balance"
+                accent="primary"
+                :value="dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString()"
+                unit="cc"
+                :subtitle="`across ${dashboard.members.length} ${dashboard.members.length === 1 ? 'member' : 'members'}`"
+             />
+             <KpiCard
+                label="Tasks Today"
+                accent="success"
+                :value="`${completedToday.length}/${scheduledInstances.length}`"
+                :subtitle="todayPendingTasks > 0 ? `${todayPendingTasks} awaiting validation` : 'on track'"
+                :progress="scheduledInstances.length ? (completedToday.length / scheduledInstances.length) * 100 : 0"
+             />
+             <KpiCard
+                label="Open Bounties"
+                accent="warning"
+                :value="availableOffers.length"
+                :subtitle="availableOffers.length ? `${availableOffers.reduce((s, o) => s + (o.bounty_amount || 0), 0)} cc up for grabs` : 'No bounties open'"
+             />
+             <KpiCard
+                label="Recent Activity"
+                accent="ink"
+                :value="recentActivitiesList.length"
+                :subtitle="recentActivitiesList.length ? 'completed recently' : 'no recent activity'"
+             />
           </div>
 
        </div>
 
        <!-- RIGHT COLUMN -->
        <div style="min-height: 0; display: flex; flex-direction: column;">
-          <div style="background: #f3f4fb; border-radius: 32px; padding: 2.5rem; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-             <h3 style="font-size: 1.5rem; font-weight: 800; color: #1e1b4b; margin-top: 0; margin-bottom: 2rem; flex-shrink: 0;">Recent Activity</h3>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+             <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 0; margin-bottom: 1.5rem; flex-shrink: 0;">Recent Activity</h3>
              
              <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1; overflow-y: auto; padding-right: 0.5rem; padding-bottom: 1rem;">
                <div v-for="item in recentActivitiesList" :key="item.id" style="display: flex; align-items: flex-start; gap: 1rem;">
@@ -443,7 +440,9 @@ const getAssigneeGradient = (assigned_to) => {
                <div v-if="recentActivitiesList.length === 0" style="color: #94a3b8; font-weight: 600;">No activity yet.</div>
              </div>
 
-             <VButton type="secondary" block @click="navigateToStats" style="margin-top: 2rem; background: #e0e7ff; color: #3730a3; border: none; flex-shrink: 0;">View Full Audit Log</VButton>
+             <button @click="navigateToStats" style="margin-top: 1.5rem; width: 100%; padding: 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); font-weight: 700; font-size: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;">
+               See all activity
+             </button>
           </div>
        </div>
 
@@ -464,41 +463,42 @@ const getAssigneeGradient = (assigned_to) => {
        </div>
 
        <div class="week-scroll">
-       <div class="mockup-weekly-row" style="background: white; border-radius: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; border: 1px solid var(--card-border); min-height: 250px; overflow: hidden;">
-          <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()" 
+       <div class="mockup-weekly-row" style="background: var(--surface); border-radius: var(--r-lg); display: flex; border: 1px solid var(--border); min-height: 250px; overflow: hidden; box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
+          <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()"
                class="mockup-day-col"
                @click="navigateToDaily(dayObj.dateStr)">
-            
-            <div style="text-align: center; padding: 1.2rem 0; border-bottom: 1px solid var(--card-border); position: relative;" 
-                 :style="dayObj.hasAbsence ? 'background: #fef2f2; color: #ef4444;' : (dayObj.date.toDateString() === new Date().toDateString() ? 'background: #e0f2fe; color: var(--primary);' : 'color: #64748b;')">
-              <div v-if="dayObj.hasAbsence" style="position: absolute; top: 5px; right: 5px; font-size: 0.8rem;" title="Absence recorded">✈️</div>
-              <div style="font-weight: 800; font-size: 0.85rem; text-transform: uppercase;">{{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
-              <div style="font-size: 1.6rem; font-weight: 800; margin-top: 0.2rem;">{{ dayObj.date.getDate() }}</div>
+
+            <div class="day-header"
+                 :class="dayObj.hasAbsence ? 'day-header--absence' : (dayObj.date.toDateString() === new Date().toDateString() ? 'day-header--today' : '')">
+              <div v-if="dayObj.hasAbsence" style="position: absolute; top: 5px; right: 5px; font-size: 0.75rem;" title="Absence recorded">✈️</div>
+              <div class="day-label">{{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
+              <div class="day-num">{{ dayObj.date.getDate() }}</div>
             </div>
 
-            <div style="flex: 1; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
-              <!-- Small Absence Indicators in Column -->
-              <div v-for="abs in dayObj.dayAbsences" :key="abs.id" 
-                   style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.5rem 0.7rem; font-size: 0.75rem; color: #b91c1c; display: flex; flex-direction: column; gap: 0.2rem; box-shadow: 0 2px 4px rgba(185, 28, 28, 0.05);">
-                <div style="display: flex; align-items: center; gap: 0.3rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                  <span>✈️</span> {{ abs.user_alias || abs.user_name }}
+            <div style="flex: 1; padding: 0.6rem; display: flex; flex-direction: column; gap: 5px;">
+              <!-- Absence chips -->
+              <div v-for="abs in dayObj.dayAbsences" :key="abs.id"
+                   style="background: var(--danger-soft); border: 1px solid #FECACA; border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; color: var(--danger); display: flex; flex-direction: column; gap: 2px;">
+                <div style="display: flex; align-items: center; gap: 3px; font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ✈️ {{ abs.user_alias || abs.user_name }}
                 </div>
-                <div style="font-weight: 700; opacity: 0.9; line-height: 1.2; word-break: break-word;">{{ abs.title }}</div>
+                <div style="font-weight: 700; line-height: 1.2; word-break: break-word;">{{ abs.title }}</div>
               </div>
-              <div v-for="a in dayObj.acts" :key="a.id" style="border-radius: 12px; padding: 0.5rem 0.8rem; font-size: 0.8rem; color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.3rem; cursor: pointer;" :style="{ background: getAssigneeGradient(a.assigned_to) }" @click.stop="navigateToDaily(dayObj.dateStr)">
-                <div style="display:flex; align-items: center; justify-content: space-between; gap: 0.2rem;">
-                  <div style="display:flex; align-items: center; gap: 0.3rem; flex: 1; min-width: 0;">
-                    <span style="font-size: 0.95rem; flex-shrink: 0;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
-                    <div style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.title }}</div>
-                  </div>
-                  <span v-if="a.bounty_amount" style="background: rgba(255,215,0,0.95); color: #854d0e; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.65rem; font-weight: 800; line-height: 1; flex-shrink: 0; white-space: nowrap;">+{{a.bounty_amount}}cc</span>
+              <!-- Activity chips -->
+              <div v-for="a in dayObj.acts" :key="a.id"
+                   style="border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; font-weight: 600; color: #fff; display: flex; flex-direction: column; gap: 3px; cursor: pointer;"
+                   :style="{ background: getAssigneeColor(a.assigned_to) }"
+                   @click.stop="navigateToDaily(dayObj.dateStr)">
+                <div style="display:flex; align-items: center; justify-content: space-between; gap: 2px;">
+                  <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">{{ a.title }}</div>
+                  <span v-if="a.bounty_amount" style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 999px; font-size: 9px; font-weight: 800; flex-shrink: 0;">+{{a.bounty_amount}}cc</span>
                 </div>
-                <div style="background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px; display: inline-block; font-size: 0.75rem; font-weight: 700; align-self: flex-start;">
+                <div style="opacity: 0.8; font-size: 9px;">
                   {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
                 </div>
               </div>
             </div>
-            
+
           </div>
        </div>
        </div><!-- end week-scroll -->
@@ -561,79 +561,81 @@ const getAssigneeGradient = (assigned_to) => {
 
 <style scoped>
 .dashboard-root {
-  max-width: 1300px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
 .log-off-btn {
-  background: rgba(var(--primary-rgb), 0.1);
+  background: var(--primary-soft);
   color: var(--primary);
   border: 1px solid var(--primary);
   padding: 0.4rem 1.2rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 800;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 .log-off-btn:hover {
   background: var(--primary);
   color: white;
-  transform: translateY(-1px);
 }
 
 .mockup-member-card {
-  background: white;
-  border-radius: 20px;
-  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(14,23,38,0.04);
+  text-align: center;
   transition: transform 0.2s;
 }
-.mockup-member-card.color-0 { border-bottom: 6px solid #0055ff; }
-.mockup-member-card.color-1 { border-bottom: 6px solid #22c55e; }
-.mockup-member-card.color-2 { border-bottom: 6px solid #eab308; }
-.mockup-member-card.color-3 { border-bottom: 6px solid #ff4444; }
+.mockup-member-card:hover { transform: translateY(-2px); }
+.mockup-member-card.color-0 { border-bottom: 5px solid var(--primary); }
+.mockup-member-card.color-1 { border-bottom: 5px solid var(--success); }
+.mockup-member-card.color-2 { border-bottom: 5px solid var(--warning); }
+.mockup-member-card.color-3 { border-bottom: 5px solid var(--danger); }
 
-.text-color-0 { color: #0055ff; }
-.text-color-1 { color: #22c55e; }
-.text-color-2 { color: #eab308; }
-.text-color-3 { color: #ff4444; }
+.text-color-0 { color: var(--primary); }
+.text-color-1 { color: var(--success); }
+.text-color-2 { color: var(--warning); }
+.text-color-3 { color: var(--danger); }
 
 .mockup-weekly-row .mockup-day-col {
   flex: 1;
-  border-right: 1px solid var(--card-border);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
-.mockup-weekly-row .mockup-day-col:last-child {
-  border-right: none;
-}
-.mockup-weekly-row .mockup-day-col:hover {
-  background: #f8fafc;
-}
+.mockup-weekly-row .mockup-day-col:last-child { border-right: none; }
+.mockup-weekly-row .mockup-day-col:hover { background: var(--bg); }
 
-.gradient-pink {
-  background: linear-gradient(to right, #a855f7, #ec4899);
+.day-header {
+  text-align: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  color: var(--text-secondary);
 }
-.gradient-orange {
-  background: linear-gradient(to right, #f97316, #eab308);
-}
+.day-header--today { background: var(--primary-soft); color: var(--primary); }
+.day-header--absence { background: var(--danger-soft); color: var(--danger); }
+.day-label { font-weight: 800; font-size: 10px; text-transform: uppercase; }
+.day-num { font-size: 18px; font-weight: 800; margin-top: 2px; }
 
 .member-avatar {
-  background: #f1f5f9;
-  width: 80px;
-  height: 80px;
+  background: var(--bg);
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  font-size: 2rem;
 }
 
 /* ── Section spacing ─────────────────────────────────────── */
@@ -677,23 +679,6 @@ const getAssigneeGradient = (assigned_to) => {
   color: var(--text-primary);
 }
 
-/* ── Stats pills ─────────────────────────────────────────── */
-.stat-pill {
-  cursor: pointer;
-  border-radius: 9999px;
-  padding: 2.5rem 3rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.stat-pill--blue  { background: #0055ff; color: white; box-shadow: 0 10px 30px rgba(0, 85, 255, 0.4); }
-.stat-pill--green { background: #33ff99; color: #064e3b; box-shadow: 0 10px 30px rgba(51, 255, 153, 0.4); }
-.stat-pill-value  { font-size: 3.5rem; font-weight: 800; line-height: 1; }
-.stat-pill-icon   { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
-.stat-pill--blue  .stat-pill-icon { background: rgba(255,255,255,0.2); }
-.stat-pill--green .stat-pill-icon { background: rgba(0,0,0,0.08); }
-
 /* ── Main layout grids ───────────────────────────────────── */
 .dashboard-main-grid {
   display: grid;
@@ -707,10 +692,24 @@ const getAssigneeGradient = (assigned_to) => {
   gap: 1.5rem;
 }
 
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
 /* ── Weekly scroll wrapper ───────────────────────────────── */
 .week-scroll {
   overflow-x: auto;
-  border-radius: 32px;
+  border-radius: var(--r-lg);
   -webkit-overflow-scrolling: touch;
 }
 .week-scroll .mockup-weekly-row { min-width: 700px; }
@@ -723,12 +722,6 @@ const getAssigneeGradient = (assigned_to) => {
 
   /* Collapse main 2-col → 1-col */
   .dashboard-main-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-
-  /* Stats pills stack + become rectangular */
-  .stats-pills-grid { grid-template-columns: 1fr; gap: 1rem; }
-  .stat-pill { border-radius: 24px; padding: 1.5rem 2rem; }
-  .stat-pill-value { font-size: 2.5rem; }
-  .stat-pill-icon { width: 60px; height: 60px; font-size: 2rem; }
 
   .week-section { margin-top: 2rem; margin-bottom: 2rem; }
   .week-header {
@@ -764,8 +757,7 @@ const getAssigneeGradient = (assigned_to) => {
 }
 
 @media (max-width: 480px) {
-  .dash-title { font-size: 1.8rem; }
-  .stat-pill { padding: 1.25rem 1.5rem; }
+  .dash-title { font-size: 24px; }
 }
 
 </style>

@@ -140,9 +140,9 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
               Redeemed "<strong style="color:var(--text-primary);">{{ c.title }}</strong>"
             </span>
           </div>
-          <div class="text-sm" style="color:#94a3b8; text-align:right;">
+          <div class="text-sm" style="color:var(--text-secondary); text-align:right;">
             <div>{{ formatDate(c.redeemed_at) }}</div>
-            <div style="color:#10b981; font-weight:600; margin-top:0.2rem;">✓ Claimed</div>
+            <div style="color:var(--success); font-weight:600; margin-top:0.2rem;">✓ Claimed</div>
           </div>
         </div>
       </div>
@@ -188,15 +188,21 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 .reward-item {
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
+  border-radius: var(--r-lg);
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(14,23,38,0.06);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .reward-item:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 18px 40px rgba(99,102,241,0.18);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(37,99,235,0.12);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reward-item { transition: none; }
+  .reward-item:hover { transform: none; }
+  .buy-btn { transition: none; }
 }
 
 /* ── Banner ─────────────────────────────────────── */
@@ -206,20 +212,22 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   align-items: center;
   justify-content: center;
 }
-.banner-0 { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
-.banner-1 { background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%); }
-.banner-2 { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); }
-.banner-3 { background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%); }
-.banner-4 { background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); }
+.banner-0 { background: var(--primary-soft); }
+.banner-1 { background: var(--danger-soft); }
+.banner-2 { background: var(--warning-soft); }
+.banner-3 { background: var(--success-soft); }
+.banner-4 { background: var(--primary-soft); }
 
 .reward-icon {
   font-size: 3.2rem;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
   animation: float 3s ease-in-out infinite;
 }
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reward-icon { animation: none; }
 }
 
 /* ── Body ───────────────────────────────────────── */
@@ -228,14 +236,14 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   flex: 1;
 }
 .reward-title {
-  color: #1e293b;
+  color: var(--text-primary);
   margin: 0 0 0.4rem;
   font-size: 1.1rem;
   font-weight: 800;
   line-height: 1.3;
 }
 .reward-desc {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   line-height: 1.5;
   margin: 0;
@@ -248,14 +256,14 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   padding: 0.2rem 0.65rem;
   border-radius: 9999px;
 }
-.badge-warning { background: #fef3c7; color: #92400e; }
-.badge-danger  { background: #fee2e2; color: #991b1b; }
+.badge-warning { background: var(--warning-soft); color: var(--warning); }
+.badge-danger  { background: var(--danger-soft);  color: var(--danger);  }
 
 /* ── Footer ─────────────────────────────────────── */
 .reward-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
-  background: #fafafa;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -265,27 +273,25 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  background: var(--warning-soft);
   padding: 0.4rem 0.9rem;
-  border-radius: 9999px;
-  box-shadow: 0 3px 10px rgba(245,158,11,0.35);
+  border-radius: var(--r-pill);
 }
-.coin-amount { color: #fff; font-weight: 900; font-size: 1.1rem; }
-.coin-label  { color: rgba(255,255,255,0.75); font-weight: 700; font-size: 0.8rem; }
+.coin-amount { color: var(--warning); font-weight: 900; font-size: 1.1rem; }
+.coin-label  { color: var(--warning); font-weight: 700; font-size: 0.8rem; opacity: 0.75; }
 
 .buy-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: var(--primary);
   color: #fff;
   border: none;
-  border-radius: 9999px;
+  border-radius: var(--r-pill);
   padding: 0.55rem 1.3rem;
   font-weight: 800;
   font-size: 0.9rem;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: opacity 0.15s, transform 0.15s;
 }
-.buy-btn:hover  { transform: scale(1.06); box-shadow: 0 6px 18px rgba(99,102,241,0.55); }
+.buy-btn:hover  { opacity: 0.88; transform: scale(1.04); }
 .buy-btn:active { transform: scale(0.97); }
 
 /* ── Admin form ─────────────────────────────────── */
