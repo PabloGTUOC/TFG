@@ -699,10 +699,16 @@ familiesRouter.post('/:familyId/deletion-requests/:requestId/approve',
       const result = await withTransaction(async (client) => {
         const me = await upsertUserFromAuth(client, req.auth);
 
+        const { rows: reqCheck } = await client.query(
+          `SELECT id FROM family_deletion_requests WHERE id = $1 AND family_id = $2`,
+          [requestId, familyId]
+        );
+        if (!reqCheck.length) return { error: { code: 404, message: 'Deletion request not found.' } };
+
         const { rows: approvalRows } = await client.query(
-          `UPDATE family_deletion_approvals 
-           SET status = 'approved', responded_at = NOW() 
-           WHERE request_id = $1 AND caregiver_id = $2 
+          `UPDATE family_deletion_approvals
+           SET status = 'approved', responded_at = NOW()
+           WHERE request_id = $1 AND caregiver_id = $2
            RETURNING id`,
           [requestId, me.id]
         );
@@ -739,16 +745,23 @@ familiesRouter.post('/:familyId/deletion-requests/:requestId/reject',
   validateParams('familyId', 'requestId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
+    const familyId = Number(req.params.familyId);
     const requestId = Number(req.params.requestId);
 
     try {
       const result = await withTransaction(async (client) => {
         const me = await upsertUserFromAuth(client, req.auth);
 
+        const { rows: reqCheck } = await client.query(
+          `SELECT id FROM family_deletion_requests WHERE id = $1 AND family_id = $2`,
+          [requestId, familyId]
+        );
+        if (!reqCheck.length) return { error: { code: 404, message: 'Deletion request not found.' } };
+
         const { rows: approvalRows } = await client.query(
-          `UPDATE family_deletion_approvals 
-           SET status = 'rejected', responded_at = NOW() 
-           WHERE request_id = $1 AND caregiver_id = $2 
+          `UPDATE family_deletion_approvals
+           SET status = 'rejected', responded_at = NOW()
+           WHERE request_id = $1 AND caregiver_id = $2
            RETURNING id`,
           [requestId, me.id]
         );
