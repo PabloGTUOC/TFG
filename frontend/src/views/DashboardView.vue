@@ -314,7 +314,7 @@ const getAssigneeColor = (assigned_to) => {
           
           <!-- Members Title -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-             <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">Active Family Members</h2>
+             <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Active Family Members</h2>
              <a href="#" @click.prevent="router.push('/profile')" style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.95rem; cursor: pointer;">Manage Tribe &rarr;</a>
           </div>
 
@@ -362,22 +362,20 @@ const getAssigneeColor = (assigned_to) => {
           <!-- Available Offers -->
           <div v-if="availableOffers.length > 0" style="margin-bottom: 3rem;">
              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
-               <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">Task Offers & Bribes</h2>
-               <div style="background: rgba(255,215,0,0.15); color: #b45309; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 900;">{{ availableOffers.length }} ACTIVE</div>
+               <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Task Offers & Bribes</h2>
+               <div style="background: var(--warning-soft); color: var(--warning); padding: 0.3rem 0.6rem; border-radius: var(--r-pill); font-size: 0.75rem; font-weight: 900;">{{ availableOffers.length }} ACTIVE</div>
              </div>
              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
-               <div v-for="offer in availableOffers" :key="'offer-'+offer.id" 
-                    style="background: white; border: 1px solid var(--card-border); border-radius: 20px; padding: 1.2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 0.8rem; cursor: pointer; transition: all 0.2s;"
-                    @click="navigateToDaily(offer.starts_at.split('T')[0])"
-                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 15px rgba(0,0,0,0.05)';"
-                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)';">
+               <div v-for="offer in availableOffers" :key="'offer-'+offer.id"
+                    style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.2rem; box-shadow: 0 1px 2px rgba(14,23,38,0.04); display: flex; flex-direction: column; gap: 0.8rem; cursor: pointer; transition: box-shadow 0.2s;"
+                    @click="navigateToDaily(offer.starts_at.split('T')[0])">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f8fafc; border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
-                    <div style="background: rgba(255,215,0,0.9); color: #854d0e; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
+                    <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--bg); border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
+                    <div style="background: var(--warning-soft); color: var(--warning); padding: 0.2rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
                   </div>
                   <div style="margin-top: 0.2rem;">
-                    <div style="font-weight: 800; font-size: 1.05rem; color: #1e293b; line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>
-                    <div style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                    <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
                       <span class="material-symbols-rounded" style="font-size: 0.9rem;">calendar_today</span>
                       {{ new Date(offer.starts_at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) }} • {{ new Date(offer.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
                     </div>
@@ -429,15 +427,15 @@ const getAssigneeColor = (assigned_to) => {
                      {{ item.icon }}
                   </div>
                   <div>
-                     <div style="font-weight: 800; color: #1e293b; font-size: 0.95rem; line-height: 1.3;" v-html="item.title.replace(/(completed|added|spent|got|organized)/, '<span style=\'font-weight:600; color:#64748b;\'>$1</span>')"></div>
+                     <div style="font-weight: 800; color: var(--text-primary); font-size: 0.95rem; line-height: 1.3;" v-html="item.title.replace(/(completed|added|spent|got|organized)/, '<span style=\'font-weight:600; color:var(--text-secondary);\'>$1</span>')"></div>
                      <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
-                       <span style="font-size: 0.75rem; font-weight: 700; color: #94a3b8;">{{ item.timeStr }}</span>
+                       <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">{{ item.timeStr }}</span>
                        <span style="font-size: 0.75rem; font-weight: 800;" :style="`color: ${item.coinColor};`">{{ item.coinText }}</span>
                      </div>
                   </div>
                </div>
                
-               <div v-if="recentActivitiesList.length === 0" style="color: #94a3b8; font-weight: 600;">No activity yet.</div>
+               <div v-if="recentActivitiesList.length === 0" style="color: var(--text-secondary); font-weight: 600;">No activity yet.</div>
              </div>
 
              <button @click="navigateToStats" style="margin-top: 1.5rem; width: 100%; padding: 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); font-weight: 700; font-size: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;">
@@ -452,7 +450,7 @@ const getAssigneeColor = (assigned_to) => {
     <div class="week-section">
        <div class="week-header">
           <div class="week-title-row">
-            <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">This Week's Schedule</h2>
+            <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">This Week's Schedule</h2>
             <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
           </div>
           <div class="week-pagination-row">
@@ -478,7 +476,7 @@ const getAssigneeColor = (assigned_to) => {
             <div style="flex: 1; padding: 0.6rem; display: flex; flex-direction: column; gap: 5px;">
               <!-- Absence chips -->
               <div v-for="abs in dayObj.dayAbsences" :key="abs.id"
-                   style="background: var(--danger-soft); border: 1px solid #FECACA; border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; color: var(--danger); display: flex; flex-direction: column; gap: 2px;">
+                   style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; color: var(--danger); display: flex; flex-direction: column; gap: 2px;">
                 <div style="display: flex; align-items: center; gap: 3px; font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">
                   ✈️ {{ abs.user_alias || abs.user_name }}
                 </div>
@@ -671,7 +669,7 @@ const getAssigneeColor = (assigned_to) => {
   transition: all 0.2s;
 }
 .pagination-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg);
 }
 .pagination-label {
   font-weight: 800;
@@ -735,11 +733,10 @@ const getAssigneeColor = (assigned_to) => {
   }
   .week-pagination-row {
     justify-content: space-between;
-    background: white;
-    border: 1px solid var(--card-border);
+    background: var(--surface);
+    border: 1px solid var(--border);
     padding: 0.5rem 1rem;
-    border-radius: 999px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    border-radius: var(--r-pill);
   }
 
   /* Transform to Vertical Agenda Calendar */
