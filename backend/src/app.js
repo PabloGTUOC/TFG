@@ -11,7 +11,6 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { statsRouter } from './routes/stats.js';
 import { absencesRouter } from './routes/absences.js';
-import { inviteLinksRouter } from './routes/inviteLinks.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -61,7 +60,6 @@ app.use('/api/dashboard', requireAuth, perUserLimiter, dashboardRouter);
 app.use('/api/marketplace', requireAuth, perUserLimiter, marketplaceRouter);
 app.use('/api/stats', requireAuth, perUserLimiter, statsRouter);
 app.use('/api/absences', requireAuth, perUserLimiter, absencesRouter);
-app.use('/api/families', requireAuth, perUserLimiter, inviteLinksRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

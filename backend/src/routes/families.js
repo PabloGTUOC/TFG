@@ -8,6 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { insertDefaultActivities } from '../db/defaultActivities.js';
+import { inviteLinksRouter } from './inviteLinks.js';
 
 async function sendFamilyDeletionRequestEmail(email, familyName, requestedByName) {
   console.log(`[MOCK EMAIL] To: ${email}`);
@@ -766,3 +767,5 @@ familiesRouter.post('/:familyId/deletion-requests/:requestId/reject',
       return res.status(500).json({ error: 'Failed to reject deletion.' });
     }
   });
+
+familiesRouter.use(inviteLinksRouter);
