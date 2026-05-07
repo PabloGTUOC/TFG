@@ -250,7 +250,7 @@ meRouter.get('/ledger', async (req, res) => {
       if (isNaN(startOfMonth.getTime())) throw new Error("Invalid month format");
 
       const { rows: ledger } = await client.query(`
-        SELECT cl.id, cl.amount, cl.reason, cl.created_at, a.title as activity_title, a.duration_minutes
+        SELECT cl.id, cl.amount, cl.reason, cl.created_at, cl.activity_id, a.title as activity_title, a.duration_minutes
         FROM coin_ledger cl
         LEFT JOIN activities a ON a.id = cl.activity_id
         WHERE cl.family_id = $1 AND cl.user_id = $2

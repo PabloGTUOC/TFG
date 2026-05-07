@@ -58,7 +58,7 @@ const coinAliasInitial = computed(() => {
 
         <div class="logo" @click="router.push('/dashboard')" title="Go to Family Hub">
           <span class="logo-mark">
-            <CircleDollarSign :size="18" :stroke-width="2" />
+            <img src="/icon-mark.svg" width="18" height="18" alt="Logo" style="display: block;" />
           </span>
           <strong class="logo-text">CareCoins</strong>
         </div>
@@ -84,7 +84,7 @@ const coinAliasInitial = computed(() => {
 
         <div class="pill-right">
           <!-- Coin Counter -->
-          <div v-if="families && families.length > 0" class="coin-counter" :title="families[0].alias || 'Coin balance'">
+          <div v-if="families && families.length > 0" class="coin-counter" :title="families[0].alias || 'Go to Personal Area'" @click="router.push('/profile')">
             <span class="coin-avatar">{{ coinAliasInitial }}</span>
             <span class="coin-amount">{{ families[0].coin_balance }}</span>
             <span class="coin-unit">cc</span>
@@ -268,6 +268,12 @@ const coinAliasInitial = computed(() => {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.coin-counter:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(14, 23, 38, 0.05);
 }
 
 .coin-avatar {

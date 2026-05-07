@@ -30,6 +30,15 @@ const targetDate = computed(() => {
 const isToday = computed(() => new Date().toLocaleDateString() === targetDate.value.toLocaleDateString());
 const scheduledTitle = computed(() => isToday.value ? 'Scheduled for Today' : `Schedule for ${targetDate.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
 
+const navigateDay = (offset) => {
+  const d = new Date(targetDate.value);
+  d.setDate(d.getDate() + offset);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  router.push(`/daily/${yyyy}-${mm}-${dd}`);
+};
+
 const familyActivities = ref([]);
 
 const showScheduleModal = ref(false);
@@ -213,12 +222,22 @@ const loadMembers = () => appStore.runAction(async () => {
   familyMembers.value = (data.members || []).sort((a, b) => b.coin_balance - a.coin_balance);
 });
 
-const MEMBER_COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626'];
-const getAssigneeColor = (assigned_to, category) => {
-  if (!assigned_to) return category === 'care' ? '#16A34A' : '#D97706';
+const MEMBER_THEMES = [
+  { completed: '#2563EB', pending: '#EBAD25' }, // Blue -> Orange
+  { completed: '#16A34A', pending: '#A3166F' }, // Green -> Pink
+  { completed: '#D97706', pending: '#0668D9' }, // Orange -> Blue
+  { completed: '#DC2626', pending: '#26DC8C' }  // Red -> Cyan
+];
+const DEFAULT_CARE_THEME = { completed: '#16A34A', pending: '#A3166F' };
+const DEFAULT_HOUSEHOLD_THEME = { completed: '#D97706', pending: '#0668D9' };
+
+const getAssigneeColor = (assigned_to, category, status) => {
+  const defaultTheme = category === 'care' ? DEFAULT_CARE_THEME : DEFAULT_HOUSEHOLD_THEME;
+  if (!assigned_to) return status === 'completed' ? defaultTheme.completed : defaultTheme.pending;
   const idx = familyMembers.value.findIndex(m => m.id === assigned_to);
-  if (idx === -1) return category === 'care' ? '#16A34A' : '#D97706';
-  return MEMBER_COLORS[idx % MEMBER_COLORS.length];
+  if (idx === -1) return status === 'completed' ? defaultTheme.completed : defaultTheme.pending;
+  const theme = MEMBER_THEMES[idx % MEMBER_THEMES.length];
+  return status === 'completed' ? theme.completed : theme.pending;
 };
 
 const loadActivities = () => appStore.runAction(async () => {
@@ -467,9 +486,17 @@ const validateActivity = (aid) => appStore.runAction(async () => {
           <h2 style="margin: 0;">Daily Schedule</h2>
           <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
         </div>
-        <div class="daily-header-right">
-          <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
-          <span style="color: var(--accent-primary); font-weight: 800;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
+        <div class="daily-header-right" style="display: flex; flex-direction: column; align-items: flex-end;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button @click="navigateDay(-1)" class="date-nav-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2; min-width: 160px; text-align: center;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
+            <button @click="navigateDay(1)" class="date-nav-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+          <span style="color: var(--accent-primary); font-weight: 800; margin-top: 0.25rem;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
         </div>
       </div>
 
@@ -481,8 +508,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
          <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem; flex-shrink: 0;">Drag icons to the timeline to schedule your day.</p>
          
          <!-- Search and Filter -->
-         <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; flex-shrink: 0;">
-           <input type="text" v-model="searchQuery" placeholder="Search tasks..." style="width: 100%; padding: 0.6rem 1rem; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);" />
+         <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; flex-shrink: 0; padding-right: 0.5rem;">
+           <input type="text" v-model="searchQuery" placeholder="Search tasks..." style="width: 100%; box-sizing: border-box; padding: 0.6rem 1rem; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);" />
            <div style="display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
              <button @click="categoryFilter = 'all'" :style="{ background: categoryFilter === 'all' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'all' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'all' ? 'var(--primary)' : 'var(--border)'), padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }">All</button>
              <button @click="categoryFilter = 'care'" :style="{ background: categoryFilter === 'care' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'care' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'care' ? 'var(--primary)' : 'var(--border)'), padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }">Care</button>
@@ -520,10 +547,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       </VCard>
 
       <!-- Right Column: Timeline & Completed Bar -->
-      <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+      <div class="timeline-col">
         
         <!-- COL 2: Scheduled Timeline -->
-        <VCard :title="scheduledTitle" style="padding: 0; flex: 1; min-height: 600px; display: flex; flex-direction: column;">
+        <VCard :title="scheduledTitle" class="agenda-card" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
            <!-- All-Day Banner Row for Absences -->
            <div v-if="absencesToday.length > 0" class="absence-banner-row">
              <div v-for="a in absencesToday" :key="a.id" 
@@ -556,12 +583,19 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                <!-- Absolute positioned chips -->
                <div v-for="a in scheduledToday" :key="a.id"
                     class="scheduled-chip"
-                    :style="[a._style, { background: getAssigneeColor(a.assigned_to, a.category) }, a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}]"
+                    :style="[
+                      a._style, 
+                      a.status === 'rejected'
+                        ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
+                        : { background: getAssigneeColor(a.assigned_to, a.category, a.status), opacity: a.status === 'completed' ? 1 : 0.8 },
+                      a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}
+                    ]"
                     :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
                     @click="a.is_recurrent && a.status !== 'completed' ? openRecurrenceModal(a) : null">
                  <div style="display:flex; align-items:center; gap: 0.8rem;">
                    <span style="font-size: 1.4rem;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
                    <strong class="text-base" style="display:block; line-height: 1.2; font-weight:800;">
+                     <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:4px;">⚠️</span>
                      {{ a.title }}
                      <span v-if="a.is_recurrent" title="Click to schedule future recurrences" style="font-size: 0.85rem; margin-left: 0.3rem;">🔁</span>
                    </strong>
@@ -604,19 +638,26 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            </div>
          
          <!-- Mobile Agenda View -->
-         <div class="mobile-agenda mobile-only" style="padding: 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
-           <div v-if="scheduledToday.length === 0" style="text-align: center; color: var(--text-secondary); padding: 2rem; font-weight: 600;">
+         <div class="mobile-agenda mobile-only" style="padding: 0.5rem 1rem 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
+           <div v-if="scheduledToday.length === 0" style="text-align: center; color: var(--text-secondary); padding: 1rem; font-weight: 600;">
              No activities scheduled yet. Tap a task below to add one!
            </div>
            
            <div v-for="a in scheduledToday" :key="a.id" 
                 style="border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.8rem;" 
-                :style="{ background: getAssigneeColor(a.assigned_to, a.category) }">
+                :style="[
+                  a.status === 'rejected'
+                    ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
+                    : { background: getAssigneeColor(a.assigned_to, a.category, a.status), opacity: a.status === 'completed' ? 1 : 0.8 }
+                ]">
              <div style="display:flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
                <div style="display:flex; align-items: center; gap: 0.8rem; flex: 1;">
                  <span style="font-size: 1.8rem; background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
                  <div>
-                   <div style="font-weight: 800; font-size: 1.15rem; line-height: 1.2;">{{ a.title }}</div>
+                   <div style="font-weight: 800; font-size: 1.15rem; line-height: 1.2;">
+                     <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:4px;">⚠️</span>
+                     {{ a.title }}
+                   </div>
                    <div style="font-size: 0.85rem; font-weight: 600; opacity: 0.9; margin-top: 0.2rem;" v-if="a.bounty_amount">🪙 +{{a.bounty_amount}}cc Bounty</div>
                  </div>
                </div>
@@ -654,7 +695,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         </VCard>
 
         <!-- Horizontal Completed Bar -->
-        <div style="background: var(--surface); color: var(--text-primary); padding: 1rem 1.5rem; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); margin-top: 0.5rem; box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
+        <div style="background: var(--surface); color: var(--text-primary); padding: 0.8rem 1.2rem; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
            <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; flex: 1;">
 
              <div v-if="completedToday.length === 0" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">
@@ -987,6 +1028,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 .task-template-row:hover { box-shadow: 0 4px 12px rgba(14,23,38,0.08); }
 .task-template-row:active { cursor: grabbing; transform: scale(0.98); }
 
+.agenda-card {
+  min-height: 600px;
+}
+
 /* Timeline (Col 2) */
 .timeline-container {
   flex: 1;
@@ -1102,6 +1147,23 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   transform: scale(0.95);
 }
 
+.date-nav-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+.date-nav-btn:hover {
+  background: var(--border);
+}
+
 .daily-header-row {
   display: flex;
   justify-content: space-between;
@@ -1115,6 +1177,13 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 .daily-header-right {
   text-align: right;
+}
+
+.timeline-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
 }
 
 @media (max-width: 768px) {
@@ -1134,6 +1203,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column-reverse; /* Put Task Library below the Agenda */
+    gap: 1rem; /* Reduce gap between Agenda and Library on mobile */
+  }
+  .timeline-col {
+    gap: 0.8rem; /* Reduce gap between Agenda and Completed Bar */
   }
   .template-grid {
     grid-template-columns: 1fr;
@@ -1142,6 +1215,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   .col-card {
     position: static;
     height: auto;
+    margin-bottom: 0 !important;
+  }
+  .agenda-card {
+    min-height: auto;
+    margin-bottom: 0 !important;
   }
   .timeline-container {
     overflow-x: auto;

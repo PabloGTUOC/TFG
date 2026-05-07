@@ -61,7 +61,7 @@ export async function insertDefaultActivities(client, familyId, creatorId, objec
       act.title, 
       act.category, 
       act.duration, 
-      act.duration, // Set coin_value equal to duration automatically
+      Math.max(1, Math.round((act.duration / 60) * 2)), // Default to 2 coins/hr
       act.recurrent
     );
   }

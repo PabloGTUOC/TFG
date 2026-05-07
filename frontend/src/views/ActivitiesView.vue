@@ -60,8 +60,8 @@ const baseScore = computed(() => {
   const hours = Number(createActivityForm.value.durationMinutes) / 60;
   return Math.round(hours * budgetInfo.value.baseRatePerHour);
 });
-const minCoins = computed(() => Math.max(1, Math.round(baseScore.value * 0.7)));
-const maxCoins = computed(() => Math.max(1, Math.round(baseScore.value * 1.3)));
+const minCoins = computed(() => Math.max(1, Math.floor(baseScore.value * 0.5)));
+const maxCoins = computed(() => Math.max(1, Math.ceil(baseScore.value * 1.5)));
 
 const updateSuggestedCoins = () => {
   if (baseScore.value > 0) {

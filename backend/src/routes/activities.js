@@ -167,7 +167,17 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
       const start = new Date(startsAt);
       const endsAtDate = new Date(start.getTime() + t.duration_minutes * 60000);
       const isPast = endsAtDate < new Date();
-      const initialStatus = isPast ? 'pending_validation' : 'approved';
+      let initialStatus = isPast ? 'pending_validation' : 'approved';
+
+      if (isPast) {
+        const { rows: cgRows } = await client.query(
+          `SELECT user_id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
+          [t.family_id]
+        );
+        if (cgRows.length === 1 && cgRows[0].user_id === user.id) {
+          initialStatus = 'approved';
+        }
+      }
 
       // Check if user has an absence overlapping with the new activity
       const { rows: absenceOverlap } = await client.query(
@@ -232,7 +242,15 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         ]
       );
 
-      return { data: rows[0], warning };
+      let activity = rows[0];
+
+      if (initialStatus === 'approved' && isPast) {
+        await runAutoCompleteSweep(client, t.family_id);
+        const { rows: updated } = await client.query(`SELECT * FROM activities WHERE id = $1`, [activity.id]);
+        if (updated.length) activity = updated[0];
+      }
+
+      return { data: activity, warning };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
@@ -661,10 +679,10 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
         );
 
         if (act.coin_value > 0) {
-          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_reverted')`, [act.family_id, me.id, activityId, -act.coin_value]);
+          await client.query(`UPDATE coin_ledger SET amount = $1, reason = 'activity_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'activity_completed'`, [-act.coin_value, activityId, me.id]);
         }
         if (bountyAmt > 0) {
-          await client.query(`INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_reverted')`, [act.family_id, me.id, activityId, -bountyAmt]);
+          await client.query(`UPDATE coin_ledger SET amount = $1, reason = 'bounty_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'bounty_earned'`, [-bountyAmt, activityId, me.id]);
           // Return escrowed coins to the original offerer
           await client.query(
             `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,

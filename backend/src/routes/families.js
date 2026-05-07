@@ -456,7 +456,17 @@ familiesRouter.delete('/:familyId/actors/:actorId',
   });
 
 familiesRouter.post('/:familyId/actors/:actorId/avatar',
-  upload.single('avatar'),
+  (req, res, next) => {
+    upload.single('avatar')(req, res, (err) => {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large. Maximum size is 2 MB.' });
+      }
+      if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  },
   validateParams('familyId', 'actorId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {

@@ -158,9 +158,9 @@ const weekLabel = computed(() => {
   const last = weekDays.value[6];
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   if (first.getMonth() === last.getMonth()) {
-    return `${monthNames[first.getMonth()]} ${first.getDate()} - ${last.getDate()}, ${first.getFullYear()}`;
+    return `${monthNames[first.getMonth()]} ${first.getDate()} — ${last.getDate()}`;
   }
-  return `${monthNames[first.getMonth()]} ${first.getDate()} - ${monthNames[last.getMonth()]} ${last.getDate()}, ${first.getFullYear()}`;
+  return `${monthNames[first.getMonth()]} ${first.getDate()} — ${monthNames[last.getMonth()]} ${last.getDate()}`;
 });
 
 const scheduledInstances = computed(() => familyActivities.value.filter(a => !a.is_template && !!a.starts_at));
@@ -286,13 +286,19 @@ const getActorRemainingGdp = (actor) => {
    return Math.max(0, Math.floor(max - usedShare));
 };
 
-const MEMBER_COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626'];
+const MEMBER_THEMES = [
+  { completed: '#2563EB', pending: '#EBAD25' }, // Blue -> Orange
+  { completed: '#16A34A', pending: '#A3166F' }, // Green -> Pink
+  { completed: '#D97706', pending: '#0668D9' }, // Orange -> Blue
+  { completed: '#DC2626', pending: '#26DC8C' }  // Red -> Cyan
+];
 
-const getAssigneeColor = (assigned_to) => {
+const getAssigneeColor = (assigned_to, status) => {
   if (!assigned_to) return '#94A3B8';
   const index = activeMembers.value.findIndex(m => m.user_id === assigned_to);
   if (index === -1) return '#94A3B8';
-  return MEMBER_COLORS[index % MEMBER_COLORS.length];
+  const theme = MEMBER_THEMES[index % MEMBER_THEMES.length];
+  return status === 'completed' ? theme.completed : theme.pending;
 };
 </script>
 
@@ -447,33 +453,37 @@ const getAssigneeColor = (assigned_to) => {
     </div>
 
     <!-- FULL-WIDTH BOTTOM ROW -->
-    <div class="week-section">
-       <div class="week-header">
-          <div class="week-title-row">
-            <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">This Week's Schedule</h2>
-            <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+    <div class="week-section" style="background: var(--surface); border-radius: 20px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid var(--border);">
+       <div class="week-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+          <div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">This Week</div>
+            <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0; line-height: 1;">{{ weekLabel }}</h2>
           </div>
-          <div class="week-pagination-row">
-             <button @click="currentWeekOffset--" class="pagination-btn">&laquo;</button>
-             <div class="pagination-label">{{ weekLabel }}</div>
-             <button @click="currentWeekOffset++" class="pagination-btn">&raquo;</button>
+          
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
+            <div class="week-pagination-row" style="margin-left: 0.5rem;">
+               <button @click="currentWeekOffset--" class="pagination-btn">&laquo;</button>
+               <button @click="currentWeekOffset++" class="pagination-btn">&raquo;</button>
+            </div>
           </div>
        </div>
 
        <div class="week-scroll">
-       <div class="mockup-weekly-row" style="background: var(--surface); border-radius: var(--r-lg); display: flex; border: 1px solid var(--border); min-height: 250px; overflow: hidden; box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
+       <div class="mockup-weekly-row" style="display: flex; gap: 0.8rem; min-height: 250px;">
           <div v-for="dayObj in processedWeekDays" :key="dayObj.date.toISOString()"
                class="mockup-day-col"
+               :class="dayObj.hasAbsence ? 'day-col--absence' : (dayObj.date.toDateString() === new Date().toDateString() ? 'day-col--today' : '')"
                @click="navigateToDaily(dayObj.dateStr)">
 
             <div class="day-header"
-                 :class="dayObj.hasAbsence ? 'day-header--absence' : (dayObj.date.toDateString() === new Date().toDateString() ? 'day-header--today' : '')">
-              <div v-if="dayObj.hasAbsence" style="position: absolute; top: 5px; right: 5px; font-size: 0.75rem;" title="Absence recorded">✈️</div>
+                 :class="dayObj.date.toDateString() === new Date().toDateString() ? 'day-header--today-text' : ''">
+              <div v-if="dayObj.hasAbsence" style="position: absolute; top: -2px; right: -2px; font-size: 0.9rem;" title="Absence recorded">✈️</div>
               <div class="day-label">{{ dayObj.date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
               <div class="day-num">{{ dayObj.date.getDate() }}</div>
             </div>
 
-            <div style="flex: 1; padding: 0.6rem; display: flex; flex-direction: column; gap: 5px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
               <!-- Absence chips -->
               <div v-for="abs in dayObj.dayAbsences" :key="abs.id"
                    style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; color: var(--danger); display: flex; flex-direction: column; gap: 2px;">
@@ -485,10 +495,16 @@ const getAssigneeColor = (assigned_to) => {
               <!-- Activity chips -->
               <div v-for="a in dayObj.acts" :key="a.id"
                    style="border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; font-weight: 600; color: #fff; display: flex; flex-direction: column; gap: 3px; cursor: pointer;"
-                   :style="{ background: getAssigneeColor(a.assigned_to) }"
+                   :style="[
+                     a.status === 'rejected'
+                       ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
+                       : { background: getAssigneeColor(a.assigned_to, a.status), opacity: a.status === 'completed' ? 1 : 0.8 }
+                   ]"
                    @click.stop="navigateToDaily(dayObj.dateStr)">
                 <div style="display:flex; align-items: center; justify-content: space-between; gap: 2px;">
-                  <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">{{ a.title }}</div>
+                  <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                    <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:2px;">⚠️</span>{{ a.title }}
+                  </div>
                   <span v-if="a.bounty_amount" style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 999px; font-size: 9px; font-weight: 800; flex-shrink: 0;">+{{a.bounty_amount}}cc</span>
                 </div>
                 <div style="opacity: 0.8; font-size: 9px;">
@@ -604,26 +620,39 @@ const getAssigneeColor = (assigned_to) => {
 
 .mockup-weekly-row .mockup-day-col {
   flex: 1;
-  border-right: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--r-md);
+  padding: 0.8rem;
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.2s;
+  border: 1px solid transparent;
 }
-.mockup-weekly-row .mockup-day-col:last-child { border-right: none; }
-.mockup-weekly-row .mockup-day-col:hover { background: var(--bg); }
+.mockup-weekly-row .mockup-day-col:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14,23,38,0.05);
+}
+.day-col--today {
+  background: var(--primary-soft) !important;
+  border: 1px solid var(--primary) !important;
+}
+.day-col--absence {
+  background: var(--danger-soft) !important;
+  border: 1px solid var(--danger-soft) !important;
+}
 
 .day-header {
-  text-align: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
   position: relative;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  border-bottom: none;
 }
-.day-header--today { background: var(--primary-soft); color: var(--primary); }
-.day-header--absence { background: var(--danger-soft); color: var(--danger); }
-.day-label { font-weight: 800; font-size: 10px; text-transform: uppercase; }
-.day-num { font-size: 18px; font-weight: 800; margin-top: 2px; }
+.day-header--today-text { color: var(--primary); }
+.day-label { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; color: inherit; opacity: 0.7; }
+.day-num { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-top: 2px; color: inherit; }
 
 .member-avatar {
   background: var(--bg);
@@ -637,7 +666,7 @@ const getAssigneeColor = (assigned_to) => {
 }
 
 /* ── Section spacing ─────────────────────────────────────── */
-.week-section { margin-top: 4rem; margin-bottom: 4rem; }
+.week-section { margin-top: 1.5rem; margin-bottom: 4rem; }
 .week-header {
   display: flex;
   justify-content: space-between;
@@ -743,13 +772,21 @@ const getAssigneeColor = (assigned_to) => {
   .week-scroll .mockup-weekly-row {
     flex-direction: column;
     min-width: 0;
+    gap: 1rem;
   }
   .mockup-weekly-row .mockup-day-col {
     border-right: none;
-    border-bottom: 1px solid var(--card-border);
   }
-  .mockup-weekly-row .mockup-day-col:last-child {
-    border-bottom: none;
+  .week-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  .week-header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .week-section {
+    padding: 1rem !important;
   }
 }
 

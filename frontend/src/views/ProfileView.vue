@@ -23,10 +23,11 @@ const handleUserAvatarUpload = async (event) => {
   await appStore.runAction(async () => {
     const headers = appStore.authHeaders();
     delete headers['Content-Type'];
-    const res = await fetch(`${appStore.apiBase}/api/me/avatar`, {
-      method: 'POST', headers: { Authorization: headers.Authorization }, body: formData
+    await appStore.request('/api/me/avatar', {
+      method: 'POST',
+      headers,
+      body: formData
     });
-    if (!res.ok) throw new Error('Upload failed');
     await familyStore.fetchUserData();
   }, 'Your avatar updated successfully!');
 };
@@ -44,10 +45,11 @@ const handleActorAvatarUpload = async (event, actorId, fid) => {
   await appStore.runAction(async () => {
     const headers = appStore.authHeaders();
     delete headers['Content-Type'];
-    const res = await fetch(`${appStore.apiBase}/api/families/${fid}/actors/${actorId}/avatar`, {
-      method: 'POST', headers: { Authorization: headers.Authorization }, body: formData
+    await appStore.request(`/api/families/${fid}/actors/${actorId}/avatar`, {
+      method: 'POST',
+      headers,
+      body: formData
     });
-    if (!res.ok) throw new Error('Upload failed');
     await familyStore.fetchUserData();
   }, 'Dependent avatar updated successfully!');
 };
@@ -319,7 +321,7 @@ const formatLedgerLabel = (item) => {
   const title = item.activity_title;
   switch (item.reason) {
     case 'activity_completed': return title || 'Activity completed';
-    case 'activity_reverted':  return title ? `Reverted: ${title}` : 'Activity reverted';
+    case 'activity_reverted':  return title || 'Activity reverted';
     case 'bounty_escrow':
     case 'bounty_paid':        return title ? `You paid for not doing: ${title}` : 'Bounty paid';
     case 'bounty_earned':      return title ? `Bounty earned: ${title}` : 'Bounty earned';
@@ -592,7 +594,7 @@ const formatLedgerDate = (ds) => {
           <div class="ledger-preview">
             <div v-for="item in recentLedger" :key="item.id" class="ledger-preview-row">
               <div class="lp-info">
-                <div class="lp-title">{{ formatLedgerLabel(item) }}</div>
+                <div class="lp-title" :style="['activity_reverted', 'bounty_reverted'].includes(item.reason) ? 'text-decoration: line-through; opacity: 0.6;' : ''">{{ formatLedgerLabel(item) }}</div>
                 <div class="lp-date">{{ formatLedgerDate(item.created_at) }}</div>
               </div>
               <div class="lp-amount" :class="item.amount > 0 ? 'positive' : 'negative'">
@@ -616,7 +618,7 @@ const formatLedgerDate = (ds) => {
           <div v-if="ledgerInfo.length > 0" class="ledger-list">
             <div v-for="item in ledgerInfo" :key="item.id" class="ledger-item">
               <div class="ledger-details">
-                <strong class="ledger-title">{{ formatLedgerLabel(item) }}</strong>
+                <strong class="ledger-title" :style="['activity_reverted', 'bounty_reverted'].includes(item.reason) ? 'text-decoration: line-through; opacity: 0.6;' : ''">{{ formatLedgerLabel(item) }}</strong>
                 <span class="ledger-date">{{ formatLedgerDate(item.created_at) }}</span>
                 <span v-if="item.duration_minutes" class="ledger-duration">{{ item.duration_minutes }} min</span>
               </div>
