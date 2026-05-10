@@ -142,7 +142,25 @@ The application uses PostgreSQL as its relational database. The schema is define
 
 ---
 
-## Part 4: Testing & Local Environment
+## Part 4: Main User Flows (Activities)
+
+The core functionality of CareCoins revolves around completing tasks (Care or Household activities) to earn CareCoins. Here is the typical lifecycle of an activity:
+
+### 1. Template Creation & Approval
+A user navigates to the **Activities Hub** to define a new "Task Template". They set the task's title, duration, category, and assign it a base CareCoin value. If the creator does not have Admin privileges, the template enters a "pending" state and must be approved by an Admin before it appears in the family's shared library.
+
+### 2. Scheduling & Instantiation
+From the **Daily Schedule** view, users can drag-and-drop an approved template from the Task Library directly onto the 24-hour vertical timeline. They can schedule a task as a one-off event or set up recurrence rules (e.g., "Every weekday at 8:00 AM"). This action instantiates a concrete task on the calendar.
+
+### 3. Bounties & Delegation (Optional)
+If a family member realizes they cannot complete a scheduled task, they can attach a "Bounty" to it. They offer extra CareCoins from their own balance to incentivize help. Another caregiver can see this open bounty on the Dashboard and accept it, transferring the responsibility of the task to themselves in exchange for the bonus coins.
+
+### 4. Completion & Validation
+Once the real-world task is done, the assigned user marks it as "Complete" on their Daily Schedule. The task enters a "Pending Validation" state. To ensure accountability, a *different* caregiver must review and click "Validate". Upon validation, the backend engine mints the CareCoins and logs a transaction in the `coin_ledger`, updating the user's active balance.
+
+---
+
+## Part 5: Testing & Local Environment
 
 ### How to Test the Application
 To test the application, users do not need complex pre-configurations. Simply navigate to the application's login screen and:
