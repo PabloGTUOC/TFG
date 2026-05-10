@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFamilyStore } from '../stores/family'
 import LoginView from '../views/LoginView.vue'
-import SettingsView from '../views/SettingsView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ActivitiesView from '../views/ActivitiesView.vue'
 import DashboardView from '../views/DashboardView.vue'
@@ -18,7 +17,6 @@ const router = createRouter({
         { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
         { path: '/join', name: 'join', component: JoinView, meta: { requiresAuth: true } },
         { path: '/onboarding', name: 'onboarding', component: OnboardingView, meta: { requiresAuth: true } },
-        { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
         { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
         { path: '/activities', name: 'activities', component: ActivitiesView, meta: { requiresAuth: true } },
         { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
@@ -44,7 +42,7 @@ router.beforeEach(async (to, from, next) => {
         next('/login');
     } else if (isAuthenticated) {
         const hasFamilies = familyStore.families && familyStore.families.length > 0;
-        const noFamilyAllowed = ['onboarding', 'settings', 'profile', 'join'];
+        const noFamilyAllowed = ['onboarding', 'profile', 'join'];
 
         if (!hasFamilies && !noFamilyAllowed.includes(to.name)) {
             next('/onboarding');
