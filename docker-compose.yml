@@ -8,6 +8,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     # No ports exposed — only accessible to other services on the internal network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carecoins -d carecoins"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   db-init:
     build: ./backend
@@ -15,7 +20,7 @@ services:
       DATABASE_URL: postgres://carecoins:carecoins@postgres:5432/carecoins
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
     command: npm run db:init
 
   backend:
@@ -32,7 +37,7 @@ services:
       db-init:
         condition: service_completed_successfully
       postgres:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./backend/uploads:/app/uploads
       # Download your service account JSON from Firebase Console → Project Settings
