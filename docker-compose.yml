@@ -5,10 +5,9 @@ services:
       POSTGRES_USER: carecoins
       POSTGRES_PASSWORD: carecoins
       POSTGRES_DB: carecoins
-    ports:
-      - '5433:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # No ports exposed — only accessible to other services on the internal network
 
   db-init:
     build: ./backend
@@ -24,6 +23,9 @@ services:
     environment:
       DATABASE_URL: postgres://carecoins:carecoins@postgres:5432/carecoins
       PORT: 3000
+      NODE_ENV: production
+      # Path to the Firebase service account key mounted below
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-credentials.json
     env_file:
       - ./backend/.env
     depends_on:
@@ -31,22 +33,30 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_started
-    ports:
-      - '3000:3000'
     volumes:
-      # Persist avatar uploads between container restarts
       - ./backend/uploads:/app/uploads
+      # Download your service account JSON from Firebase Console → Project Settings
+      # → Service Accounts → Generate new private key, then place it here:
+      - ./firebase-credentials.json:/run/secrets/firebase-credentials.json:ro
+    # No ports exposed — nginx in the frontend container proxies /api and /uploads
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Allows Vite to bake the API URL into the production build
-        VITE_API_URL: http://localhost:3000
+        # Empty string so fetch('/api/...') goes to the same origin (proxied by nginx)
+        VITE_API_BASE: ""
+        # Firebase client config — set these in a .env file next to docker-compose.yml
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
     depends_on:
       - backend
     ports:
-      - '5173:80'
+      - '80:80'   # Cloudflare → port 80 on the server → this container
 
 volumes:
   pgdata:

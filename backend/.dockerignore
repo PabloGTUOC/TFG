@@ -1,0 +1,11 @@
+node_modules
+.env
+.env.*
+uploads
+*.log
+test-*.js
+clear_db.js
+implementation_plan.md
+task.md
+walkthrough.md
+backend_run.log

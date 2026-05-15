@@ -7,10 +7,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-  const sqlPath = path.join(__dirname, '../src/db/schema.sql');
-  const sql = await fs.readFile(sqlPath, 'utf8');
-  await pool.query(sql);
+  const schemaPath    = path.join(__dirname, '../src/db/schema.sql');
+  const migrationPath = path.join(__dirname, 'migrate-deletion.sql');
+
+  await pool.query(await fs.readFile(schemaPath, 'utf8'));
   console.log('Database schema initialized.');
+
+  await pool.query(await fs.readFile(migrationPath, 'utf8'));
+  console.log('Database migrations applied.');
+
   await pool.end();
 }
 

@@ -1,5 +1,6 @@
 node_modules/
 .env
+firebase-credentials.json
 
 # IDE and Editor folders
 .idea/
