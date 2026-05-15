@@ -15,7 +15,9 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = path.join(__dirname, '../../uploads/users', req.auth.uid);
+    const safeUid = req.auth.uid.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!safeUid) return cb(new Error('Invalid user ID.'));
+    const dir = path.join(__dirname, '../../uploads/users', safeUid);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

@@ -23,7 +23,10 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = path.join(__dirname, '../../uploads/families', req.params.familyId, 'actors', req.params.actorId);
+    const safeFamilyId = String(Number(req.params.familyId));
+    const safeActorId  = String(Number(req.params.actorId));
+    if (safeFamilyId === 'NaN' || safeActorId === 'NaN') return cb(new Error('Invalid ID.'));
+    const dir = path.join(__dirname, '../../uploads/families', safeFamilyId, 'actors', safeActorId);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

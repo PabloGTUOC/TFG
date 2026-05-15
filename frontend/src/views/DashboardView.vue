@@ -9,6 +9,7 @@ import VSelect from '../components/VSelect.vue';
 import KpiCard from '../components/KpiCard.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
+import { avatarStyle } from '../utils/avatarStyle';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -37,7 +38,9 @@ const loadDashboard = () => appStore.runAction(async () => {
   try {
     const rewardsData = await appStore.request(`/api/marketplace/rewards/${fid}`, { headers: appStore.authHeaders() });
     claimedRewards.value = rewardsData.claimed || [];
-  } catch(e) {}
+  } catch(e) {
+    console.error('Failed to load claimed rewards:', e);
+  }
   
   await loadAbsences();
 }, 'Family dashboard loaded.');
@@ -300,6 +303,19 @@ const getAssigneeColor = (assigned_to, status) => {
   const theme = MEMBER_THEMES[index % MEMBER_THEMES.length];
   return status === 'completed' ? theme.completed : theme.pending;
 };
+
+const HIGHLIGHT_VERBS = /completed|added|spent|got|organized/;
+const splitHighlight = (text) => {
+  const match = text.match(HIGHLIGHT_VERBS);
+  if (!match) return [{ text, highlight: false }];
+  const i = match.index;
+  const word = match[0];
+  return [
+    { text: text.slice(0, i), highlight: false },
+    { text: word, highlight: true },
+    { text: text.slice(i + word.length), highlight: false },
+  ].filter(p => p.text !== '');
+};
 </script>
 
 <template>
@@ -329,7 +345,7 @@ const getAssigneeColor = (assigned_to, status) => {
              <div v-for="(m, i) in activeMembers" :key="m.user_id"
                   class="mockup-member-card" :class="'color-' + (i % 4)">
                 <div class="member-avatar"
-                     :style="m.avatar_url ? `background-image: url('${appStore.apiBase}${m.avatar_url}'); background-size: cover; background-position: center;` : ''">
+                     :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
                    {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
                 </div>
                 <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
@@ -342,7 +358,7 @@ const getAssigneeColor = (assigned_to, status) => {
              <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
                   class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
                 <div class="member-avatar"
-                     :style="o.avatar_url ? `background-image: url('${appStore.apiBase}${o.avatar_url}'); background-size: cover; background-position: center;` : ''">
+                     :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
                    {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
                 </div>
                 <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
@@ -433,7 +449,12 @@ const getAssigneeColor = (assigned_to, status) => {
                      {{ item.icon }}
                   </div>
                   <div>
-                     <div style="font-weight: 800; color: var(--text-primary); font-size: 0.95rem; line-height: 1.3;" v-html="item.title.replace(/(completed|added|spent|got|organized)/, '<span style=\'font-weight:600; color:var(--text-secondary);\'>$1</span>')"></div>
+                     <div style="font-weight: 800; color: var(--text-primary); font-size: 0.95rem; line-height: 1.3;">
+                       <template v-for="(part, i) in splitHighlight(item.title)" :key="i">
+                         <span v-if="part.highlight" style="font-weight:600; color:var(--text-secondary);">{{ part.text }}</span>
+                         <span v-else>{{ part.text }}</span>
+                       </template>
+                     </div>
                      <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">{{ item.timeStr }}</span>
                        <span style="font-size: 0.75rem; font-weight: 800;" :style="`color: ${item.coinColor};`">{{ item.coinText }}</span>

@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/auth';
 import { useFamilyStore } from './stores/family';
 import { useRouter } from 'vue-router';
 import { Home, Calendar, ShoppingBag, User, CircleDollarSign, Menu, X } from 'lucide-vue-next';
+import { avatarStyle } from './utils/avatarStyle';
 
 const authStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -93,7 +94,7 @@ const coinAliasInitial = computed(() => {
           <div class="pill-profile desktop-only" ref="profileMenuRef">
             <div class="avatar-block" @click="showDropdown = !showDropdown" title="User Menu">
               <div class="avatar"
-                :style="familyStore.profile?.avatar_url ? `background-image: url('${authStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center;` : ''">
+                :style="familyStore.profile?.avatar_url ? avatarStyle(authStore.apiBase, familyStore.profile.avatar_url) : null">
                 <span v-if="!familyStore.profile?.avatar_url">{{ profileInitial }}</span>
               </div>
             </div>
@@ -117,7 +118,7 @@ const coinAliasInitial = computed(() => {
       <div style="padding: 2rem; display: flex; flex-direction: column; gap: 2rem; width: 100%; flex: 1;">
          <div style="display: flex; align-items: center; gap: 1rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
            <div class="avatar avatar-lg"
-             :style="familyStore.profile?.avatar_url ? `background-image: url('${authStore.apiBase}${familyStore.profile.avatar_url}'); background-size: cover; background-position: center;` : ''">
+             :style="familyStore.profile?.avatar_url ? avatarStyle(authStore.apiBase, familyStore.profile.avatar_url) : null">
              <span v-if="!familyStore.profile?.avatar_url">{{ profileInitial }}</span>
            </div>
            <div>

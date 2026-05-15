@@ -247,10 +247,8 @@ const loadActivities = () => appStore.runAction(async () => {
   familyActivities.value = activitiesData.activities || [];
 }, 'Daily layout loaded.');
 
-onMounted(async () => {
-  await loadMembers();
-  loadActivities();
-  loadAbsences();
+onMounted(() => {
+  loadMembers();
 });
 
 watch(() => targetDateStr.value, () => {
@@ -303,8 +301,6 @@ const scheduledToday = computed(() => {
   for (let i = 0; i < acts.length; i++) {
     const a = acts[i];
     const startA = new Date(a.starts_at).getTime();
-    const endA = startA + (a.duration_minutes * 60000);
-
     let overlapCount = 0;
     for (let j = 0; j < i; j++) {
       const b = positionedActs[j];
@@ -387,7 +383,9 @@ const dropOut = async (event) => {
         await unSchedule(payload.activity.id, false);
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error('dropOut: unexpected drag payload:', e);
+  }
 };
 
 const dropOnTimeline = (event) => {
@@ -413,7 +411,9 @@ const dropOnTimeline = (event) => {
     scheduleHour.value = String(hh).padStart(2, '0');
     scheduleMinute.value = mm;
     showScheduleModal.value = true;
-  } catch(e) {}
+  } catch(e) {
+    console.error('dropOnTimeline: unexpected drag payload:', e);
+  }
 };
 
 const tapToSchedule = (activity) => {
@@ -607,7 +607,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                   </div>
                   
                   <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
-                    <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
+                    <button v-if="a.assigned_to !== familyStore.profile?.id && role === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
                   </div>
                   <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px;">
                     ✓ Done
@@ -673,7 +673,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                
                <div style="display: flex; align-items: center; gap: 0.5rem;">
                  <div v-if="a.status === 'pending_validation'">
-                   <button v-if="a.assigned_to !== familyStore.profile?.id && familyStore.profile?.actor_type === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn" style="padding: 0.4rem 1rem;">✓ Validate</button>
+                   <button v-if="a.assigned_to !== familyStore.profile?.id && role === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn" style="padding: 0.4rem 1rem;">✓ Validate</button>
                  </div>
                  <div v-else-if="a.status === 'completed'" style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 0.85rem;">
                    ✓ Done

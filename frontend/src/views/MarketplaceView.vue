@@ -6,6 +6,7 @@ import VCard from '../components/VCard.vue';
 import VButton from '../components/VButton.vue';
 import VInput from '../components/VInput.vue';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
+import { avatarStyle } from '../utils/avatarStyle';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -131,7 +132,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
                     background: var(--bg-surface); border-radius: 12px; border: 1px solid var(--input-border);">
           <div style="width:45px; height:45px; border-radius:50%; background:#2563eb;
                       display:flex; align-items:center; justify-content:center; font-size:1.5rem; overflow:hidden;"
-               :style="c.buyer_avatar ? `background-image:url('${appStore.apiBase}${c.buyer_avatar}'); background-size:cover;` : ''">
+               :style="c.buyer_avatar ? avatarStyle(appStore.apiBase, c.buyer_avatar) : null">
             {{ c.buyer_avatar ? '' : '👤' }}
           </div>
           <div style="flex:1;">

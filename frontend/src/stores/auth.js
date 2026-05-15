@@ -27,7 +27,12 @@ export const useAuthStore = defineStore('auth', {
         this.user = user;
         if (user) {
           this.token = await user.getIdToken();
-          await useFamilyStore().fetchUserData();
+          // Only fetch on page load/refresh (authReady=false).
+          // After login/register the action has already called fetchUserData(),
+          // and on token refresh we only need the new token.
+          if (!this.authReady) {
+            await useFamilyStore().fetchUserData();
+          }
         } else {
           this.token = '';
           this.loginEventId = null;

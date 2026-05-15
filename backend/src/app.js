@@ -19,10 +19,20 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim());
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow all origins in development (solves network IP blocking)
-    callback(null, true);
+    // Allow requests with no origin (e.g. mobile apps, curl) only in development
+    if (!origin) {
+      return callback(null, process.env.NODE_ENV !== 'production');
+    }
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`Origin ${origin} not allowed by CORS policy.`));
   },
   credentials: true
 }));

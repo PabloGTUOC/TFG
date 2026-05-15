@@ -8,6 +8,7 @@ import VInput from '../components/VInput.vue';
 import VButton from '../components/VButton.vue';
 import VSelect from '../components/VSelect.vue';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
+import { avatarStyle } from '../utils/avatarStyle';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -105,13 +106,17 @@ const loadInvitations = async () => {
   try {
     const memData = await appStore.request(`/api/families/${fid}/members`, { headers: appStore.authHeaders() });
     familyMembers.value = memData.members || [];
-  } catch { /* silent */ }
+  } catch(e) {
+    appStore.setError('Failed to load family members.');
+  }
 
   if (!isCaregiver.value) return;
   try {
     const data = await appStore.request(`/api/families/${fid}/invitations`, { headers: appStore.authHeaders() });
     invitations.value = data.invitations || [];
-  } catch { /* silent */ }
+  } catch(e) {
+    appStore.setError('Failed to load pending invitations.');
+  }
 };
 
 const sendInvite = () => appStore.runAction(async () => {
@@ -138,7 +143,9 @@ const loadDeletionRequests = async () => {
   try {
     const data = await appStore.request(`/api/families/${fid}/deletion-requests`, { headers: appStore.authHeaders() });
     deletionRequests.value = data.deletionRequests || [];
-  } catch { /* silent */ }
+  } catch(e) {
+    appStore.setError('Failed to load deletion requests.');
+  }
 };
 
 const deleteFamily = () => {
@@ -404,7 +411,7 @@ const formatLedgerDate = (ds) => {
           <div class="avatar-row">
             <div class="user-avatar"
                  :style="familyStore.profile?.avatar_url
-                   ? `background-image:url('${appStore.apiBase}${familyStore.profile.avatar_url}'); background-size:cover; background-position:center;`
+                   ? avatarStyle(appStore.apiBase, familyStore.profile.avatar_url)
                    : ''"
                  @click="userAvatarInput.click()"
                  title="Click to change photo">
@@ -461,7 +468,7 @@ const formatLedgerDate = (ds) => {
           <div v-if="combinedCircleItems.length > 0" class="circle-grid">
             <div v-for="a in combinedCircleItems" :key="a.id" class="circle-card">
               <div class="circle-avatar"
-                   :style="(a.avatar_url ? `background-image:url('${appStore.apiBase}${a.avatar_url}'); background-size:cover; background-position:center; ` : '') + (a.user_id ? 'cursor: default;' : 'cursor: pointer;')"
+                   :style="[a.avatar_url ? avatarStyle(appStore.apiBase, a.avatar_url) : {}, { cursor: a.user_id ? 'default' : 'pointer' }]"
                    @click="!a.user_id ? triggerActorUpload(a.id) : null">
                 <span v-if="!a.avatar_url">
                   {{ a.actor_type === 'child' ? '👶🏽' : a.actor_type === 'pet' ? '🐾' : a.actor_type === 'elderly' ? '👴🏽' : '👤' }}
