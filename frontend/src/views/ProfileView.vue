@@ -9,10 +9,12 @@ import VButton from '../components/VButton.vue';
 import VSelect from '../components/VSelect.vue';
 import { useCurrentFamily } from '../composables/useCurrentFamily';
 import { avatarStyle } from '../utils/avatarStyle';
+import { useNotifications } from '../composables/useNotifications';
 
 const appStore = useAuthStore();
 const familyStore = useFamilyStore();
 const actors = computed(() => familyStore.actors || []);
+const { permission: notifPermission, enable: enableNotifications, disable: disableNotifications } = useNotifications();
 const userAvatarInput = ref(null);
 
 // ── Avatar uploads ────────────────────────────────────────
@@ -447,6 +449,16 @@ const formatLedgerDate = (ds) => {
               <button class="action-btn delete-btn" @click="deleteAccount" title="Delete Account" style="color: #ef4444; border: 1px solid #ef4444; background: none; border-radius: 9999px; padding: 0.5rem 1.1rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.15s, color 0.15s;">
                 Delete Account
               </button>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+              <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.6rem;">Push Notifications</div>
+              <button v-if="notifPermission !== 'granted'" class="update-btn" @click="enableNotifications">
+                🔔 Enable Notifications
+              </button>
+              <div v-else style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">✓ Notifications enabled</span>
+                <button @click="disableNotifications" style="font-size: 0.8rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; text-decoration: underline;">Disable</button>
+              </div>
             </div>
           </div>
         </div>

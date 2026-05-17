@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { withTransaction } from '../db/pool.js';
+import { withTransaction, pool } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, string, email } from '../middleware/validate.js';
 import { deleteFirebaseUser } from '../middleware/auth.js';
@@ -309,5 +309,46 @@ meRouter.delete('/', async (req, res) => {
   } catch (err) {
     console.error('DELETE /me error:', err);
     return res.status(500).json({ error: 'Failed to delete account.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/me/fcm-token  — register push token
+// DELETE /api/me/fcm-token — remove push token
+// ─────────────────────────────────────────────
+meRouter.post('/fcm-token', async (req, res) => {
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required.' });
+  }
+  try {
+    const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
+    await pool.query(
+      `INSERT INTO fcm_tokens (user_id, token) VALUES ($1, $2)
+       ON CONFLICT (token) DO UPDATE SET user_id = $1`,
+      [user.id, token]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /fcm-token error:', err);
+    return res.status(500).json({ error: 'Failed to save token.' });
+  }
+});
+
+meRouter.delete('/fcm-token', async (req, res) => {
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required.' });
+  }
+  try {
+    const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
+    await pool.query(
+      'DELETE FROM fcm_tokens WHERE user_id = $1 AND token = $2',
+      [user.id, token]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /fcm-token error:', err);
+    return res.status(500).json({ error: 'Failed to remove token.' });
   }
 });

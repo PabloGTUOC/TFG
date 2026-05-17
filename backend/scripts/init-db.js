@@ -16,6 +16,10 @@ async function main() {
   await pool.query(await fs.readFile(migrationPath, 'utf8'));
   console.log('Database migrations applied.');
 
+  const fcmMigrationPath = path.join(__dirname, 'migrate-fcm.sql');
+  await pool.query(await fs.readFile(fcmMigrationPath, 'utf8'));
+  console.log('FCM token table ready.');
+
   await pool.end();
 }
 

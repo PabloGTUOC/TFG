@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
+import { notifyFamilyCaregivers } from '../utils/notify.js';
 import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 import multer from 'multer';
@@ -644,11 +645,17 @@ familiesRouter.delete('/:familyId',
             }
           }
 
-          return { data: { success: true, pendingApproval: true } };
+          return { data: { success: true, pendingApproval: true }, familyId, requesterId: me.id };
         }
       });
 
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      if (result.data.pendingApproval) {
+        notifyFamilyCaregivers(result.familyId, result.requesterId, {
+          title: 'Family deletion requested',
+          body: 'A caregiver has requested to delete the family. Your approval is needed.',
+        });
+      }
       return res.json(result.data);
     } catch (err) {
       console.error(err);

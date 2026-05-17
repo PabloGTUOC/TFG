@@ -4,6 +4,7 @@ import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { runAutoCompleteSweep } from '../db/autoComplete.js';
 import { validateBody, validateParams, required, string, positiveInt, isoDate, oneOf } from '../middleware/validate.js';
 import { assertMemberRole } from '../middleware/rbac.js';
+import { notifyUser, notifyFamilyCaregivers, notifyFamilyAll } from '../utils/notify.js';
 
 export const activitiesRouter = Router();
 
@@ -85,6 +86,10 @@ activitiesRouter.post('/', validateBody({
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyFamilyCaregivers(result.data.family_id, result.data.created_by, {
+      title: 'New activity pending approval',
+      body: `"${result.data.title}" needs your review.`,
+    });
     return res.status(201).json({ activity: result.data });
   } catch (err) {
     console.error('POST /activities error:', err);
@@ -254,7 +259,21 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
-    return res.status(201).json({ activity: result.data, warning: result.warning });
+    const act = result.data;
+    if (act.assigned_to) {
+      const when = new Date(act.starts_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      notifyUser(act.assigned_to, {
+        title: 'Activity scheduled for you',
+        body: `"${act.title}" starts at ${when}.`,
+      });
+    }
+    if (act.status === 'pending_validation') {
+      notifyFamilyCaregivers(act.family_id, act.assigned_to, {
+        title: 'Activity needs validation',
+        body: `"${act.title}" was added in the past and needs your approval.`,
+      });
+    }
+    return res.status(201).json({ activity: act, warning: result.warning });
   } catch (err) {
     console.error('POST /schedule error:', err);
     return res.status(500).json({ error: 'Failed to schedule activity.' });
@@ -394,10 +413,14 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
         }
       }
 
-      return { data: { completed: true, coinsAwarded: totalAward } };
+      return { data: { completed: true, coinsAwarded: totalAward }, inst };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyFamilyAll(result.inst.family_id, result.inst.assigned_to, {
+      title: 'Activity completed',
+      body: `"${result.inst.title}" has just been completed.`,
+    });
     return res.status(200).json(result.data);
   } catch (err) {
     console.error('POST /complete error:', err);
@@ -455,10 +478,14 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
         }
       }
 
-      return { data: { success: true, coinsAwarded: totalAward } };
+      return { data: { success: true, coinsAwarded: totalAward }, act };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyUser(result.act.assigned_to, {
+      title: 'Activity validated!',
+      body: `Your activity was approved. You earned ${result.data.coinsAwarded} coins.`,
+    });
     return res.json(result.data);
   } catch (err) {
     console.error('POST /validate error:', err);
@@ -512,10 +539,14 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
         `UPDATE activities SET bounty_amount = $1, bounty_offered_by = $2 WHERE id = $3`,
         [bountyAmount, me.id, activityId]
       );
-      return { data: { success: true } };
+      return { data: { success: true }, act, bountyAmount };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyFamilyAll(result.act.family_id, result.act.assigned_to, {
+      title: 'Bounty offered on a shift!',
+      body: `Someone is offering ${result.bountyAmount} coins for someone to take their activity.`,
+    });
     return res.json(result.data);
   } catch (err) {
     console.error('POST /bounty error:', err);
