@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { notifyFamilyCaregivers } from '../utils/notify.js';
+import { sendInvitationEmail } from '../utils/mailer.js';
 import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
 import multer from 'multer';
@@ -570,8 +571,15 @@ familiesRouter.post('/:familyId/invitations',
     }
 
     try {
-      const invitation = await withTransaction(async (client) => {
+      const { invitation, inviterName, familyName } = await withTransaction(async (client) => {
         const user = await upsertUserFromAuth(client, req.auth);
+
+        const { rows: familyRows } = await client.query(
+          `SELECT name FROM families WHERE id = $1`, [familyId]
+        );
+        const fName = familyRows[0]?.name || 'your family';
+        const iName = user.display_name || user.email || 'A caregiver';
+
         const { rows } = await client.query(
           `INSERT INTO family_invitations (family_id, email, name, invited_by)
            VALUES ($1, $2, $3, $4)
@@ -580,8 +588,16 @@ familiesRouter.post('/:familyId/invitations',
            RETURNING id, email, name, status, created_at`,
           [familyId, email.toLowerCase().trim(), name?.trim() || null, user.id]
         );
-        return rows[0];
+        return { invitation: rows[0], inviterName: iName, familyName: fName };
       });
+
+      sendInvitationEmail({
+        toEmail: invitation.email,
+        toName: invitation.name,
+        inviterName,
+        familyName,
+      }).catch(err => console.error('sendInvitationEmail error:', err));
+
       return res.status(201).json({ invitation });
     } catch (err) {
       console.error(err);
