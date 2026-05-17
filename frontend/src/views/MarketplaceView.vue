@@ -23,7 +23,7 @@ const loadRewards = () => appStore.runAction(async () => {
   const data = await appStore.request(`/api/marketplace/rewards/${fid}`, { headers: appStore.authHeaders() });
   rewards.value = data.rewards || [];
   claimedRewards.value = data.claimed || [];
-}, 'Marketplace loaded.');
+});
 
 onMounted(() => {
   loadRewards();

@@ -245,7 +245,7 @@ const loadActivities = () => appStore.runAction(async () => {
   if (!fid) return;
   const activitiesData = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
   familyActivities.value = activitiesData.activities || [];
-}, 'Daily layout loaded.');
+});
 
 onMounted(() => {
   loadMembers();

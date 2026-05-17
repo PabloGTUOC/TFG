@@ -43,7 +43,7 @@ const loadDashboard = () => appStore.runAction(async () => {
   }
   
   await loadAbsences();
-}, 'Family dashboard loaded.');
+});
 
 const loadAbsences = () => appStore.runAction(async () => {
   const fid = familyId.value;
