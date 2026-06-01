@@ -334,43 +334,56 @@ const splitHighlight = (text) => {
           <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Active Family Members</h2>
           <a href="#" @click.prevent="router.push('/profile')" class="manage-tribe-link" style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.95rem; cursor: pointer;">Manage Tribe &rarr;</a>
        </div>
-       <div class="members-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;">
-          <div v-for="(m, i) in activeMembers" :key="m.user_id"
-               class="mockup-member-card" :class="'color-' + (i % 4)">
-             <div class="member-avatar"
-                  :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
-                {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
+       <div class="members-row">
+          <div class="members-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;">
+             <div v-for="(m, i) in activeMembers" :key="m.user_id"
+                  class="mockup-member-card" :class="'color-' + (i % 4)">
+                <div class="member-avatar"
+                     :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
+                   {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
+                </div>
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
+                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
+                   ● {{ m.coin_balance }} cc
+                </div>
              </div>
-             <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
-             <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
-                ● {{ m.coin_balance }} cc
+
+             <!-- Objects of Care -->
+             <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
+                  class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
+                <div class="member-avatar"
+                     :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
+                   {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
+                </div>
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
+                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
+                   ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
+                </div>
+             </div>
+
+             <!-- Pending Members -->
+             <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
+                  style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+                <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
+                   ⏳
+                </div>
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
+                <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
+                   Approve
+                </button>
              </div>
           </div>
 
-          <!-- Objects of Care -->
-          <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
-               class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
-             <div class="member-avatar"
-                  :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
-                {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
+          <!-- Today Summary chip (mobile only) -->
+          <div class="today-card mockup-member-card color-0" @click="navigateToStats">
+             <div class="member-avatar" style="background: var(--primary-soft);">
+                <span style="font-size: 1.2rem;">✅</span>
              </div>
-             <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
-             <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
-                ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
-             </div>
-          </div>
-
-          <!-- Pending Members -->
-          <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
-               style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
-             <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
-                ⏳
-             </div>
-             <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
-             <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
-             <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
-                Approve
-             </button>
+             <div style="font-weight: 800; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.6rem;">Today</div>
+             <div style="font-size: 14px; font-weight: 800; margin-top: 0.2rem; color: var(--primary);">{{ completedToday.length }}/{{ scheduledInstances.length }}</div>
+             <div style="font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">tasks</div>
+             <div v-if="todayPendingTasks > 0" style="margin-top: 0.4rem; background: var(--warning-soft); color: var(--warning); font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; line-height: 1.6;">{{ todayPendingTasks }} due</div>
           </div>
        </div>
     </div>
@@ -475,7 +488,7 @@ const splitHighlight = (text) => {
 
     <!-- FULL-WIDTH BOTTOM ROW -->
     <div class="week-section" style="background: var(--surface); border-radius: 20px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid var(--border);">
-       <div class="week-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+       <div class="week-header" style="margin-bottom: 2rem;">
           <div>
             <div style="font-size: 0.8rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">This Week</div>
             <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0; line-height: 1;">{{ weekLabel }}</h2>
@@ -688,11 +701,13 @@ const splitHighlight = (text) => {
 
 /* ── Section spacing ─────────────────────────────────────── */
 .members-section { margin-bottom: 2.5rem; }
+.members-row { display: block; }
+.today-card { display: none !important; }
 .week-section { margin-top: 1.5rem; margin-bottom: 4rem; }
 .week-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   margin-bottom: 1.5rem;
 }
 .week-title-row {
@@ -782,13 +797,31 @@ const splitHighlight = (text) => {
 
   .manage-tribe-link { display: none; }
 
-  /* Compact member cards on mobile */
+  /* Members row: grid + today chip side by side */
+  .members-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
   .members-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important;
+    flex: 1;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
     gap: 0.6rem !important;
   }
+
+  /* Compact member cards on mobile */
   .mockup-member-card { padding: 12px 8px; }
   .member-avatar { width: 44px; height: 44px; font-size: 1.3rem; }
+
+  /* Today summary chip */
+  .today-card {
+    display: flex !important;
+    width: 90px;
+    min-width: 90px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
 
   .week-section { margin-top: 2rem; margin-bottom: 2rem; padding: 1rem !important; }
   .week-header {

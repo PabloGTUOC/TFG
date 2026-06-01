@@ -416,8 +416,11 @@ const coinAliasInitial = computed(() => {
 /* -------------------
    Tablet / large phone
 ------------------- */
+.mobile-only { display: none; }
+
 @media (max-width: 768px) {
   .desktop-only { display: none !important; }
+  .mobile-only { display: flex; }
 
   .pill-header {
     width: calc(100% - 24px);

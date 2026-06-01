@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useFamilyStore } from '../stores/family';
@@ -57,25 +57,27 @@ const deleteTarget = ref(null);
 const absences = ref([]);
 const showAbsenceModal = ref(false);
 const isSubmittingAbsence = ref(false);
-const absenceForm = ref({ title: '', startTime: '', endTime: '' });
+const absenceForm = ref({ title: '', startDate: '', startTime: '', endDate: '', endTime: '' });
 const showAbsenceDetailModal = ref(false);
 const selectedAbsence = ref(null);
 
 const openAbsenceModal = () => {
-  absenceForm.value = { 
-    title: '', 
-    startTime: `${targetDateStr.value}T09:00`, 
-    endTime: `${targetDateStr.value}T17:00` 
+  absenceForm.value = {
+    title: '',
+    startDate: targetDateStr.value,
+    startTime: '09:00',
+    endDate: targetDateStr.value,
+    endTime: '17:00'
   };
   showAbsenceModal.value = true;
 };
 
 const confirmAbsence = async () => {
-  if (!absenceForm.value.title || !absenceForm.value.startTime || !absenceForm.value.endTime) {
+  if (!absenceForm.value.title || !absenceForm.value.startDate || !absenceForm.value.startTime || !absenceForm.value.endDate || !absenceForm.value.endTime) {
     appStore.setError("Please fill in all fields.");
     return;
   }
-  
+
   isSubmittingAbsence.value = true;
   await appStore.runAction(async () => {
     await appStore.request('/api/absences', {
@@ -84,8 +86,8 @@ const confirmAbsence = async () => {
       body: JSON.stringify({
         familyId: Number(familyId.value),
         title: absenceForm.value.title,
-        startTime: new Date(absenceForm.value.startTime).toISOString(),
-        endTime: new Date(absenceForm.value.endTime).toISOString()
+        startTime: new Date(`${absenceForm.value.startDate}T${absenceForm.value.startTime}`).toISOString(),
+        endTime: new Date(`${absenceForm.value.endDate}T${absenceForm.value.endTime}`).toISOString()
       })
     });
     showAbsenceModal.value = false;
@@ -197,17 +199,36 @@ const confirmBounty = async () => {
   });
 };
 
-const acceptBounty = async (activityId) => {
-  if (!confirm('Are you sure you want to take over this task and claim the bounty?')) return;
+const showAcceptBountyModal = ref(false);
+const acceptBountyTarget = ref(null);
+
+const openAcceptBountyModal = (activity) => {
+  acceptBountyTarget.value = activity;
+  showAcceptBountyModal.value = true;
+};
+
+const confirmAcceptBounty = async () => {
+  if (!acceptBountyTarget.value) return;
   await appStore.runAction(async () => {
-    await appStore.request(`/api/activities/${activityId}/accept-bounty`, {
+    await appStore.request(`/api/activities/${acceptBountyTarget.value.id}/accept-bounty`, {
       method: 'POST',
       headers: appStore.authHeaders()
     });
-    await familyStore.fetchUserData(); // To update personal coin balance
+    await familyStore.fetchUserData();
     await loadActivities();
     appStore.setSuccess('Task taken! Coins added to your account.');
   });
+  showAcceptBountyModal.value = false;
+  acceptBountyTarget.value = null;
+};
+
+const removeMobile = (activity) => {
+  if (activity.is_recurrent) {
+    deleteTarget.value = activity;
+    showDeleteModal.value = true;
+  } else {
+    unSchedule(activity.id, false);
+  }
 };
 
 const { familyId, role } = useCurrentFamily();
@@ -240,12 +261,18 @@ const getAssigneeColor = (assigned_to, category, status) => {
   return status === 'completed' ? theme.completed : theme.pending;
 };
 
-const loadActivities = () => appStore.runAction(async () => {
-  const fid = familyId.value;
-  if (!fid) return;
-  const activitiesData = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
-  familyActivities.value = activitiesData.activities || [];
-});
+const isLoadingActivities = ref(true);
+
+const loadActivities = async () => {
+  isLoadingActivities.value = true;
+  await appStore.runAction(async () => {
+    const fid = familyId.value;
+    if (!fid) { isLoadingActivities.value = false; return; }
+    const activitiesData = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
+    familyActivities.value = activitiesData.activities || [];
+  });
+  isLoadingActivities.value = false;
+};
 
 onMounted(() => {
   loadMembers();
@@ -255,6 +282,10 @@ watch(() => targetDateStr.value, () => {
   loadActivities();
   loadAbsences();
 }, { immediate: true });
+
+watch(isLoadingActivities, (loading) => {
+  if (!loading) nextTick(() => scrollToNow());
+});
 
 // Column 1: Unscheduled Templates
 const searchQuery = ref('');
@@ -278,6 +309,48 @@ const nowLineTop = computed(() => {
   if (hour < START_HOUR || hour > START_HOUR + TOTAL_HOURS) return null;
   return ((hour - START_HOUR) / TOTAL_HOURS) * 100;
 });
+
+const nowIndex = computed(() => {
+  const now = Date.now();
+  return scheduledToday.value.findIndex(a => new Date(a.starts_at).getTime() > now);
+});
+
+const formatGap = (minutes) => {
+  if (minutes < 60) return `${minutes}min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+};
+
+const mobileTimelineRef = ref(null);
+
+const scrollToNow = () => {
+  if (!mobileTimelineRef.value) return;
+  const divider = mobileTimelineRef.value.querySelector('.tl-now-divider');
+  if (divider) {
+    divider.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
+
+const showTaskSheet = ref(false);
+const pendingScheduleHour = ref(null);
+const pendingScheduleMinute = ref(null);
+
+const openScheduleAtHour = (hour) => {
+  pendingScheduleHour.value = String(Math.floor(hour)).padStart(2, '0');
+  pendingScheduleMinute.value = hour % 1 === 0.5 ? '30' : '00';
+  showTaskSheet.value = true;
+};
+
+const tapToScheduleFromSheet = (activity) => {
+  scheduleForm.value.activityId = activity.id;
+  scheduleHour.value = pendingScheduleHour.value ?? String(new Date().getHours()).padStart(2, '0');
+  scheduleMinute.value = pendingScheduleMinute.value ?? (new Date().getMinutes() >= 30 ? '30' : '00');
+  pendingScheduleHour.value = null;
+  pendingScheduleMinute.value = null;
+  showTaskSheet.value = false;
+  showScheduleModal.value = true;
+};
 
 const scheduledToday = computed(() => {
   let acts = familyActivities.value.filter(a => {
@@ -328,18 +401,23 @@ const scheduledToday = computed(() => {
     const widthPx = `calc(100% - ${leftPx + 10}px)`;
     const shadowIntensity = 0.2 + (indentMultiplier * 0.1);
 
+    const prevEnd = i === 0
+      ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), START_HOUR, 0, 0).getTime()
+      : new Date(positionedActs[i - 1].starts_at).getTime() + ((positionedActs[i - 1].duration_minutes || 0) * 60000);
+    const gapBeforeMinutes = Math.max(0, Math.round((startA - prevEnd) / 60000));
+
     positionedActs.push({
       ...a,
       overlapCount,
+      gapBeforeMinutes,
       _style: {
         position: 'absolute',
         top: `${topP}%`,
-        /* height removed to ensure the element acts as a fixed-height Pill rather than a distorted oval */
         left: `${leftPx}px`,
         width: widthPx,
         zIndex: 10 + overlapCount,
         boxShadow: overlapCount > 0 ? `-5px 5px 15px rgba(0,0,0,${shadowIntensity})` : '0 4px 15px rgba(0,0,0,0.2)'
-      }
+      },
     });
   }
   
@@ -427,6 +505,10 @@ const tapToSchedule = (activity) => {
 };
 
 const confirmSchedule = async () => {
+  if (!scheduleForm.value.activityId) {
+    appStore.setError("Select a task first.");
+    return;
+  }
   const hh = scheduleHour.value;
   const mm = scheduleMinute.value;
   const d = new Date(targetDate.value);
@@ -491,12 +573,22 @@ const validateActivity = (aid) => appStore.runAction(async () => {
             <button @click="navigateDay(-1)" class="date-nav-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
-            <strong style="color: var(--primary); font-size: 1.5rem; display:block; line-height:1.2; min-width: 160px; text-align: center;">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
+            <strong class="date-display">{{ new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) }}</strong>
             <button @click="navigateDay(1)" class="date-nav-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-          <span style="color: var(--accent-primary); font-weight: 800; margin-top: 0.25rem;">{{ scheduledToday.filter(a => a.status !== 'completed').length }} Tasks Remaining</span>
+          <div class="day-progress">
+            <div class="day-progress-bar">
+              <div class="day-progress-fill"
+                   :style="{ width: scheduledToday.length ? (completedToday.length / scheduledToday.length * 100) + '%' : '0%' }">
+              </div>
+            </div>
+            <span class="day-progress-label">
+              {{ completedToday.length }} / {{ scheduledToday.length }} done
+              <span v-if="todayCoins > 0" style="margin-left: 0.4rem;">· 🪙 {{ todayCoins }}cc</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -520,8 +612,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
          <div class="template-grid">
            
            <template v-for="category in ['care', 'household']" :key="category">
-             <div v-if="availableTemplates.some(a => a.category === category)" style="text-transform: uppercase; font-size: 0.75rem; font-weight: 800; color: var(--text-secondary); margin-top: 1rem; letter-spacing: 1px;">
-               {{ category === 'care' ? 'CARE & WELLNESS' : 'HOUSEHOLD' }}
+             <div v-if="availableTemplates.some(a => a.category === category)" class="category-divider">
+               <span class="category-pip" :style="{ background: category === 'care' ? 'var(--success)' : 'var(--warning)' }"></span>
+               <span>{{ category === 'care' ? 'Care & Wellness' : 'Household' }}</span>
              </div>
              
              <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id" class="task-template-row" draggable="true" @dragstart="dragStart($event, a)" @click="tapToSchedule(a)">
@@ -553,13 +646,14 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         <VCard :title="scheduledTitle" class="agenda-card" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
            <!-- All-Day Banner Row for Absences -->
            <div v-if="absencesToday.length > 0" class="absence-banner-row">
-             <div v-for="a in absencesToday" :key="a.id" 
-                  style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.8rem; color: var(--danger); display: flex; flex-direction: column; gap: 0.2rem; cursor: pointer;"
+             <div v-for="a in absencesToday" :key="a.id"
+                  style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--danger); display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"
                   @click="openAbsenceDetail(a)">
-               <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">
-                 <span>✈️</span> {{ a.user_alias || a.user_name }}
+               <span style="font-size: 1rem; flex-shrink: 0;">✈️</span>
+               <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                 <div style="font-weight: 800; line-height: 1.2;">{{ a.user_alias || a.user_name }}</div>
+                 <div style="font-size: 0.75rem; font-weight: 600; opacity: 0.75;">{{ a.title }}</div>
                </div>
-               <div style="font-weight: 700; line-height: 1.2;">{{ a.title }}</div>
              </div>
            </div>
 
@@ -584,10 +678,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                <div v-for="a in scheduledToday" :key="a.id"
                     class="scheduled-chip"
                     :style="[
-                      a._style, 
+                      a._style,
                       a.status === 'rejected'
-                        ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
-                        : { background: getAssigneeColor(a.assigned_to, a.category, a.status), opacity: a.status === 'completed' ? 1 : 0.8 },
+                        ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }
+                        : { background: getAssigneeColor(a.assigned_to, a.category, a.status) },
                       a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}
                     ]"
                     :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
@@ -623,8 +717,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                       Offering: {{ a.bounty_amount }}cc
                     </span>
                     <!-- Other User's Task with Bribe -> I can ACCEPT Bribe -->
-                    <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
-                            @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: var(--success-soft); border: 2px solid var(--success); color: var(--success);">
+                    <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
+                            @click.stop="openAcceptBountyModal(a)" class="validate-btn" style="background: var(--success-soft); border: 2px solid var(--success); color: var(--success);">
                       🤑 Take Over (+{{a.bounty_amount}}cc)
                     </button>
                     <!-- Other User's Task with NO bribe -->
@@ -637,18 +731,133 @@ const validateActivity = (aid) => appStore.runAction(async () => {
              </div>
            </div>
          
-         <!-- Mobile Agenda View -->
-         <div class="mobile-agenda mobile-only" style="padding: 0.5rem 1rem 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
-           <div v-if="scheduledToday.length === 0" style="text-align: center; color: var(--text-secondary); padding: 1rem; font-weight: 600;">
-             No activities scheduled yet. Tap a task below to add one!
+         <!-- Mobile Timeline View — condensed list -->
+         <div class="mobile-timeline mobile-only" ref="mobileTimelineRef">
+           <template v-if="isLoadingActivities">
+             <div v-for="i in 3" :key="i" class="skeleton-card" style="margin: 8px 12px;"></div>
+           </template>
+
+           <div v-else-if="scheduledToday.length === 0" class="mobile-empty-state" style="padding-top: 3rem;">
+             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  style="color:var(--border);margin-bottom:0.75rem;">
+               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+               <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+               <line x1="3" y1="10" x2="21" y2="10"/>
+             </svg>
+             <strong style="color:var(--text-primary);">Your day is wide open.</strong>
+             <span style="color:var(--text-secondary);font-size:0.85rem;margin-top:0.25rem;">
+               Tap the + button to schedule a task.
+             </span>
+           </div>
+
+           <div v-else class="tl-list">
+             <template v-for="(a, index) in scheduledToday" :key="a.id">
+
+               <!-- NOW divider before the first future task -->
+               <div v-if="nowIndex === index" class="tl-now-divider">
+                 <div class="tl-now-divider-line"></div>
+                 <span class="tl-now-divider-label">Now</span>
+                 <div class="tl-now-divider-line"></div>
+               </div>
+
+               <!-- Gap indicator (only when gap > 30 min and not at start of day) -->
+               <div v-if="a.gapBeforeMinutes > 30 && index > 0" class="tl-gap">
+                 {{ formatGap(a.gapBeforeMinutes) }} free
+               </div>
+
+               <!-- Task row: time axis + card -->
+               <div class="tl-row">
+                 <div class="tl-row-time">
+                   {{ new Date(a.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }}
+                 </div>
+                 <div class="tl-card"
+                      :style="{
+                        background: a.status === 'rejected' ? 'var(--danger-soft)' : getAssigneeColor(a.assigned_to, a.category, a.status),
+                        color: a.status === 'rejected' ? 'var(--danger)' : '#fff',
+                      }">
+                   <div class="tl-card-header">
+                     <span class="tl-card-emoji">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
+                     <div class="tl-card-title-block">
+                       <div class="tl-card-title">
+                         <span v-if="a.status === 'rejected'">⚠️ </span>{{ a.title }}
+                         <span v-if="a.is_recurrent" style="font-size:0.8rem;margin-left:2px;">🔁</span>
+                       </div>
+                       <div class="tl-card-meta">
+                         <span>🪙 {{ a.coin_value }}cc</span>
+                         <span v-if="a.bounty_amount" class="tl-bounty-chip">+{{ a.bounty_amount }}cc</span>
+                       </div>
+                     </div>
+                     <button v-if="a.status !== 'completed'" @click.stop="removeMobile(a)"
+                             class="mobile-remove-btn" aria-label="Remove from schedule">
+                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                       </svg>
+                     </button>
+                   </div>
+
+                   <div class="tl-card-footer">
+                     <span class="tl-card-assignee">{{ a.assigned_alias || 'Caregiver' }}</span>
+                     <div class="tl-card-actions">
+                       <button v-if="a.status === 'pending_validation' && a.assigned_to !== familyStore.profile?.id && role === 'caregiver'"
+                               @click.stop="validateActivity(a.id)" class="validate-btn" style="padding:0.35rem 0.9rem;">
+                         ✓ Validate
+                       </button>
+                       <div v-else-if="a.status === 'completed'"
+                            style="background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:999px;font-size:0.78rem;font-weight:800;">
+                         ✓ Done
+                       </div>
+                       <button v-else-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'"
+                               @click.stop="openBountyModal(a)" class="validate-btn"
+                               style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:0.35rem 0.9rem;">
+                         Delegate
+                       </button>
+                       <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
+                               @click.stop="openAcceptBountyModal(a)" class="validate-btn"
+                               style="background:var(--success-soft);color:var(--success);border:none;padding:0.35rem 0.9rem;">
+                         Take Over
+                       </button>
+                       <span v-else-if="a.assigned_to !== familyStore.profile?.id && !a.bounty_amount"
+                             style="font-size:0.72rem;background:rgba(0,0,0,0.15);padding:3px 8px;border-radius:999px;font-weight:700;">
+                         {{ a.assigned_alias || 'Caregiver' }}
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
+             </template>
+
+             <!-- NOW divider at the end when all tasks are in the past -->
+             <div v-if="nowIndex === -1" class="tl-now-divider">
+               <div class="tl-now-divider-line"></div>
+               <span class="tl-now-divider-label">Now</span>
+               <div class="tl-now-divider-line"></div>
+             </div>
+
+           </div>
+         </div>
+
+         <!-- Mobile Agenda View (kept as fallback, inactive) -->
+         <div v-if="false" class="mobile-agenda mobile-only" style="padding: 0.5rem 1rem 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
+           <template v-if="isLoadingActivities">
+             <div v-for="i in 3" :key="i" class="skeleton-card"></div>
+           </template>
+           <div v-else-if="scheduledToday.length === 0" class="mobile-empty-state">
+             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border); margin-bottom: 0.75rem;">
+               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+             </svg>
+             <strong style="color: var(--text-primary); font-size: 1rem;">Your day is wide open.</strong>
+             <span style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">Tap any task below to add it to your day.</span>
            </div>
            
-           <div v-for="a in scheduledToday" :key="a.id" 
+           <div v-else v-for="a in scheduledToday" :key="a.id"
                 style="border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.8rem;" 
                 :style="[
                   a.status === 'rejected'
-                    ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
-                    : { background: getAssigneeColor(a.assigned_to, a.category, a.status), opacity: a.status === 'completed' ? 1 : 0.8 }
+                    ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }
+                    : { background: getAssigneeColor(a.assigned_to, a.category, a.status) }
                 ]">
              <div style="display:flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
                <div style="display:flex; align-items: center; gap: 0.8rem; flex: 1;">
@@ -658,12 +867,18 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                      <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:4px;">⚠️</span>
                      {{ a.title }}
                    </div>
-                   <div style="font-size: 0.85rem; font-weight: 600; opacity: 0.9; margin-top: 0.2rem;" v-if="a.bounty_amount">🪙 +{{a.bounty_amount}}cc Bounty</div>
+                   <div style="font-size: 0.8rem; font-weight: 700; opacity: 0.9; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+                     <span>🪙 {{ a.coin_value }}cc</span>
+                     <span v-if="a.bounty_amount" style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 999px;">+{{ a.bounty_amount }}cc bounty</span>
+                   </div>
                  </div>
                </div>
                <div style="background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 10px; font-size: 0.95rem; font-weight: 800; flex-shrink: 0;">
                  {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
                </div>
+               <button v-if="a.status !== 'completed'" @click.stop="removeMobile(a)" class="mobile-remove-btn" aria-label="Remove from schedule">
+                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+               </button>
              </div>
              
              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1);">
@@ -683,8 +898,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                            @click.stop="openBountyModal(a)" class="validate-btn" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 0.4rem 1rem;">
                      Delegate
                    </button>
-                   <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'" 
-                           @click.stop="acceptBounty(a.id)" class="validate-btn" style="background: var(--success-soft); color: var(--success); border: none; padding: 0.4rem 1rem;">
+                   <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
+                           @click.stop="openAcceptBountyModal(a)" class="validate-btn" style="background: var(--success-soft); color: var(--success); border: none; padding: 0.4rem 1rem;">
                      Take Over
                    </button>
                  </div>
@@ -695,8 +910,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         </VCard>
 
         <!-- Horizontal Completed Bar -->
-        <div style="background: var(--surface); color: var(--text-primary); padding: 0.8rem 1.2rem; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
+        <div class="completed-bar" style="background: var(--surface); color: var(--text-primary); padding: 0.8rem 1.2rem; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(14,23,38,0.04);">
            <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; flex: 1;">
+             <span class="completed-bar-label">Done today</span>
 
              <div v-if="completedToday.length === 0" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">
                Nothing finished yet today.
@@ -733,7 +949,81 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       </svg>
     </button>
 
+    <!-- Mobile bottom bar: back button + add button -->
+    <div class="mobile-bottom-bar mobile-only">
+      <button class="mobile-bottom-back" @click="closeDailyView" aria-label="Back to Family Hub">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <div style="flex: 1;"></div>
+      <button class="mobile-bottom-add" @click="showTaskSheet = true" aria-label="Add task to schedule">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+    </div>
+
   </div> <!-- end daily-fullscreen-overlay -->
+
+  <!-- Task Library Bottom Sheet (mobile) -->
+  <div v-if="showTaskSheet" class="task-sheet-backdrop" @click.self="showTaskSheet = false; pendingScheduleHour = null; pendingScheduleMinute = null;">
+    <div class="task-sheet">
+      <div class="task-sheet-handle"></div>
+      <div class="task-sheet-header">
+        <strong style="font-size: 1rem; color: var(--text-primary);">Add a task</strong>
+        <span v-if="pendingScheduleHour" style="color: var(--primary); font-size: 0.9rem; font-weight: 700;">
+          at {{ pendingScheduleHour }}:{{ pendingScheduleMinute }}
+        </span>
+        <button @click="showTaskSheet = false; pendingScheduleHour = null; pendingScheduleMinute = null;"
+                style="background:none; border:none; cursor:pointer; color:var(--text-secondary); padding:4px; line-height:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div style="padding: 0 1rem 0.5rem; flex-shrink: 0;">
+        <input type="text" v-model="searchQuery" placeholder="Search tasks..."
+               style="width:100%; box-sizing:border-box; padding:0.6rem 1rem; border-radius:var(--r-sm); border:1px solid var(--border); background:var(--surface); color:var(--text-primary); font-size:0.9rem; outline:none;" />
+        <div style="display:flex; gap:0.4rem; overflow-x:auto; padding:0.5rem 0 0.25rem; scrollbar-width:none;">
+          <button @click="categoryFilter = 'all'" :style="{ background: categoryFilter === 'all' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'all' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'all' ? 'var(--primary)' : 'var(--border)'), padding: '0.35rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0 }">All</button>
+          <button @click="categoryFilter = 'care'" :style="{ background: categoryFilter === 'care' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'care' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'care' ? 'var(--primary)' : 'var(--border)'), padding: '0.35rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0 }">Care</button>
+          <button @click="categoryFilter = 'household'" :style="{ background: categoryFilter === 'household' ? 'var(--primary)' : 'var(--surface)', color: categoryFilter === 'household' ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (categoryFilter === 'household' ? 'var(--primary)' : 'var(--border)'), padding: '0.35rem 0.8rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0 }">Household</button>
+        </div>
+      </div>
+
+      <div class="task-sheet-list">
+        <template v-for="category in ['care', 'household']" :key="category">
+          <div v-if="availableTemplates.some(a => a.category === category)" class="category-divider" style="padding: 0.5rem 1rem 0.25rem;">
+            <span class="category-pip" :style="{ background: category === 'care' ? 'var(--success)' : 'var(--warning)' }"></span>
+            <span>{{ category === 'care' ? 'Care & Wellness' : 'Household' }}</span>
+          </div>
+          <div v-for="a in availableTemplates.filter(t => t.category === category)" :key="a.id"
+               class="task-template-row" style="margin: 0 1rem 0.5rem;"
+               @click="tapToScheduleFromSheet(a)">
+            <div style="width:40px; height:40px; background:var(--primary-soft); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <span style="font-size:1.2rem;">{{ category === 'care' ? '❤️' : '🧹' }}</span>
+            </div>
+            <div style="flex:1;">
+              <strong style="color:var(--text-primary); display:block; margin-bottom:0.1rem; line-height:1.2; font-weight:800;">{{ a.title }}</strong>
+              <div style="color:var(--text-secondary); font-size:0.78rem; display:flex; align-items:center; gap:0.4rem;">
+                <span>{{ category === 'care' ? 'Care' : 'Cleaning' }}</span>
+                <span>•</span>
+                <span>🪙 {{ a.coin_value }}cc</span>
+              </div>
+            </div>
+          </div>
+        </template>
+        <div v-if="availableTemplates.length === 0"
+             style="text-align:center; padding:2rem 1rem; color:var(--text-secondary); font-size:0.9rem; font-weight:600;">
+          No tasks found.
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Recurrence Modal -->
   <div v-if="showRecurrenceModal" class="modal-overlay">
@@ -755,7 +1045,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       </div>
       <div style="display:flex; justify-content: flex-end; gap: 1rem;">
         <VButton type="secondary" @click="showRecurrenceModal = false">Cancel</VButton>
-        <VButton type="primary" @click="confirmRecurrence">Generate</VButton>
+        <VButton type="primary" @click="confirmRecurrence">Create schedule</VButton>
       </div>
     </VCard>
   </div>
@@ -774,11 +1064,14 @@ const validateActivity = (aid) => appStore.runAction(async () => {
             <option value="00">00</option>
             <option value="30">30</option>
           </select>
+          <span style="font-size: 0.9rem; font-weight: 800; color: var(--text-secondary); min-width: 2.5rem; text-align: center;">
+            {{ Number(scheduleHour) < 12 ? 'AM' : 'PM' }}
+          </span>
         </div>
       </div>
       <div style="display:flex; justify-content: flex-end; gap: 1rem;">
-        <VButton type="secondary" @click="showScheduleModal = false">Nope</VButton>
-        <VButton type="primary" @click="confirmSchedule">Yes I'll</VButton>
+        <VButton type="secondary" @click="showScheduleModal = false">Cancel</VButton>
+        <VButton type="primary" @click="confirmSchedule">Schedule</VButton>
       </div>
     </VCard>
   </div>
@@ -834,12 +1127,18 @@ const validateActivity = (aid) => appStore.runAction(async () => {
       
       <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.8rem;">
         <div>
-          <label class="modal-label">Start Time</label>
-          <input type="datetime-local" v-model="absenceForm.startTime" class="modal-input" />
+          <label class="modal-label">Start</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="date" v-model="absenceForm.startDate" class="modal-input" style="flex: 1;" />
+            <input type="time" v-model="absenceForm.startTime" class="modal-input" style="flex: 0 0 auto; width: 7rem;" />
+          </div>
         </div>
         <div>
-          <label class="modal-label">End Time</label>
-          <input type="datetime-local" v-model="absenceForm.endTime" class="modal-input" />
+          <label class="modal-label">End</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="date" v-model="absenceForm.endDate" class="modal-input" style="flex: 1;" />
+            <input type="time" v-model="absenceForm.endTime" class="modal-input" style="flex: 0 0 auto; width: 7rem;" />
+          </div>
         </div>
       </div>
 
@@ -877,6 +1176,20 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         <VButton v-if="selectedAbsence?.user_id == familyStore.profile?.id || role === 'caregiver'"
                  type="danger" block @click="removeAbsence">Remove Absence</VButton>
         <VButton type="secondary" block @click="showAbsenceDetailModal = false">Close</VButton>
+      </div>
+    </VCard>
+  </div>
+
+  <!-- Accept Bounty Confirmation Modal -->
+  <div v-if="showAcceptBountyModal" class="modal-overlay">
+    <VCard title="Claim task" style="max-width: 350px; width: 100%;">
+      <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
+        Take over <strong>{{ acceptBountyTarget?.title }}</strong> and earn
+        <strong>🪙 {{ acceptBountyTarget?.bounty_amount }}cc</strong>. These coins transfer from the original caregiver to you immediately.
+      </p>
+      <div style="display:flex; justify-content: flex-end; gap: 1rem;">
+        <VButton type="secondary" @click="showAcceptBountyModal = false; acceptBountyTarget = null">Cancel</VButton>
+        <VButton type="primary" @click="confirmAcceptBounty">Claim task</VButton>
       </div>
     </VCard>
   </div>
@@ -1026,7 +1339,12 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   text-align: left;
 }
 .task-template-row:hover { box-shadow: 0 4px 12px rgba(14,23,38,0.08); }
-.task-template-row:active { cursor: grabbing; transform: scale(0.98); }
+.task-template-row:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
 
 .agenda-card {
   min-height: 600px;
@@ -1121,9 +1439,358 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   width: max-content;
 }
 
+.date-display {
+  color: var(--primary);
+  font-size: 1.5rem;
+  display: block;
+  line-height: 1.2;
+  min-width: 160px;
+  text-align: center;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+  height: 100px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-card {
+    animation: none;
+    background: var(--border);
+  }
+  .scheduled-chip,
+  .task-template-row,
+  .daily-back-fab,
+  .mobile-remove-btn,
+  .log-off-btn,
+  .date-nav-btn {
+    transition: none;
+  }
+  .daily-back-fab:hover,
+  .task-template-row:active,
+  .daily-back-fab:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .date-display {
+    min-width: 0;
+    font-size: 1.2rem;
+  }
+}
+
+/* ---- Mobile Timeline (condensed list) ---- */
+.mobile-timeline {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 1rem calc(56px + env(safe-area-inset-bottom, 0px) + 1rem);
+}
+.tl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+.tl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  width: 100%;
+}
+.tl-row-time {
+  width: 52px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding-top: 0.6rem;
+  text-align: right;
+  line-height: 1.2;
+}
+.tl-card {
+  flex: 1;
+  border-radius: var(--r-md);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+.tl-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.tl-card-emoji { font-size: 1.1rem; flex-shrink: 0; }
+.tl-card-title-block { flex: 1; min-width: 0; }
+.tl-card-title {
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-card-meta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+.tl-bounty-chip {
+  background: rgba(255,255,255,0.2);
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+.tl-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255,255,255,0.15);
+}
+.tl-card-assignee {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.tl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tl-gap {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 0.4rem 0;
+  padding-left: calc(52px + 0.75rem);
+  opacity: 0.7;
+}
+.tl-now-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+  width: 100%;
+  padding-left: calc(52px + 0.75rem); /* align with card left edge */
+  box-sizing: border-box;
+}
+.tl-now-divider-line {
+  flex: 1;
+  height: 2px;
+  background: var(--danger);
+  border-radius: 999px;
+  opacity: 0.7;
+}
+.tl-now-divider-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--danger);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* ---- Mobile bottom bar ---- */
+.mobile-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(14,23,38,0.06);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 0.75rem;
+  box-sizing: border-box;
+}
+.mobile-bottom-back {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+  transition: transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-bottom-back:active { transform: scale(0.92); }
+
+.mobile-bottom-add {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-bottom-add:active { transform: scale(0.92); }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bottom-add, .mobile-bottom-back { transition: none; }
+  .mobile-bottom-back:active { transform: none; }
+}
+
+/* ---- Task Bottom Sheet ---- */
+.task-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 10001;
+  display: flex;
+  align-items: flex-end;
+}
+.task-sheet {
+  width: 100%;
+  max-height: 65vh;
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: sheet-slide-up 0.22s ease-out;
+}
+.task-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  margin: 0.75rem auto 0;
+  flex-shrink: 0;
+}
+.task-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem 0.4rem;
+  flex-shrink: 0;
+}
+.task-sheet-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 1rem;
+}
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-sheet { animation: none; }
+  .tl-hour-label { transition: none; }
+  .task-sheet-fab { transition: none; }
+  .task-sheet-fab:hover, .task-sheet-fab:active { transform: none; }
+}
+
+.mobile-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.completed-bar-label {
+  display: none;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  flex-basis: 100%;
+  margin-bottom: 0.25rem;
+}
+
+.category-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.category-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .completed-bar-label {
+    display: block;
+  }
+  .completed-bar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}
+
+.mobile-remove-btn {
+  background: rgba(0,0,0,0.2);
+  border: none;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-remove-btn:active {
+  background: rgba(0,0,0,0.4);
+}
+
 .daily-back-fab {
   position: fixed;
-  bottom: 2rem;
+  bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   left: 2rem;
   z-index: 9998;
   width: 52px;
@@ -1164,6 +1831,35 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: var(--border);
 }
 
+.day-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+.day-progress-bar {
+  width: 120px;
+  height: 6px;
+  background: var(--border);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.day-progress-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: var(--r-pill);
+  transition: width 0.4s ease;
+}
+.day-progress-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .day-progress-fill { transition: none; }
+}
+
 .daily-header-row {
   display: flex;
   justify-content: space-between;
@@ -1202,24 +1898,27 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   .daily-grid {
     grid-template-columns: 1fr;
     display: flex;
-    flex-direction: column-reverse; /* Put Task Library below the Agenda */
-    gap: 1rem; /* Reduce gap between Agenda and Library on mobile */
+    flex-direction: column;
+    gap: 1rem;
   }
   .timeline-col {
-    gap: 0.8rem; /* Reduce gap between Agenda and Completed Bar */
-  }
-  .template-grid {
-    grid-template-columns: 1fr;
-    overflow-y: visible;
+    gap: 0.8rem;
   }
   .col-card {
-    position: static;
-    height: auto;
-    margin-bottom: 0 !important;
+    display: none;
   }
+  .completed-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .completed-bar::-webkit-scrollbar { display: none; }
   .agenda-card {
     min-height: auto;
     margin-bottom: 0 !important;
+  }
+  .agenda-card :deep(.v-card-title) {
+    display: none;
   }
   .timeline-container {
     overflow-x: auto;
@@ -1230,7 +1929,10 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     position: relative;
   }
   .daily-fullscreen-overlay {
-    padding: 1rem 0.5rem;
+    padding: 1rem 0.5rem calc(56px + env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+  .daily-back-fab {
+    display: none;
   }
 }
 </style>
