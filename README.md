@@ -23,8 +23,10 @@ These are reusable, low-level UI blocks designed to maintain visual consistency 
 ### Application Views (`src/views/`)
 These are high-level page components connected to Vue Router, orchestrating the main features of the application.
 
-*   **`App.vue` (Root Layout)**
+*   **`App.vue` (Root Layout - located at `src/App.vue`)**
     The top-level container for the application. It provides the main layout structure, including the responsive floating "Pill" navigation bar on desktop, a hamburger overlay menu for mobile, user avatar dropdowns, and global success/error notification banners.
+*   **`LandingView.vue` (Landing Page)**
+    The promotional and onboarding entry point for unauthenticated visitors. It introduces the CareCoins motivational framework, visualizes the "CareCoins Flywheel", provides an interactive live dashboard simulation, and links directly to authentication flows.
 *   **`DashboardView.vue` (Family Hub)**
     The central dashboard overview. It aggregates top-level information: active family members, care dependents (and their remaining CareCoin GDP), open task bounties, top KPIs, and a recent activity ledger. It also features a horizontal weekly calendar scroll to navigate to daily schedules and visualize absences.
 *   **`DailyView.vue` (Daily Schedule)**
@@ -56,6 +58,9 @@ The backend is an Express.js server providing a REST API, protected by Firebase 
 *   **`middleware/validate.js`**: Utility wrapper to validate request payloads (body or params) against Joi schemas.
 *   **`db/pool.js`**: Core database connection wrapper that exports the PostgreSQL `Pool` instance.
 *   **`db/check_act.js`, `db/check_care.js`, `db/check_valid.js`**: Reusable database utility modules for quickly validating task states, family memberships, and the existence of specific dependents (care objects) to enforce business logic cleanly.
+*   **`db/autoComplete.js` (`runAutoCompleteSweep`)**: Utility that automatically transitions approved scheduled tasks whose end time has passed to `completed`, distributing coin payouts in an atomic transaction.
+*   **`utils/notify.js`**: Helper class wrapper for Firebase Cloud Messaging (FCM) to trigger push notifications when tasks are checked off/validated or when bounties are posted/accepted, as well as pruning invalid registration tokens.
+*   **`utils/mailer.js`**: Integrates Resend to dispatch email invitations for caregivers and members to join family networks.
 
 ### API Routes & Endpoints (`src/routes/`)
 
@@ -67,6 +72,8 @@ The backend is an Express.js server providing a REST API, protected by Firebase 
 *   `GET /login-history`: Retrieve the user's historical login events.
 *   `GET /ledger`: View detailed CareCoin transactions across all families.
 *   `POST /login-event` / `POST /logout-event`: Register authentication events for auditing.
+*   `POST /fcm-token`: Register a device's Firebase Cloud Messaging registration token for push notifications.
+*   `DELETE /fcm-token`: Revoke and remove a Firebase Cloud Messaging registration token.
 *   `DELETE /`: Delete the user's account entirely.
 
 #### 2. Family Management (`/api/families`)
@@ -81,6 +88,9 @@ The backend is an Express.js server providing a REST API, protected by Firebase 
 *   `POST /:familyId/actors/:actorId/avatar`: Upload an avatar for a dependent.
 *   `GET /:familyId/invitations` / `POST /:familyId/invitations`: View and send new email invitations.
 *   `POST /join-request` / `POST /join-by-token` / `POST /:familyId/members/:userId/approve`: Handling flows for joining a family.
+*   `POST /:familyId/invite-links`: Create a shareable invite link with optional usage limits and expiration timestamps.
+*   `GET /:familyId/invite-links`: List active (non-revoked) invite links generated for a family.
+*   `DELETE /:familyId/invite-links/:linkId`: Revoke a shareable invite link.
 *   `GET /:familyId/deletion-requests` / `POST /.../approve` / `POST /.../reject`: Manage multi-user consensus for deleting a family.
 
 #### 3. Task & Activity Engine (`/api/activities`)
@@ -132,6 +142,7 @@ The application uses PostgreSQL as its relational database. The schema is define
 10. **`absences`**: Logs periods of time when a user is unavailable or absent.
 11. **`invite_links`**: Tracks shareable token links generated for a family to allow quick joining.
 12. **`family_deletion_requests` & `family_deletion_approvals`**: Tables used to manage the multi-caregiver consensus required before permanently deleting a family hub.
+13. **`fcm_tokens`**: Stores Firebase Cloud Messaging (FCM) registration tokens mapped to users for sending real-time push notifications.
 
 ### Core Relationships
 
@@ -168,6 +179,23 @@ To test the application, users do not need complex pre-configurations. Simply na
 2. Alternatively, **use a Gmail account** via the Google OAuth integration for instant access.
 
 Once authenticated, the app will intuitively guide you through an onboarding process to create a new family hub or join an existing one.
+
+### Running Tests
+
+#### Frontend Unit Tests
+To run unit and integration tests for Pinia stores (auth/family) and other frontend state logic, navigate to the frontend directory and run:
+```bash
+cd frontend
+npm run test
+```
+
+#### Backend Integration Tests
+To execute manual/integration test scripts (like `test-db.js` and `test-upload.js`), navigate to the backend directory and run:
+```bash
+cd backend
+npm run test
+```
+*Note: Make sure your PostgreSQL database is running and configured correctly. For `test-upload.js`, the Express server must also be active on port 3000.*
 
 ### System & VM Dependencies
 If you are setting up the project in an isolated Virtual Machine (VM) or a fresh environment, you will need the following system-level and project-level dependencies installed:

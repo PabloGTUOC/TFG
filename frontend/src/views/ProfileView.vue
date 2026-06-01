@@ -60,6 +60,7 @@ const handleActorAvatarUpload = async (event, actorId, fid) => {
 // ── Current family ────────────────────────────────────────
 const { family, role, familyId } = useCurrentFamily();
 const isCaregiver = computed(() => role.value === 'caregiver');
+const activeTab = ref('profile');
 
 // ── Add Dependent ─────────────────────────────────────────
 const typeOptions = [
@@ -396,14 +397,21 @@ const formatLedgerDate = (ds) => {
       </div>
     </div>
 
+    <!-- ── Mobile Profile Tabs ──────────────────────────── -->
+    <div class="profile-tab-bar">
+      <button :class="['ptab', activeTab === 'profile' && 'ptab--active']" @click="activeTab = 'profile'">My Profile</button>
+      <button :class="['ptab', activeTab === 'family' && 'ptab--active']" @click="activeTab = 'family'">Family</button>
+      <button :class="['ptab', activeTab === 'wallet' && 'ptab--active']" @click="activeTab = 'wallet'">Wallet</button>
+    </div>
+
     <!-- ── Two-column grid ──────────────────────────────── -->
     <div class="two-col-grid">
 
       <!-- LEFT COLUMN -->
-      <div class="left-col">
+      <div class="left-col" :class="{ 'tab-hidden': activeTab === 'wallet' }">
 
         <!-- Account Settings -->
-        <div class="settings-card">
+        <div class="settings-card" :class="{ 'tab-hidden': activeTab !== 'profile' }">
           <div class="settings-card__header">
             <div class="accent-bar"></div>
             <h2>Account Settings</h2>
@@ -464,7 +472,7 @@ const formatLedgerDate = (ds) => {
         </div>
 
         <!-- Family Circle -->
-        <div class="family-circle-section">
+        <div class="family-circle-section" :class="{ 'tab-hidden': activeTab !== 'family' }">
           <div class="section-header">
             <h2>Family Circle</h2>
             <div v-if="isCaregiver" class="section-actions">
@@ -600,7 +608,7 @@ const formatLedgerDate = (ds) => {
       </div><!-- /left-col -->
 
       <!-- RIGHT COLUMN -->
-      <div class="right-col">
+      <div class="right-col" :class="{ 'tab-hidden': activeTab !== 'wallet' }">
 
         <!-- Balance Widget -->
         <div class="balance-widget">
@@ -1321,18 +1329,52 @@ const formatLedgerDate = (ds) => {
   .page-heading h1 { font-size: 1.5rem; }
   .page-heading p  { font-size: 0.85rem; }
 
-  /* Avatar row */
   .avatar-row { gap: 1rem; }
   .user-avatar { width: 60px; height: 60px; font-size: 1.5rem; }
 
-  /* Family circle */
   .circle-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   .circle-avatar { width: 60px; height: 60px; font-size: 1.4rem; }
 
-  /* Balance widget */
   .balance-amount { font-size: 1.8rem !important; }
 
-  /* QR */
   .qr-img { width: 100px; height: 100px; }
+}
+
+/* ── Profile Tab Bar ─────────────────────────────────────── */
+.profile-tab-bar { display: none; }
+
+@media (max-width: 768px) {
+  .profile-tab-bar {
+    display: flex;
+    background: var(--bg);
+    border-radius: var(--r-pill);
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+  }
+
+  .ptab {
+    flex: 1;
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-pill);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ptab--active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(14, 23, 38, 0.08);
+  }
+
+  .tab-hidden { display: none !important; }
 }
 </style>

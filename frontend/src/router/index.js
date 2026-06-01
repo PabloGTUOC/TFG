@@ -10,10 +10,12 @@ import MarketplaceView from '../views/MarketplaceView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import StatsView from '../views/StatsView.vue'
 import JoinView from '../views/JoinView.vue'
+import LandingView from '../views/LandingView.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
+        { path: '/', name: 'landing', component: LandingView, meta: { guest: true } },
         { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
         { path: '/join', name: 'join', component: JoinView, meta: { requiresAuth: true } },
         { path: '/onboarding', name: 'onboarding', component: OnboardingView, meta: { requiresAuth: true } },

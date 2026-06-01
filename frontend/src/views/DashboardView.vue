@@ -328,58 +328,58 @@ const splitHighlight = (text) => {
        </p>
     </div>
 
-    <!-- Main Grid: Left (Members + Stats) | Right (Recent) -->
-    <div class="dashboard-main-grid">
-       
-       <!-- LEFT COLUMN -->
-       <div>
-          
-          <!-- Members Title -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-             <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Active Family Members</h2>
-             <a href="#" @click.prevent="router.push('/profile')" style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.95rem; cursor: pointer;">Manage Tribe &rarr;</a>
+    <!-- Members Section (full-width, above grid) -->
+    <div class="members-section">
+       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Active Family Members</h2>
+          <a href="#" @click.prevent="router.push('/profile')" class="manage-tribe-link" style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.95rem; cursor: pointer;">Manage Tribe &rarr;</a>
+       </div>
+       <div class="members-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;">
+          <div v-for="(m, i) in activeMembers" :key="m.user_id"
+               class="mockup-member-card" :class="'color-' + (i % 4)">
+             <div class="member-avatar"
+                  :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
+                {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
+             </div>
+             <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
+             <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
+                ● {{ m.coin_balance }} cc
+             </div>
           </div>
 
-          <!-- Members Grid -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 3rem;">
-             <div v-for="(m, i) in activeMembers" :key="m.user_id"
-                  class="mockup-member-card" :class="'color-' + (i % 4)">
-                <div class="member-avatar"
-                     :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
-                   {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
-                </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
-                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
-                   ● {{ m.coin_balance }} cc
-                </div>
+          <!-- Objects of Care -->
+          <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
+               class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
+             <div class="member-avatar"
+                  :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
+                {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
              </div>
+             <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
+             <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
+                ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
+             </div>
+          </div>
 
-             <!-- Objects of Care -->
-             <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
-                  class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
-                <div class="member-avatar"
-                     :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
-                   {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
-                </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
-                <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
-                   ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
-                </div>
+          <!-- Pending Members -->
+          <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
+               style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+             <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
+                ⏳
              </div>
+             <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
+             <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
+             <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
+                Approve
+             </button>
+          </div>
+       </div>
+    </div>
 
-             <!-- Pending Members -->
-             <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
-                  style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
-                <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
-                   ⏳
-                </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
-                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
-                <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
-                   Approve
-                </button>
-             </div>
-           </div>
+    <!-- Main Grid: Left (Offers + KPIs) | Right (Recent) -->
+    <div class="dashboard-main-grid">
+
+       <!-- LEFT COLUMN -->
+       <div>
 
           <!-- Available Offers -->
           <div v-if="availableOffers.length > 0" style="margin-bottom: 3rem;">
@@ -687,6 +687,7 @@ const splitHighlight = (text) => {
 }
 
 /* ── Section spacing ─────────────────────────────────────── */
+.members-section { margin-bottom: 2.5rem; }
 .week-section { margin-top: 1.5rem; margin-bottom: 4rem; }
 .week-header {
   display: flex;
@@ -765,17 +766,40 @@ const splitHighlight = (text) => {
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .dashboard-root { padding: 1rem; }
+  .dashboard-root {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-title-section { order: 1; }
+  .members-section    { order: 2; margin-bottom: 1.5rem; }
+  .week-section       { order: 3; margin-top: 0; }
+  .dashboard-main-grid { order: 4; }
+
   .dash-title { font-size: 2.2rem; letter-spacing: -0.5px; }
 
-  /* Collapse main 2-col → 1-col */
   .dashboard-main-grid { grid-template-columns: 1fr; gap: 1.5rem; }
 
-  .week-section { margin-top: 2rem; margin-bottom: 2rem; }
+  .manage-tribe-link { display: none; }
+
+  /* Compact member cards on mobile */
+  .members-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important;
+    gap: 0.6rem !important;
+  }
+  .mockup-member-card { padding: 12px 8px; }
+  .member-avatar { width: 44px; height: 44px; font-size: 1.3rem; }
+
+  .week-section { margin-top: 2rem; margin-bottom: 2rem; padding: 1rem !important; }
   .week-header {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 1.2rem;
+  }
+  .week-header > div:last-child {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
   }
   .week-title-row {
     justify-content: space-between;
@@ -787,27 +811,6 @@ const splitHighlight = (text) => {
     border: 1px solid var(--border);
     padding: 0.5rem 1rem;
     border-radius: var(--r-pill);
-  }
-
-  /* Transform to Vertical Agenda Calendar */
-  .week-scroll .mockup-weekly-row {
-    flex-direction: column;
-    min-width: 0;
-    gap: 1rem;
-  }
-  .mockup-weekly-row .mockup-day-col {
-    border-right: none;
-  }
-  .week-header {
-    flex-direction: column;
-    align-items: flex-start !important;
-  }
-  .week-header > div:last-child {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .week-section {
-    padding: 1rem !important;
   }
 }
 

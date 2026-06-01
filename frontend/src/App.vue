@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia';
 import { useAuthStore } from './stores/auth';
 import { useFamilyStore } from './stores/family';
 import { useRouter } from 'vue-router';
-import { Home, Calendar, ShoppingBag, User, CircleDollarSign, Menu, X } from 'lucide-vue-next';
+import { Home, Calendar, ShoppingBag, User, BarChart2 } from 'lucide-vue-next';
 import { avatarStyle } from './utils/avatarStyle';
 
 const authStore = useAuthStore();
@@ -15,7 +15,6 @@ const { families } = storeToRefs(familyStore);
 
 const showDropdown = ref(false);
 const profileMenuRef = ref(null);
-const isMenuOpen = ref(false);
 
 const closeDropdown = (e) => {
   if (showDropdown.value && profileMenuRef.value && !profileMenuRef.value.contains(e.target)) {
@@ -104,52 +103,10 @@ const coinAliasInitial = computed(() => {
             </div>
           </div>
 
-          <button class="hamburger-btn mobile-only" @click="isMenuOpen = !isMenuOpen" aria-label="Open menu">
-            <Menu v-if="!isMenuOpen" :size="16" :stroke-width="2" />
-            <X v-else :size="16" :stroke-width="2" />
-          </button>
         </div>
 
       </div>
     </header>
-
-    <!-- Mobile Menu Overlay -->
-    <div v-if="isMenuOpen" class="mobile-menu-overlay">
-      <div style="padding: 2rem; display: flex; flex-direction: column; gap: 2rem; width: 100%; flex: 1;">
-         <div style="display: flex; align-items: center; gap: 1rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
-           <div class="avatar avatar-lg"
-             :style="familyStore.profile?.avatar_url ? avatarStyle(authStore.apiBase, familyStore.profile.avatar_url) : null">
-             <span v-if="!familyStore.profile?.avatar_url">{{ profileInitial }}</span>
-           </div>
-           <div>
-             <div style="font-weight: 800; font-size: 1.3rem;">{{ familyStore.profile?.display_name || 'Caregiver' }}</div>
-             <div style="font-size: 0.95rem; color: var(--text-secondary);">{{ familyStore.profile?.email }}</div>
-           </div>
-         </div>
-
-         <nav class="mobile-nav" v-if="families && families.length > 0">
-            <router-link to="/dashboard" @click="isMenuOpen = false">
-              <Home :size="20" :stroke-width="2" />
-              <span>Family Hub</span>
-            </router-link>
-            <router-link to="/activities" @click="isMenuOpen = false">
-              <Calendar :size="20" :stroke-width="2" />
-              <span>Activities</span>
-            </router-link>
-            <router-link to="/marketplace" @click="isMenuOpen = false">
-              <ShoppingBag :size="20" :stroke-width="2" />
-              <span>Marketplace</span>
-            </router-link>
-            <router-link to="/profile" @click="isMenuOpen = false">
-              <User :size="20" :stroke-width="2" />
-              <span>Personal</span>
-            </router-link>
-         </nav>
-
-         <div style="flex: 1;"></div>
-         <button class="mobile-logout" @click="isMenuOpen = false; handleLogout()">Logout</button>
-      </div>
-    </div>
 
     <main class="main-content">
       <router-view></router-view>
@@ -159,6 +116,30 @@ const coinAliasInitial = computed(() => {
         <p v-if="error" class="error-message">{{ error }}</p>
       </div>
     </main>
+
+    <!-- Bottom Tab Navigation (mobile only) -->
+    <nav class="bottom-tab-bar" v-if="user && families && families.length > 0">
+      <router-link to="/dashboard" class="tab-item">
+        <Home :size="20" :stroke-width="2.5" />
+        <span>Family</span>
+      </router-link>
+      <router-link to="/activities" class="tab-item">
+        <Calendar :size="20" :stroke-width="2.5" />
+        <span>Activities</span>
+      </router-link>
+      <router-link to="/marketplace" class="tab-item">
+        <ShoppingBag :size="20" :stroke-width="2.5" />
+        <span>Rewards</span>
+      </router-link>
+      <router-link to="/stats" class="tab-item">
+        <BarChart2 :size="20" :stroke-width="2.5" />
+        <span>Stats</span>
+      </router-link>
+      <router-link to="/profile" class="tab-item">
+        <User :size="20" :stroke-width="2.5" />
+        <span>Me</span>
+      </router-link>
+    </nav>
   </div>
 </template>
 
@@ -375,21 +356,6 @@ const coinAliasInitial = computed(() => {
   background: var(--danger-soft);
 }
 
-/* Hamburger */
-.hamburger-btn {
-  width: 38px;
-  height: 38px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
 /* -------------------
    Main Body layout
 ------------------- */
@@ -444,52 +410,14 @@ const coinAliasInitial = computed(() => {
   color: var(--primary);
 }
 
-.desktop-only { }
-.mobile-only { display: none !important; }
+/* Bottom Tab Navigation */
+.bottom-tab-bar { display: none; }
 
-/* Mobile menu overlay */
-.mobile-menu-overlay {
-  position: fixed;
-  top: 65px;
-  left: 0; right: 0; bottom: 0;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(20px);
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-}
-.mobile-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-.mobile-nav a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  text-decoration: none;
-  min-height: 44px;
-}
-.mobile-nav a.router-link-active { color: var(--primary); }
-.mobile-logout {
-  background: var(--danger-soft);
-  color: var(--danger);
-  border: none;
-  padding: 18px;
-  border-radius: var(--r-md);
-  font-size: 1.1rem;
-  font-weight: 800;
-  width: 100%;
-  cursor: pointer;
-}
-
-/* Tablet / large phone */
+/* -------------------
+   Tablet / large phone
+------------------- */
 @media (max-width: 768px) {
   .desktop-only { display: none !important; }
-  .mobile-only { display: flex !important; }
 
   .pill-header {
     width: calc(100% - 24px);
@@ -508,32 +436,63 @@ const coinAliasInitial = computed(() => {
 
   .main-content {
     width: 100%;
-    padding: 12px 0 32px;
+    padding: 12px 0 calc(72px + env(safe-area-inset-bottom, 0px));
   }
   .page-container {
     padding: 16px 18px;
   }
+
+  .notifications {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    right: 1rem;
+  }
+
+  /* Bottom Tab Bar */
+  .bottom-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(14, 23, 38, 0.08);
+    box-shadow: 0 -4px 16px rgba(14, 23, 38, 0.06);
+    z-index: 1000;
+  }
+
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 6px 0;
+    transition: color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tab-item.router-link-active {
+    color: var(--primary);
+  }
 }
 
 @media (max-width: 480px) {
-  .main-content { padding: 8px 0 24px; }
-  /* Ensure 44px minimum tap area for hamburger */
-  .hamburger-btn {
-    width: 44px;
-    height: 44px;
-  }
-  /* Pill nav links at very small screens get full padding */
-  .pill-nav a {
-    padding: 10px 10px;
-    min-height: 44px;
-  }
+  .main-content { padding: 8px 0 calc(72px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pill-nav a,
   .avatar-block,
-  .avatar-block:hover,
-  .hamburger-btn {
+  .avatar-block:hover {
     transition: none;
   }
   .avatar-block:hover { transform: none; }
