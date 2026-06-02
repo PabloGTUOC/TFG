@@ -55,7 +55,6 @@ const handleEnableNotifications = async () => {
 };
 const userAvatarInput = ref(null);
 
-// ── Avatar uploads ────────────────────────────────────────
 const handleUserAvatarUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -95,12 +94,10 @@ const handleActorAvatarUpload = async (event, actorId, fid) => {
   }, 'Dependent avatar updated successfully!');
 };
 
-// ── Current family ────────────────────────────────────────
 const { family, role, familyId } = useCurrentFamily();
 const isCaregiver = computed(() => role.value === 'caregiver');
 const activeTab = ref('profile');
 
-// ── Add Dependent ─────────────────────────────────────────
 const typeOptions = [
   { value: 'child',   label: '👶 Child / Baby' },
   { value: 'pet',     label: '🐾 Pet' },
@@ -135,7 +132,6 @@ const addActor = () => appStore.runAction(async () => {
   await familyStore.fetchUserData();
 }, 'Dependent added!');
 
-// ── Invite caregiver & Members ──────────────────────────────
 const invitations = ref([]);
 const familyMembers = ref([]);
 const showInviteForm = ref(false);
@@ -175,7 +171,6 @@ const sendInvite = () => appStore.runAction(async () => {
   await loadInvitations();
 }, 'Invitation saved! They can now join using the Family ID.');
 
-// ── Family Deletion ───────────────────────────────────────
 const deletionRequests = ref([]);
 
 const loadDeletionRequests = async () => {
@@ -230,7 +225,6 @@ const respondToDeletionRequest = (reqId, action) => appStore.runAction(async () 
   }
 }, `Deletion request ${action}d.`);
 
-// ── Profile form ──────────────────────────────────────────
 const profileForm = ref({
   displayName: familyStore.profile?.display_name || '',
   email:       familyStore.profile?.email || '',
@@ -263,7 +257,6 @@ const deleteAccount = () => {
   );
 };
 
-// ── Coin ledger ───────────────────────────────────────────
 const today = new Date();
 const currentMonth = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
 const ledgerInfo = ref([]);
@@ -295,7 +288,6 @@ const uncheckActivity = (item) => {
   );
 };
 
-// ── Invite link (QR + share) ──────────────────────────────
 const inviteLink     = ref('');
 const inviteQr       = ref('');
 const generatingLink = ref(false);
@@ -345,7 +337,6 @@ onMounted(() => { loadLedger(); loadInvitations(); loadDeletionRequests(); loadN
 watch(currentMonth, () => loadLedger());
 watch(isCaregiver, (v) => { if (v) { loadInvitations(); loadDeletionRequests(); } });
 
-// ── Computed helpers ──────────────────────────────────────
 const combinedCircleItems = computed(() => {
   const humans = familyMembers.value.map(m => ({
     id: 'user_' + m.id,
@@ -410,13 +401,11 @@ const formatLedgerDate = (ds) => {
 <template>
   <div class="personal-area">
 
-    <!-- ── Page heading ─────────────────────────────────── -->
     <div class="page-heading">
       <h1>Personal Area</h1>
       <p>Manage your family profile and tracking preferences.</p>
     </div>
 
-    <!-- ── Family banner ─────────────────────────────── -->
     <div v-if="family" class="family-banner">
       <div class="family-banner__left">
         <span class="family-banner__icon">🏠</span>
@@ -431,7 +420,6 @@ const formatLedgerDate = (ds) => {
       </div>
     </div>
 
-    <!-- ── Deletion Requests Banner ──────────────────────── -->
     <div v-if="deletionRequests.length > 0" class="deletion-requests-banner" style="background: #fee2e2; border: 1px solid #fca5a5; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; color: #991b1b;">
       <h3 style="margin-top: 0; color: #b91c1c; display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.2rem;">⚠️</span> Pending Family Deletion Requests</h3>
       <div v-for="req in deletionRequests" :key="req.id" style="background: rgba(255,255,255,0.6); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
@@ -452,27 +440,22 @@ const formatLedgerDate = (ds) => {
       </div>
     </div>
 
-    <!-- ── Mobile Profile Tabs ──────────────────────────── -->
     <div class="profile-tab-bar">
       <button :class="['ptab', activeTab === 'profile' && 'ptab--active']" @click="activeTab = 'profile'">My Profile</button>
       <button :class="['ptab', activeTab === 'family' && 'ptab--active']" @click="activeTab = 'family'">Family</button>
       <button :class="['ptab', activeTab === 'wallet' && 'ptab--active']" @click="activeTab = 'wallet'">Wallet</button>
     </div>
 
-    <!-- ── Two-column grid ──────────────────────────────── -->
     <div class="two-col-grid">
 
-      <!-- LEFT COLUMN -->
       <div class="left-col" :class="{ 'tab-hidden': activeTab === 'wallet' }">
 
-        <!-- Account Settings -->
         <div class="settings-card" :class="{ 'tab-hidden': activeTab !== 'profile' }">
           <div class="settings-card__header">
             <div class="accent-bar"></div>
             <h2>Account Settings</h2>
           </div>
 
-          <!-- Avatar row -->
           <div class="avatar-row">
             <div class="user-avatar"
                  :style="familyStore.profile?.avatar_url
@@ -491,7 +474,6 @@ const formatLedgerDate = (ds) => {
           </div>
           <input type="file" ref="userAvatarInput" style="display:none;" accept="image/*" @change="handleUserAvatarUpload">
 
-          <!-- Form -->
           <div class="settings-form">
             <div class="form-row">
               <div class="form-field">
@@ -534,7 +516,6 @@ const formatLedgerDate = (ds) => {
           </div>
         </div>
 
-        <!-- Family Circle -->
         <div class="family-circle-section" :class="{ 'tab-hidden': activeTab !== 'family' }">
           <div class="section-header">
             <h2>Family Circle</h2>
@@ -573,7 +554,6 @@ const formatLedgerDate = (ds) => {
           </div>
           <div v-else class="empty-circle">No dependents added yet.</div>
 
-          <!-- Add form -->
           <div v-if="isCaregiver && showAddActor" class="add-actor-form">
             <div class="form-row">
               <div class="form-field">
@@ -595,7 +575,6 @@ const formatLedgerDate = (ds) => {
             </div>
           </div>
 
-          <!-- Invite form (email-based) -->
           <div v-if="isCaregiver && showInviteForm" class="add-actor-form">
             <div class="form-row">
               <div class="form-field">
@@ -613,7 +592,6 @@ const formatLedgerDate = (ds) => {
             </div>
           </div>
 
-          <!-- Shareable invite link + QR code (caregivers only) -->
           <div v-if="isCaregiver" class="invite-link-section">
             <div class="invite-link-header">
               <span class="invite-link-title">Shareable Invite Link</span>
@@ -623,13 +601,11 @@ const formatLedgerDate = (ds) => {
             </div>
 
             <div v-if="inviteLink" class="invite-link-body">
-              <!-- QR code -->
               <div class="qr-wrap">
                 <img :src="inviteQr" alt="Invite QR Code" class="qr-img" />
                 <p class="qr-hint">Scan with phone camera</p>
               </div>
 
-              <!-- Link + actions -->
               <div class="link-actions">
                 <div class="link-box">{{ inviteLink }}</div>
                 <div class="action-btns">
@@ -647,7 +623,6 @@ const formatLedgerDate = (ds) => {
             <p v-else class="link-empty">Generate a link to share with caregivers via WhatsApp, email, or QR code.</p>
           </div>
 
-          <!-- Delete Family Button (caregivers only) -->
           <div v-if="isCaregiver" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #f1f5f9; text-align: center;">
             <button class="action-btn delete-btn" @click="deleteFamily" style="background: none; color: #ef4444; border: 1px solid #ef4444; border-radius: 9999px; padding: 0.5rem 1.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;">
               🗑️ Delete Family
@@ -655,7 +630,6 @@ const formatLedgerDate = (ds) => {
             <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">This action is permanent and cannot be undone.</p>
           </div>
 
-          <!-- Pending Invitations -->
           <div v-if="isCaregiver && invitations.length > 0" class="pending-invitations">
             <div class="pending-title">⏳ Pending Invitations</div>
             <div v-for="inv in invitations" :key="inv.id" class="pending-row">
@@ -670,10 +644,8 @@ const formatLedgerDate = (ds) => {
 
       </div><!-- /left-col -->
 
-      <!-- RIGHT COLUMN -->
       <div class="right-col" :class="{ 'tab-hidden': activeTab !== 'wallet' }">
 
-        <!-- Balance Widget -->
         <div class="balance-widget">
           <div class="balance-label">TOTAL BALANCE</div>
           <div class="balance-amount">
@@ -699,7 +671,6 @@ const formatLedgerDate = (ds) => {
           </button>
         </div>
 
-        <!-- Full Ledger (expanded) -->
         <div v-if="showFullLedger" class="full-ledger-card">
           <div class="full-ledger-header">
             <span style="font-weight:800;">Monthly Ledger</span>
@@ -724,7 +695,6 @@ const formatLedgerDate = (ds) => {
           <div v-else class="lp-empty" style="padding:1.5rem; text-align:center;">No activity this month.</div>
         </div>
 
-        <!-- Activity Insights -->
         <div class="insights-card">
           <h3 class="insights-title">Activity Insights</h3>
           <div class="insight-row">
@@ -747,7 +717,6 @@ const formatLedgerDate = (ds) => {
     </div>
   </div>
 
-  <!-- Shared confirmation modal -->
   <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm = false">
     <VCard :title="confirmTitle" style="max-width: 380px; width: 100%;">
       <p style="color: var(--text-secondary); line-height: 1.55; margin-bottom: 1.5rem;">{{ confirmBody }}</p>
@@ -760,14 +729,12 @@ const formatLedgerDate = (ds) => {
 </template>
 
 <style scoped>
-/* ── Root ────────────────────────────────────────────────── */
 .personal-area {
   max-width: 1080px;
   margin: 0 auto;
   padding-top: 1rem;
 }
 
-/* ── Page heading ────────────────────────────────────────── */
 .page-heading {
   margin-bottom: 2.5rem;
 }
@@ -784,7 +751,6 @@ const formatLedgerDate = (ds) => {
   margin: 0;
 }
 
-/* ── Two-col grid ────────────────────────────────────────── */
 .two-col-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -798,7 +764,6 @@ const formatLedgerDate = (ds) => {
   min-width: 0;
 }
 
-/* ── Account Settings card ───────────────────────────────── */
 .settings-card {
   background: #fff;
   border-radius: 20px;
@@ -824,7 +789,6 @@ const formatLedgerDate = (ds) => {
   margin: 0;
 }
 
-/* Avatar row */
 .avatar-row {
   display: flex;
   align-items: center;
@@ -876,7 +840,6 @@ const formatLedgerDate = (ds) => {
   border-radius: 9999px;
 }
 
-/* Form */
 .settings-form { margin-top: 0.5rem; }
 .form-row {
   display: grid;
@@ -931,7 +894,6 @@ const formatLedgerDate = (ds) => {
   cursor: pointer;
 }
 
-/* ── Family Circle ────────────────────────────────────────── */
 .family-circle-section {
   background: #fff;
   border-radius: 20px;
@@ -1048,7 +1010,6 @@ const formatLedgerDate = (ds) => {
   border-top: 1px solid #f1f5f9;
 }
 
-/* ── Balance Widget ───────────────────────────────────────── */
 .balance-widget {
   background: #0f172a;
   border-radius: 24px;
@@ -1076,7 +1037,6 @@ const formatLedgerDate = (ds) => {
   margin-left: 0.3rem;
 }
 
-/* Ledger preview */
 .ledger-preview { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
 .ledger-preview-row {
   display: flex;
@@ -1107,7 +1067,6 @@ const formatLedgerDate = (ds) => {
 }
 .ledger-toggle-btn:hover { background: rgba(255,255,255,0.14); }
 
-/* Full Ledger card */
 .full-ledger-card {
   background: #fff;
   border-radius: 20px;
@@ -1162,7 +1121,6 @@ const formatLedgerDate = (ds) => {
   cursor: pointer;
 }
 
-/* ── Activity Insights ────────────────────────────────────── */
 .insights-card {
   background: #eef2ff;
   border-radius: 20px;
@@ -1195,7 +1153,6 @@ const formatLedgerDate = (ds) => {
 .insight-label { font-weight: 700; color: #1e293b; font-size: 0.95rem; }
 .insight-sub   { font-size: 0.8rem; color: #64748b; margin-top: 0.1rem; }
 
-/* ── Family banner ────────────────────────────────────────── */
 .family-banner {
   display: flex;
   justify-content: space-between;
@@ -1248,7 +1205,6 @@ const formatLedgerDate = (ds) => {
   letter-spacing: 0.5px;
 }
 
-/* ── Invite Caregiver ─────────────────────────────────────── */
 .invite-btn {
   background: none;
   border: 1.5px solid #6366f1;
@@ -1272,7 +1228,6 @@ const formatLedgerDate = (ds) => {
   margin: 0.75rem 0 0;
 }
 
-/* Pending invitations */
 .pending-invitations {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
@@ -1310,7 +1265,6 @@ const formatLedgerDate = (ds) => {
   padding: 0.2rem 0.65rem;
 }
 
-/* ── Shareable Invite Link ────────────────────────────────── */
 .invite-link-section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
@@ -1380,21 +1334,17 @@ const formatLedgerDate = (ds) => {
 .link-note  { font-size: 0.75rem; color: #94a3b8; margin: 0; }
 .link-empty { font-size: 0.82rem; color: #94a3b8; font-style: italic; margin: 0; }
 
-/* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   .personal-area { padding: 1.5rem 1rem; }
   .two-col-grid { grid-template-columns: 1fr; gap: 1.5rem; }
   .page-heading h1 { font-size: 2rem; }
 
-  /* Form fields stack */
   .form-row { grid-template-columns: 1fr; }
 
-  /* Family circle */
   .section-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .section-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
   .section-actions button { flex: 1; min-width: 0; }
 
-  /* QR / invite section stacks vertically */
   .invite-link-body { flex-direction: column; align-items: center; }
   .link-actions { min-width: unset; width: 100%; }
 }
@@ -1414,7 +1364,6 @@ const formatLedgerDate = (ds) => {
   .qr-img { width: 100px; height: 100px; }
 }
 
-/* ── Notification preferences toggles ──────────────────────── */
 .notif-pref-list {
   display: flex;
   flex-direction: column;
@@ -1467,7 +1416,6 @@ const formatLedgerDate = (ds) => {
 }
 .notif-pref-toggle:checked::after { transform: translateX(18px); }
 
-/* ── Profile Tab Bar ─────────────────────────────────────── */
 .profile-tab-bar { display: none; }
 
 @media (max-width: 768px) {

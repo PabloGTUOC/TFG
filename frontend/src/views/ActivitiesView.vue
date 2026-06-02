@@ -16,7 +16,6 @@ const allActivities = ref([]);
 const categoryFilter = ref('all');
 const activeTab = ref('catalogue');
 
-// Show templates, sort alphabetically, filter by category
 const templates = computed(() => {
   let arr = allActivities.value.filter(a => a.is_template);
   if (categoryFilter.value !== 'all') {
@@ -113,10 +112,8 @@ const executeDelete = () => appStore.runAction(async () => {
 
 <template>
   <div class="activities-container" style="display: flex; flex-direction: column; gap: 1rem;">
-    <!-- Header -->
     <h2 style="margin-bottom: 0.5rem; font-weight: 800; letter-spacing: -0.02em;">Activity Library</h2>
 
-    <!-- Mobile tab bar -->
     <div class="activities-tab-bar">
       <button :class="['atab', activeTab === 'catalogue' && 'atab--active']" @click="activeTab = 'catalogue'">Catalogue</button>
       <button :class="['atab', activeTab === 'new' && 'atab--active']" @click="activeTab = 'new'">New Activity</button>
@@ -125,16 +122,13 @@ const executeDelete = () => appStore.runAction(async () => {
 
     <div class="grid three" style="align-items: stretch; gap: 1.5rem;" v-if="budgetInfo">
 
-      <!-- Column 1: Activity Catalogue List -->
       <VCard title="Activity Catalogue" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'catalogue' }">
-        <!-- Category Filters -->
         <div style="margin-bottom: 1.5rem; display:flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
            <button class="filter-btn" :class="{active: categoryFilter === 'all'}" @click="categoryFilter = 'all'">All</button>
            <button class="filter-btn" :class="{active: categoryFilter === 'care'}" @click="categoryFilter = 'care'">Care</button>
            <button class="filter-btn" :class="{active: categoryFilter === 'household'}" @click="categoryFilter = 'household'">Household</button>
         </div>
         
-        <!-- Scroller -->
         <div class="activity-scroll-area" style="flex: 1; overflow-y: auto; padding-right: 0.8rem; display: flex; flex-direction: column; gap: 1.2rem; min-height: 0;">
           <div v-for="a in templates" :key="a.id" class="activity-pill">
              <div class="pill-info">
@@ -147,7 +141,6 @@ const executeDelete = () => appStore.runAction(async () => {
                </div>
              </div>
              
-             <!-- Action Button -->
              <div class="action-group">
                <button v-if="a.status === 'pending'" class="action-btn pending-btn" @click="approveActivity(a.id)">Approve</button>
                <button class="action-btn delete-btn" title="Delete Template" @click="deleteActivity(a.id)">
@@ -160,11 +153,9 @@ const executeDelete = () => appStore.runAction(async () => {
              No activities found.
           </div>
         </div>
-        <!-- Mobile shortcut to add tab -->
         <button class="add-shortcut-btn" @click="activeTab = 'new'">+ New Activity</button>
       </VCard>
 
-      <!-- Column 2: Register New Activity -->
       <VCard title="New Activity" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'new' }">
         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4; flex-shrink: 0;">
           Define a reusable activity template. Once approved, it appears in the Family Times sidebar and can be scheduled any number of times.
@@ -179,7 +170,6 @@ const executeDelete = () => appStore.runAction(async () => {
             <span>🔁 This is a recurring activity</span>
           </label>
           
-          <!-- Slider Component -->
           <div class="mock-slider-box">
             <div style="display:flex; justify-content: space-between; margin-bottom: 0.8rem;">
               <label class="text-sm" style="color: var(--text-secondary);">Coin Value Reward (cc)</label>
@@ -202,18 +192,14 @@ const executeDelete = () => appStore.runAction(async () => {
         <button class="mock-create-btn" @click="createActivity">Create activity template</button>
       </VCard>
 
-      <!-- Column 3: Family Budget Health Gauge -->
       <VCard title="Family Budget Health" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'budget' }">
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 100%;">
           
           <div class="gauge-container" style="text-align: center; position: relative; width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: 2rem;">
             <div class="text-xs" style="color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; font-weight: 600;">Remaining this month</div>
             
-            <!-- Custom SVG Semi-Circle -->
             <svg viewBox="0 0 200 120" style="width: 100%; max-width: 250px; margin: 0 auto; overflow: visible;">
-              <!-- Background Arc -->
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
-              <!-- Foreground Arc (Dynamic) -->
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2563EB" stroke-width="14" stroke-linecap="round"
                     :stroke-dasharray="252" 
                     :stroke-dashoffset="252 - (252 * (budgetInfo.remainingBudget / budgetInfo.monthlyBudget))" 
@@ -227,7 +213,6 @@ const executeDelete = () => appStore.runAction(async () => {
             </div>
           </div>
           
-          <!-- Budget Stats -->
           <div class="text-sm" style="background: var(--input-bg); padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 250px; border: 1px solid var(--input-border); box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);">
             <div style="display:flex; justify-content: space-between; margin-bottom: 1rem;">
               <span style="color: var(--text-secondary);">Total Monthly Pool</span>
@@ -250,7 +235,6 @@ const executeDelete = () => appStore.runAction(async () => {
 
   </div>
 
-  <!-- Delete confirmation modal -->
   <div v-if="confirmDeleteId" class="modal-overlay" @click.self="confirmDeleteId = null">
     <VCard title="Delete Activity" style="max-width: 360px; width: 100%;">
       <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
@@ -277,15 +261,12 @@ const executeDelete = () => appStore.runAction(async () => {
   overflow: hidden;
 }
 
-/* ── Tab bar (mobile only) ───────────────────────────────── */
 .activities-tab-bar { display: none; }
 
-/* shortcut button inside catalogue card — mobile only */
 .add-shortcut-btn {
   display: none;
 }
 
-/* Filter Buttons */
 .filter-btn {
   background: transparent;
   border: none;
@@ -302,7 +283,6 @@ const executeDelete = () => appStore.runAction(async () => {
   font-weight: 600;
 }
 
-/* Scrolling Area */
 .activity-scroll-area::-webkit-scrollbar {
   width: 6px;
 }
@@ -311,7 +291,6 @@ const executeDelete = () => appStore.runAction(async () => {
   border-radius: 3px;
 }
 
-/* Light Theme Task Pills */
 .activity-pill {
   background: var(--card-bg);
   border-radius: 16px;
@@ -354,7 +333,6 @@ const executeDelete = () => appStore.runAction(async () => {
   letter-spacing: 0.5px;
 }
 
-/* Claim / Approve Buttons inside Pills */
 .action-group {
   display: flex;
   gap: 0.5rem;
@@ -397,7 +375,6 @@ const executeDelete = () => appStore.runAction(async () => {
   border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
-/* Registration Form Specifics */
 .mock-slider-box {
   margin-top: 0.5rem;
   background: transparent;
@@ -419,7 +396,6 @@ const executeDelete = () => appStore.runAction(async () => {
 }
 .mock-create-btn:hover { opacity: 0.88; }
 
-/* Range Slider Styling */
 .v-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -438,7 +414,6 @@ const executeDelete = () => appStore.runAction(async () => {
   cursor: pointer;
 }
 
-/* Gauge Positioning */
 .gauge-content {
   position: absolute;
   top: 50%;

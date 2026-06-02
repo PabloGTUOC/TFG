@@ -39,7 +39,6 @@ export function useNotifications() {
     });
   }
 
-  // Call on app startup: silently refreshes token if permission already granted
   async function init() {
     permission.value = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
     if (permission.value !== 'granted') return;

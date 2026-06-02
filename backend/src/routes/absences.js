@@ -61,7 +61,6 @@ absencesRouter.post('/', validateBody({
         return { error: { code: 403, message: 'Not a family member.' } };
       }
 
-      // Check for overlapping activities
       const { rows: activityOverlap } = await client.query(
         `SELECT id, title FROM activities 
          WHERE assigned_to = $1 

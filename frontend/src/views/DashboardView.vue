@@ -96,7 +96,6 @@ watch(() => route.path, (newPath) => {
 const activeMembers = computed(() => dashboard.value.members.filter(m => m.status !== 'pending'));
 const pendingMembers = computed(() => dashboard.value.members.filter(m => m.status === 'pending'));
 
-// --- Pending Approval Logic ---
 const approveMember = (userId) => appStore.runAction(async () => {
    const fid = familyId.value;
    await appStore.request(`/api/families/${fid}/members/${userId}/approve`, {
@@ -106,9 +105,6 @@ const approveMember = (userId) => appStore.runAction(async () => {
    await loadDashboard();
 }, 'Member approved!');
 
-// --- Avatar Upload Logic Moved To Profile View ---
-
-// --- Care Object Modal ---
 const showCareObjectModal = ref(false);
 const careObjectForm = ref({ name: '', actorType: 'child', careTime: 'full_time' });
 const typeOptions = [
@@ -171,7 +167,6 @@ const processedWeekDays = computed(() => {
                d.getMonth() === date.getMonth() &&
                d.getDate() === date.getDate();
      });
-     // Simple start time sort
      acts.sort((a,b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
      return { 
        date, 
@@ -203,7 +198,6 @@ const navigateToStats = () => {
   router.push('/stats');
 };
 
-// --- NEW HIGH FIDELITY COMPUTED DATA ---
 const completedToday = computed(() => {
   return familyActivities.value.filter(a => {
     if (a.is_template || !a.starts_at || a.status !== 'completed') return false;
@@ -315,7 +309,6 @@ const splitHighlight = (text) => {
 
 <template>
   <div class="dashboard-root" v-if="dashboard.members.length > 0" style="padding-top: 1rem;">
-    <!-- Title Section -->
     <div class="dash-title-section" style="margin-bottom: 2.5rem;">
        <h1 class="dash-title" style="color: var(--text-primary); font-size: 38px; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; margin-top: 0;">Family Hub</h1>
        <p style="color: var(--text-secondary); font-size: 14px; max-width: 600px; margin: 0; line-height: 1.5;">
@@ -323,7 +316,6 @@ const splitHighlight = (text) => {
        </p>
     </div>
 
-    <!-- Members Section (full-width, above grid) -->
     <div class="members-section">
        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
           <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Active Family Members</h2>
@@ -343,7 +335,6 @@ const splitHighlight = (text) => {
                 </div>
              </div>
 
-             <!-- Objects of Care -->
              <div v-for="(o, i) in dashboard.objectsOfCare" :key="'obj-'+o.id"
                   class="mockup-member-card" :class="'color-' + ((i+activeMembers.length) % 4)">
                 <div class="member-avatar"
@@ -356,7 +347,6 @@ const splitHighlight = (text) => {
                 </div>
              </div>
 
-             <!-- Pending Members -->
              <div v-for="(pm, i) in pendingMembers" :key="'pm-'+pm.user_id"
                   style="border: 2px dashed var(--border); background: var(--bg); border-radius: var(--r-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
                 <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
@@ -370,7 +360,6 @@ const splitHighlight = (text) => {
              </div>
           </div>
 
-          <!-- Today Summary chip (mobile only) -->
           <div class="today-card mockup-member-card color-0" @click="navigateToStats">
              <div class="member-avatar" style="background: var(--primary-soft);">
                 <span style="font-size: 1.2rem;">✅</span>
@@ -383,7 +372,6 @@ const splitHighlight = (text) => {
        </div>
     </div>
 
-    <!-- FULL-WIDTH CALENDAR ROW -->
     <div class="week-section" style="background: var(--surface); border-radius: 20px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid var(--border);">
        <div class="week-header" style="margin-bottom: 2rem;">
           <div>
@@ -415,7 +403,6 @@ const splitHighlight = (text) => {
             </div>
 
             <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
-              <!-- Absence chips -->
               <div v-for="abs in dayObj.dayAbsences" :key="abs.id"
                    style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; color: var(--danger); display: flex; flex-direction: column; gap: 2px;">
                 <div style="display: flex; align-items: center; gap: 3px; font-weight: 800; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -423,7 +410,6 @@ const splitHighlight = (text) => {
                 </div>
                 <div style="font-weight: 700; line-height: 1.2; word-break: break-word;">{{ abs.title }}</div>
               </div>
-              <!-- Activity chips -->
               <div v-for="a in dayObj.acts" :key="a.id"
                    style="border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; font-weight: 600; color: #fff; display: flex; flex-direction: column; gap: 3px; cursor: pointer;"
                    :style="[
@@ -449,10 +435,8 @@ const splitHighlight = (text) => {
        </div><!-- end week-scroll -->
     </div>
 
-    <!-- Main Grid: Left (Offers + KPIs) | Right (Recent) -->
     <div class="dashboard-main-grid">
 
-       <!-- LEFT COLUMN -->
        <div>
 
           <!-- Available Offers -->
@@ -479,7 +463,6 @@ const splitHighlight = (text) => {
              </div>
           </div>
 
-          <!-- KPI Grid -->
           <div class="kpi-grid" @click="navigateToStats" style="cursor: pointer;">
              <KpiCard
                 label="Family Balance"
@@ -511,7 +494,6 @@ const splitHighlight = (text) => {
 
        </div>
 
-       <!-- RIGHT COLUMN -->
        <div style="min-height: 0; display: flex; flex-direction: column;">
           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
              <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 0; margin-bottom: 1.5rem; flex-shrink: 0;">Recent Activity</h3>
@@ -546,7 +528,6 @@ const splitHighlight = (text) => {
 
     </div>
 
-    <!-- Add Care Object Modal -->
     <div v-if="showCareObjectModal" class="modal-overlay">
       <VCard title="Add Care Dependent" style="max-width: 400px; width: 100%;">
         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
@@ -564,7 +545,6 @@ const splitHighlight = (text) => {
       </VCard>
     </div>
 
-    <!-- Absence Logging Modal -->
     <div v-if="showAbsenceModal" class="modal-overlay">
       <VCard title="Log Time Off" style="max-width: 400px; width: 100%;">
         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
@@ -602,7 +582,6 @@ const splitHighlight = (text) => {
       </VCard>
     </div>
 
-    <!-- Render child modal routes (e.g. Daily Details) -->
     <router-view />
   </div>
 </template>
@@ -711,7 +690,6 @@ const splitHighlight = (text) => {
   font-size: 2rem;
 }
 
-/* ── Section spacing ─────────────────────────────────────── */
 .members-section { margin-bottom: 2.5rem; }
 .members-row { display: block; }
 .today-card { display: none !important; }
@@ -755,7 +733,6 @@ const splitHighlight = (text) => {
   color: var(--text-primary);
 }
 
-/* ── Main layout grids ───────────────────────────────────── */
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -782,7 +759,6 @@ const splitHighlight = (text) => {
   }
 }
 
-/* ── Weekly scroll wrapper ───────────────────────────────── */
 .week-scroll {
   overflow-x: auto;
   border-radius: var(--r-lg);
@@ -791,7 +767,6 @@ const splitHighlight = (text) => {
 .week-scroll .mockup-weekly-row { min-width: 700px; }
 .week-scroll .mockup-day-col    { min-width: 100px; }
 
-/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .dashboard-root {
     padding: 1rem;
@@ -809,7 +784,6 @@ const splitHighlight = (text) => {
 
   .manage-tribe-link { display: none; }
 
-  /* Members row: grid + today chip side by side */
   .members-row {
     display: flex;
     align-items: stretch;
@@ -822,11 +796,9 @@ const splitHighlight = (text) => {
     gap: 0.6rem !important;
   }
 
-  /* Compact member cards on mobile */
   .mockup-member-card { padding: 12px 8px; }
   .member-avatar { width: 44px; height: 44px; font-size: 1.3rem; }
 
-  /* Today summary chip */
   .today-card {
     display: flex !important;
     width: 90px;
@@ -863,7 +835,6 @@ const splitHighlight = (text) => {
   .dash-title { font-size: 24px; }
 }
 
-/* ── Date + time split inputs ────────────────────────────── */
 .datetime-row {
   display: flex;
   gap: 8px;

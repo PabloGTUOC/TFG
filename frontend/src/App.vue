@@ -24,7 +24,6 @@ const closeDropdown = (e) => {
   }
 };
 
-// Sync FCM token whenever the user logs in or the page refreshes while logged in
 watch(user, (u) => { if (u) initNotifications(); });
 
 const onVisibilityChange = () => {
@@ -63,7 +62,6 @@ const coinAliasInitial = computed(() => {
   </div>
   <div v-else class="app-layout">
 
-    <!-- Floating Pill Navigation -->
     <header class="pill-header" v-if="user">
       <div class="pill-container">
 
@@ -94,7 +92,6 @@ const coinAliasInitial = computed(() => {
         </nav>
 
         <div class="pill-right">
-          <!-- Coin Counter -->
           <div v-if="families && families.length > 0" class="coin-counter" :title="families[0].alias || 'Go to Personal Area'" @click="router.push('/profile')">
             <span class="coin-avatar">{{ coinAliasInitial }}</span>
             <span class="coin-amount">{{ families[0].coin_balance }}</span>
@@ -128,7 +125,6 @@ const coinAliasInitial = computed(() => {
       </div>
     </main>
 
-    <!-- Bottom Tab Navigation (mobile only) -->
     <nav class="bottom-tab-bar" v-if="user && families && families.length > 0">
       <router-link to="/dashboard" class="tab-item">
         <Home :size="20" :stroke-width="2.5" />
@@ -161,9 +157,6 @@ const coinAliasInitial = computed(() => {
   flex-direction: column;
 }
 
-/* -------------------
-   Floating Pill Navigation
-------------------- */
 .pill-header {
   width: 96%;
   max-width: 1140px;
@@ -252,7 +245,6 @@ const coinAliasInitial = computed(() => {
   gap: 10px;
 }
 
-/* Coin counter */
 .coin-counter {
   display: flex;
   align-items: center;
@@ -294,7 +286,6 @@ const coinAliasInitial = computed(() => {
   font-size: 13px;
 }
 
-/* Profile avatar */
 .pill-profile {
   position: relative;
 }
@@ -367,9 +358,6 @@ const coinAliasInitial = computed(() => {
   background: var(--danger-soft);
 }
 
-/* -------------------
-   Main Body layout
-------------------- */
 .main-content {
   flex: 1;
   padding: 12px 0 32px 0;
@@ -388,7 +376,6 @@ const coinAliasInitial = computed(() => {
   box-sizing: border-box;
 }
 
-/* Notifications */
 .notifications {
   position: fixed;
   bottom: 2rem;
@@ -421,12 +408,8 @@ const coinAliasInitial = computed(() => {
   color: var(--primary);
 }
 
-/* Bottom Tab Navigation */
 .bottom-tab-bar { display: none; }
 
-/* -------------------
-   Tablet / large phone
-------------------- */
 .mobile-only { display: none; }
 
 @media (max-width: 768px) {
@@ -461,7 +444,6 @@ const coinAliasInitial = computed(() => {
     right: 1rem;
   }
 
-  /* Bottom Tab Bar */
   .bottom-tab-bar {
     display: flex;
     position: fixed;

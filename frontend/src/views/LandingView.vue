@@ -52,11 +52,9 @@ onMounted(() => {
 <template>
   <div class="landing">
 
-    <!-- ── HERO ──────────────────────────────────── -->
     <section class="hero">
       <div class="inner hero-inner">
 
-        <!-- Text column -->
         <div class="hero-text">
           <div class="hero-kicker">For families</div>
           <h1 class="hero-h1">
@@ -74,7 +72,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Visual column: phone mockup + family SVG -->
         <div class="hero-visual">
           <div class="phone-frame">
             <div class="phone-notch"></div>
@@ -131,7 +128,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Family SVG illustration -->
           <svg class="family-svg" viewBox="0 0 200 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <!-- Adult 1 -->
             <circle cx="34" cy="16" r="12" fill="#2563EB"/>
@@ -153,7 +149,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- ── HOW IT WORKS ──────────────────────────── -->
     <section class="section section--white">
       <div class="inner">
         <div class="section-head" data-reveal>
@@ -176,7 +171,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- ── DEMO ──────────────────────────────────── -->
     <section class="section section--tint">
       <div class="inner">
         <div class="section-head" data-reveal>
@@ -194,7 +188,6 @@ onMounted(() => {
           </div>
 
           <div class="demo-screen">
-            <!-- Family Dashboard -->
             <div v-if="activeTab === 'caregiver'" class="screen-content fade-in">
               <div class="sim-title-row">
                 <h3 class="sim-hub-title">Family Hub</h3>
@@ -304,7 +297,6 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Activities & Rewards -->
             <div v-if="activeTab === 'marketplace'" class="screen-content fade-in">
               <div class="screen-header">
                 <h3 class="screen-title">Activities &amp; Rewards Store</h3>
@@ -364,7 +356,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- ── WHY ───────────────────────────────────── -->
     <section class="section section--white">
       <div class="inner">
         <div class="why-grid">
@@ -426,7 +417,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- ── CTA ───────────────────────────────────── -->
     <section class="cta-section" data-reveal>
       <div class="inner cta-inner">
         <h2>Your family's shared economy, starting today.</h2>
@@ -437,7 +427,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- ── FOOTER ────────────────────────────────── -->
     <footer class="footer">
       <div class="inner footer-inner">
         <div class="footer-brand">
@@ -455,7 +444,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ── Root ────────────────────────────────────── */
 .landing {
   width: 100%;
   font-family: var(--font-family);
@@ -466,7 +454,6 @@ onMounted(() => {
   padding: 0 24px;
 }
 
-/* ── Sections ────────────────────────────────── */
 .section        { padding: 88px 0; }
 .section--white { background: var(--surface); }
 .section--tint  { background: var(--bg); }
@@ -488,7 +475,6 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-/* ── Hero ────────────────────────────────────── */
 .hero {
   background: #0E1726;
   padding: 88px 0 100px;
@@ -535,7 +521,6 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-/* ── Phone mockup ────────────────────────────── */
 .hero-visual {
   display: flex;
   flex-direction: column;
@@ -581,7 +566,6 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* Phone screen content */
 .ps-status {
   display: flex;
   justify-content: space-between;
@@ -671,7 +655,6 @@ onMounted(() => {
 .ps-nav-on { opacity: 1; }
 .ps-nav-on span { color: var(--primary); }
 
-/* ── Family SVG ──────────────────────────────── */
 .family-svg {
   width: 150px;
   opacity: 0.9;
@@ -711,7 +694,6 @@ onMounted(() => {
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.12); }
 
-/* ── Steps ───────────────────────────────────── */
 .steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -761,7 +743,6 @@ onMounted(() => {
   margin: 0;
 }
 
-/* ── Demo ────────────────────────────────────── */
 .demo-wrap { max-width: 920px; margin: 0 auto; }
 
 .demo-tabs {
@@ -803,7 +784,6 @@ onMounted(() => {
   box-shadow: 0 4px 24px rgba(14,23,38,0.05);
 }
 
-/* ── Why ─────────────────────────────────────── */
 .why-grid {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
@@ -888,7 +868,6 @@ onMounted(() => {
 .l-amt.positive { color: var(--success); }
 .l-amt.negative { color: var(--danger); }
 
-/* ── CTA ─────────────────────────────────────── */
 .cta-section {
   background: var(--primary);
   padding: 96px 0;
@@ -926,7 +905,6 @@ onMounted(() => {
 .btn-cta:hover  { opacity: 0.96; transform: translateY(-1px); }
 .btn-cta:active { transform: scale(0.98); }
 
-/* ── Footer ──────────────────────────────────── */
 .footer {
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -952,7 +930,6 @@ onMounted(() => {
 }
 .footer-links a:hover { color: var(--primary); }
 
-/* ── Scroll reveal ───────────────────────────── */
 [data-reveal] {
   transition: opacity 0.55s ease-out, transform 0.55s ease-out;
 }
@@ -961,21 +938,18 @@ onMounted(() => {
   transform: translateY(22px);
 }
 
-/* ── Fade (demo tab switch) ──────────────────── */
 .fade-in { animation: fadeIn 0.22s ease-out; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Sim: color helpers ──────────────────────── */
 .color-primary { color: var(--primary); }
 .color-success { color: var(--success); }
 .color-warning { color: var(--warning); }
 .color-danger  { color: var(--danger); }
 .color-dark    { color: var(--text-primary); }
 
-/* ── Sim: dashboard layout ───────────────────── */
 .sim-title-row    { margin-bottom: 20px; }
 .sim-hub-title    { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px; margin: 0 0 4px; }
 .sim-hub-subtitle { color: var(--text-secondary); font-size: 12px; margin: 0; line-height: 1.4; }
@@ -1081,7 +1055,6 @@ onMounted(() => {
 .sim-act-time    { font-size: 9.5px; font-weight: 700; color: var(--text-secondary); }
 .sim-act-amount  { font-size: 9.5px; font-weight: 800; }
 
-/* ── Sim: marketplace screen ─────────────────── */
 .screen-header {
   display: flex;
   justify-content: space-between;
@@ -1154,16 +1127,13 @@ onMounted(() => {
 .btn-action:active { opacity: 0.8; }
 .redeem-btn { background: var(--success); color: #fff; }
 
-/* ── Responsive ──────────────────────────────── */
-
-/* Large tablet — narrow the phone slightly */
+/* Large tablet */
 @media (max-width: 1024px) {
   .hero-inner { gap: 40px; }
   .phone-frame { width: 190px; }
   .phone-screen { height: 352px; }
 }
 
-/* Tablet portrait — 1-column hero, phone above text, layouts stack */
 @media (max-width: 900px) {
   .hero { padding: 64px 0 72px; }
   .hero-inner { grid-template-columns: 1fr; justify-items: center; text-align: center; }
@@ -1177,7 +1147,6 @@ onMounted(() => {
   .sim-dashboard-grid { grid-template-columns: 1fr; }
 }
 
-/* Phone landscape / phablet — hide visual, reduce vertical padding */
 @media (max-width: 768px) {
   .hero { padding: 52px 0 60px; }
   .hero-inner { text-align: center; }
@@ -1191,7 +1160,6 @@ onMounted(() => {
   .screen-grid { grid-template-columns: 1fr; }
 }
 
-/* Phone portrait — single column, compact spacing */
 @media (max-width: 480px) {
   .hero { padding: 44px 0 52px; }
   .section { padding: 44px 0; }
@@ -1209,7 +1177,6 @@ onMounted(() => {
   .footer-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 
-/* ── Reduced motion ──────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { transition: none; }
   .reveal-init  { opacity: 1; transform: none; }

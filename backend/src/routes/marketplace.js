@@ -6,7 +6,6 @@ import { requireRole } from '../middleware/rbac.js';
 
 export const marketplaceRouter = Router();
 
-// Get active rewards for the family
 marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
   const familyId = Number(req.params.familyId);
   if (!familyId) return res.status(400).json({ error: 'Invalid familyId.' });
@@ -53,7 +52,6 @@ marketplaceRouter.get('/rewards/:familyId', async (req, res) => {
   }
 });
 
-// Create a new reward
 marketplaceRouter.post('/rewards',
   validateBody({
     familyId: [required(), positiveInt()],
@@ -93,7 +91,6 @@ marketplaceRouter.post('/rewards',
     }
   });
 
-// Redeem a reward
 marketplaceRouter.post('/rewards/:rewardId/redeem', async (req, res) => {
   const { rewardId } = req.params;
   if (!rewardId || typeof rewardId !== 'string' || rewardId.length < 10) {
@@ -132,13 +129,10 @@ marketplaceRouter.post('/rewards/:rewardId/redeem', async (req, res) => {
         return { error: { code: 409, message: 'Insufficient coins.' } };
       }
 
-      // Deduct coins
       await client.query('UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id=$2 AND user_id=$3', [reward.cost, reward.family_id, me.id]);
 
-      // Log redemption
       await client.query('INSERT INTO reward_redemptions (reward_id, user_id, family_id) VALUES ($1,$2,$3)', [reward.id, me.id, reward.family_id]);
 
-      // Burn coins from economy visibly
       await client.query(
         `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,$4)`,
         [reward.family_id, me.id, -reward.cost, `Redeemed: ${reward.title}`]

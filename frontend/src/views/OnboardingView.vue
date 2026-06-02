@@ -55,7 +55,6 @@ const acceptInvite = (invite) => appStore.runAction(async () => {
 
 const joinByToken = () => appStore.runAction(async () => {
   let token = tokenForm.value.token.trim();
-  // Accept either the full URL or just the UUID
   const match = token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   if (!match) throw new Error('No valid invite token found. Paste the full invite link or just the token.');
   token = match[0];

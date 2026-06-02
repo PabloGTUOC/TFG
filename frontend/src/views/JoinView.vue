@@ -21,7 +21,6 @@ onMounted(async () => {
     return;
   }
 
-  // Not logged in — store the full URL and redirect to login
   await appStore.waitForAuth();
   if (!appStore.user) {
     sessionStorage.setItem('returnUrl', route.fullPath);

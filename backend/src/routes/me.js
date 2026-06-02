@@ -142,7 +142,6 @@ meRouter.post('/logout-event', async (req, res) => {
           [eventId, user.id]
         );
       } else {
-        // Fallback: update the most recent open session
         await client.query(
           `UPDATE login_history SET logout_at = NOW() 
            WHERE id = (
@@ -239,7 +238,7 @@ meRouter.get('/login-history', async (req, res) => {
 
 meRouter.get('/ledger', async (req, res) => {
   const familyId = Number(req.query.familyId);
-  const monthStr = req.query.month; // Expected YYYY-MM
+  const monthStr = req.query.month;
   if (!familyId || !monthStr) return res.status(400).json({ error: 'familyId and month (YYYY-MM) required.' });
 
   try {
@@ -277,31 +276,27 @@ meRouter.delete('/', async (req, res) => {
     await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
 
-      // 1. Delete future activities assigned to the user
       await client.query(`
-        DELETE FROM activities 
+        DELETE FROM activities
         WHERE assigned_to = $1 AND starts_at > NOW()
       `, [user.id]);
 
-      // 2. Mark family_members status as inactive
       await client.query(`
-        UPDATE family_members 
-        SET status = 'inactive' 
+        UPDATE family_members
+        SET status = 'inactive'
         WHERE user_id = $1
       `, [user.id]);
 
-      // 3. Anonymize user record
       await client.query(`
-        UPDATE users 
-        SET email = NULL, 
-            display_name = 'Deleted User', 
-            firebase_uid = 'deleted_' || id, 
+        UPDATE users
+        SET email = NULL,
+            display_name = 'Deleted User',
+            firebase_uid = 'deleted_' || id,
             is_deleted = true,
             avatar_url = NULL
         WHERE id = $1
       `, [user.id]);
 
-      // 4. Delete from Firebase Auth
       await deleteFirebaseUser(req.auth.uid);
     });
 

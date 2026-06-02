@@ -157,7 +157,6 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
     const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
 
-      // Load the approved template
       const { rows: tmpl } = await client.query(
         `SELECT * FROM activities
          WHERE id = $1
@@ -186,7 +185,6 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         }
       }
 
-      // Check if user has an absence overlapping with the new activity
       const { rows: absenceOverlap } = await client.query(
         `SELECT id, title FROM absences
          WHERE user_id = $1
@@ -204,7 +202,6 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         };
       }
 
-      // Check if this exceeds the monthly budget (before inserting)
       const { rows: budgetRows } = await client.query(`
         SELECT 
           f.monthly_coin_budget,
@@ -227,7 +224,6 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         }
       }
 
-      // Insert a new instance row (is_template = false)
       const { rows } = await client.query(
         `INSERT INTO activities
            (family_id, created_by, assigned_to, title, category,
@@ -312,7 +308,6 @@ activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), v
 
       const act = actRows[0];
 
-      // Calculate dates
       let current = new Date(act.starts_at);
       const clones = [];
 
@@ -343,7 +338,7 @@ activitiesRouter.post('/:activityId/recurrence', validateParams('activityId'), v
           [act.assigned_to, act.family_id, startIso, endIso]
         );
 
-        if (absenceOverlap.length > 0) continue; // Skip days where caregiver is absent
+        if (absenceOverlap.length > 0) continue;
 
         const initialStatus = 'approved'; 
 
@@ -459,14 +454,12 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
       if (act.status !== 'pending_validation') return { error: { code: 409, message: 'Activity is not pending validation.' } };
       if (act.assigned_to === me.id) return { error: { code: 403, message: 'You cannot validate your own retroactive activity.' } };
 
-      // Make it completed
       await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [act.id]);
 
       const bountyAmt = act.bounty_amount || 0;
       const totalAward = (act.coin_value || 0) + bountyAmt;
 
       if (totalAward > 0) {
-        // Award the coins to the assignee!
         await client.query(
           `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
           [totalAward, act.family_id, act.assigned_to]
@@ -527,7 +520,6 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
 
       if (act.assigned_to !== me.id) return { error: { code: 403, message: 'Only the assigned caregiver can offer a bounty on this shift.' } };
 
-      // Check if they have enough money to offer this bounty realistically
       const { rows: memRows } = await client.query(
         `SELECT coin_balance FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
         [act.family_id, me.id]
@@ -592,7 +584,6 @@ activitiesRouter.post('/:id/accept-bounty', validateParams('id'), async (req, re
       if (act.assigned_to === me.id) return { error: { code: 409, message: 'You already own this shift.' } };
       if (!act.bounty_amount || !act.bounty_offered_by) return { error: { code: 409, message: 'No bounty available.' } };
 
-      // Transfer ownership of shift natively, leave escrowed coins on the activity
       await client.query(
         `UPDATE activities SET assigned_to = $1 WHERE id = $2`,
         [me.id, activityId]
@@ -645,8 +636,6 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
       const isCaregiver = !caregiverCheck;
       if (act.assigned_to !== me.id && !isCaregiver) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
       if (act.status !== 'approved' && act.status !== 'pending_validation' && act.status !== 'pending') return { error: { code: 409, message: 'Can only un-schedule upcoming activities.' } };
-
-      // Revert bounty if the person offered one — coins were charged at offer time, so refund them now.
 
       if (isSeries) {
         const { rows: refundRows } = await client.query(`
@@ -716,7 +705,6 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
       const bountyAmt = act.bounty_amount || 0;
       const totalAward = (act.coin_value || 0) + bountyAmt;
 
-      // Deduct the coins!
       if (totalAward > 0) {
         await client.query(
           `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
@@ -728,7 +716,6 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
         }
         if (bountyAmt > 0) {
           await client.query(`UPDATE coin_ledger SET amount = $1, reason = 'bounty_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'bounty_earned'`, [-bountyAmt, activityId, me.id]);
-          // Return escrowed coins to the original offerer
           await client.query(
             `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
             [bountyAmt, act.family_id, act.bounty_offered_by]
@@ -737,7 +724,6 @@ activitiesRouter.post('/:id/revert', validateParams('id'), async (req, res) => {
         }
       }
 
-      // Revert status to rejected
       await client.query(`UPDATE activities SET status = 'rejected' WHERE id = $1`, [activityId]);
 
       return { data: { success: true, coinsDeducted: totalAward } };

@@ -29,9 +29,6 @@ export const useAuthStore = defineStore('auth', {
         this.user = user;
         if (user) {
           this.token = await user.getIdToken();
-          // Only fetch on page load/refresh (authReady=false).
-          // After login/register the action has already called fetchUserData(),
-          // and on token refresh we only need the new token.
           if (!this.authReady) {
             await useFamilyStore().fetchUserData();
           }
@@ -44,7 +41,6 @@ export const useAuthStore = defineStore('auth', {
       });
     },
 
-    // Returns a promise that resolves once Firebase auth state is known.
     waitForAuth() {
       if (this.authReady) return Promise.resolve();
       return new Promise(resolve => {

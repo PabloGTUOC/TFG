@@ -14,7 +14,6 @@ statsRouter.get('/:familyId', async (req, res) => {
 
             if (!await assertActiveMember(client, familyId, user.id)) return null;
 
-            // 1. Overall Lifetime KPIs
             const { rows: kpis } = await client.query(
                 `SELECT
            COALESCE(SUM(coin_value), 0)::int as total_lifetime_coins,
@@ -31,7 +30,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 1.5 Get ALL valid caregivers
             const { rows: caregiversList } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name
                  FROM family_members fm
@@ -41,7 +39,6 @@ statsRouter.get('/:familyId', async (req, res) => {
             );
             const activeCaregivers = caregiversList.map(c => c.name);
 
-            // 2. Trend by Month
             const { rows: trendByMonth } = await client.query(
                 `SELECT
            COALESCE(fm.alias, u.display_name, 'Unknown') as caregiver,
@@ -58,7 +55,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 3. Category Split
             const { rows: categorySplit } = await client.query(
                 `SELECT
            COALESCE(fm.alias, u.display_name, 'Unknown') as caregiver,
@@ -72,7 +68,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 4. Activity Frequency
             const { rows: activityFrequency } = await client.query(
                 `SELECT
            COALESCE(fm.alias, u.display_name, 'Unknown') as caregiver,
@@ -88,7 +83,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 5. Coin balance leaderboard (all active members)
             const { rows: memberBalances } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name,
                         fm.coin_balance,
@@ -100,7 +94,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 6. Bounty stats per user (offered / earned / refunded)
             const { rows: bountyStats } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name,
                         SUM(CASE WHEN cl.reason IN ('bounty_escrow', 'bounty_paid') THEN ABS(cl.amount) ELSE 0 END)::int as offered,
@@ -115,7 +108,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 7. Rewards claimed per user
             const { rows: rewardsByUser } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name,
                         COUNT(rr.id)::int as redemptions,
@@ -130,7 +122,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 8. Most popular rewards
             const { rows: topRewards } = await client.query(
                 `SELECT mr.title, mr.cost, COUNT(rr.id)::int as redemptions
                  FROM marketplace_rewards mr
@@ -142,7 +133,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 9. Completion rate per caregiver (mirrors trendByMonth join — no is_template filter)
             const { rows: completionRates } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as caregiver,
                         COUNT(*)::int as total,
@@ -157,7 +147,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 10. Activity status distribution
             const { rows: statusDistribution } = await client.query(
                 `SELECT status, COUNT(*)::int as count
                  FROM activities
@@ -166,7 +155,6 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
-            // 11. Coin flow by reason per month (normalise marketplace redemptions)
             const { rows: coinFlowByReason } = await client.query(
                 `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') as month,
                         CASE WHEN reason LIKE 'Redeemed%' THEN 'redeemed'

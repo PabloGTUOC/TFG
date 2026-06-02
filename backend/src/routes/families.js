@@ -129,7 +129,6 @@ familiesRouter.post('/', validateBody({
     return res.status(400).json({ error: 'name is required.' });
   }
 
-  // Calculate monthly budget based on objects of care.
   let monthlyCoinBudget = 0;
   for (const obj of objectsOfCare) {
     if (obj.careTime === 'full_time') {
@@ -166,14 +165,12 @@ familiesRouter.post('/', validateBody({
         [famId, user.id, alias ? alias.trim() : null]
       );
 
-      // Add creator to actors as person
       await client.query(
         `INSERT INTO actors (family_id, user_id, actor_type, name)
          VALUES ($1, $2, 'person', $3)`,
         [famId, user.id, user.display_name]
       );
 
-      // Add invitations
       for (const ct of caretakers) {
         if (ct.email && ct.email.trim()) {
           await client.query(
@@ -185,7 +182,6 @@ familiesRouter.post('/', validateBody({
         }
       }
 
-      // Add objects of care -> actors
       for (const obj of objectsOfCare) {
         if (obj.name && obj.name.trim()) {
           await client.query(
@@ -196,7 +192,6 @@ familiesRouter.post('/', validateBody({
         }
       }
 
-      // Seed default templates tailored to this family's objects of care
       await insertDefaultActivities(client, famId, user.id, objectsOfCare);
 
       return createdFamily.rows[0];
@@ -210,7 +205,6 @@ familiesRouter.post('/', validateBody({
 });
 
 
-// Accept an email-based invitation — only works if the user's email has a pending invite.
 familiesRouter.post('/join-request', validateBody({
   familyId: [required(), positiveInt()],
   alias: [string(1, 50)],
@@ -267,7 +261,6 @@ familiesRouter.post('/join-request', validateBody({
   }
 });
 
-// Join a family via a shareable invite link token.
 familiesRouter.post('/join-by-token', validateBody({
   token: [required(), string(1, 500)],
   alias: [string(1, 50)],
@@ -577,7 +570,6 @@ familiesRouter.post('/:familyId/invitations',
     const familyId = Number(req.params.familyId);
     const { email, name } = req.body;
 
-    // Basic email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email address.' });
     }
@@ -765,7 +757,6 @@ familiesRouter.post('/:familyId/deletion-requests/:requestId/approve',
 
         if (!approvalRows.length) return { error: { code: 404, message: 'Approval record not found or not yours.' } };
 
-        // Check if all approvals are met
         const { rows: pending } = await client.query(
           `SELECT id FROM family_deletion_approvals WHERE request_id = $1 AND status != 'approved'`,
           [requestId]

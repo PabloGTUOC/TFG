@@ -28,7 +28,6 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (e.g. mobile apps, curl) only in development
     if (!origin) {
       return callback(null, process.env.NODE_ENV !== 'production');
     }
@@ -41,7 +40,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// 1. Keep a loose global limiter as a DoS shield
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -50,7 +48,6 @@ app.use(rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 }));
 
-// 2. Add a tighter per-user limiter applied after auth
 const perUserLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,

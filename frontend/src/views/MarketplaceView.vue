@@ -202,10 +202,8 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 </template>
 
 <style scoped>
-/* ── Tab bar (mobile only) ──────────────────────── */
 .mkt-tab-bar { display: none; }
 
-/* ── Grid ───────────────────────────────────────── */
 .reward-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -215,7 +213,6 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   list-style: none;
 }
 
-/* ── Card ───────────────────────────────────────── */
 .reward-item {
   display: flex;
   flex-direction: column;
@@ -236,7 +233,6 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   .buy-btn { transition: none; }
 }
 
-/* ── Banner ─────────────────────────────────────── */
 .reward-banner {
   height: 110px;
   display: flex;
@@ -261,7 +257,6 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   .reward-icon { animation: none; }
 }
 
-/* ── Body ───────────────────────────────────────── */
 .reward-content {
   padding: 1.25rem 1.5rem;
   flex: 1;
@@ -290,7 +285,6 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 .badge-warning { background: var(--warning-soft); color: var(--warning); }
 .badge-danger  { background: var(--danger-soft);  color: var(--danger);  }
 
-/* ── Footer ─────────────────────────────────────── */
 .reward-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border);
@@ -325,7 +319,6 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 .buy-btn:hover  { opacity: 0.88; transform: scale(1.04); }
 .buy-btn:active { transform: scale(0.97); }
 
-/* ── Admin form ─────────────────────────────────── */
 .grid.three {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

@@ -24,7 +24,6 @@ registerSW({ immediate: true });
 const app = createApp(App);
 app.use(createPinia());
 
-// Start auth listener immediately
 useAuthStore().initAuthListener();
 
 app.component('VChart', VChart);

@@ -20,7 +20,6 @@ const onKeyDown = (e) => { if (e.key === 'Escape') closeDailyView(); };
 onMounted(() => window.addEventListener('keydown', onKeyDown));
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown));
 
-// Extract the date param (e.g. '2026-03-24')
 const targetDateStr = computed(() => route.params.date);
 const targetDate = computed(() => {
   const [y, m, d] = targetDateStr.value.split('-');
@@ -121,7 +120,6 @@ const recurrenceForm = ref({ activityId: '', title: '', frequency: 'daily', unti
 const showDeleteModal = ref(false);
 const deleteTarget = ref(null);
 
-// --- Absence Management ---
 const absences = ref([]);
 const showAbsenceModal = ref(false);
 const isSubmittingAbsence = ref(false);
@@ -196,7 +194,6 @@ const absencesToday = computed(() => {
     const end = new Date(a.end_time);
     const target = targetDate.value;
     
-    // Check if the absence overlaps with targetDate
     const dayStart = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, 0, 0);
     const dayEnd = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59);
     
@@ -242,7 +239,6 @@ const confirmRecurrence = async () => {
   }, 'Propagating scheduled activities...');
 };
 
-// --- Bounty Feature ---
 const showBountyModal = ref(false);
 const bountyForm = ref({ activityId: '', title: '', amount: '' });
 
@@ -355,7 +351,6 @@ watch(isLoadingActivities, (loading) => {
   if (!loading) nextTick(() => scrollToNow());
 });
 
-// Column 1: Unscheduled Templates
 const searchQuery = ref('');
 const categoryFilter = ref('all');
 
@@ -492,7 +487,6 @@ const scheduledToday = computed(() => {
   return positionedActs;
 });
 
-// Column 3: Completed Today
 const completedToday = computed(() => {
   return familyActivities.value.filter(a => {
     if (a.is_template || !a.starts_at || a.status !== 'completed') return false;
@@ -505,7 +499,6 @@ const completedToday = computed(() => {
 
 const todayCoins = computed(() => completedToday.value.reduce((sum, a) => sum + (a.coin_value||0), 0));
 
-// Drag & Drop Mechanics
 const dragStart = (event, activity) => {
   event.dataTransfer.effectAllowed = 'copyMove';
   event.dataTransfer.setData('text/plain', JSON.stringify({ type: 'template', activity }));
@@ -541,7 +534,6 @@ const dropOnTimeline = (event) => {
   
   try {
     const payload = JSON.parse(j);
-    // Calc vertical drop %
     const rect = event.currentTarget.getBoundingClientRect();
     const y = Math.max(0, event.clientY - rect.top);
     const percentage = y / rect.height;
@@ -582,12 +574,10 @@ const confirmSchedule = async () => {
   const d = new Date(targetDate.value);
   d.setHours(Number(hh), Number(mm), 0, 0);
 
-  // Frontend check for absence overlap (user-specific)
-  const activityEnd = new Date(d.getTime() + 60 * 60000); 
+  const activityEnd = new Date(d.getTime() + 60 * 60000);
   const hasOverlap = absencesToday.value.some(a => {
     const aStart = new Date(a.start_time);
     const aEnd = new Date(a.end_time);
-    // Only block if the absence belongs to the current user (the one being assigned)
     return String(a.user_id) === String(familyStore.profile?.id) && aStart < activityEnd && aEnd > d;
   });
 
@@ -660,10 +650,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
         </div>
       </div>
 
-    <!-- 3 Column Layout -->
     <div class="daily-grid">
       
-      <!-- COL 1: Task Library -->
       <VCard title="Task Library" class="col-card" style="box-shadow: none; border: none; background: transparent;">
          <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1rem; flex-shrink: 0;">Drag icons to the timeline to schedule your day.</p>
          
@@ -707,12 +695,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
          </div>
       </VCard>
 
-      <!-- Right Column: Timeline & Completed Bar -->
       <div class="timeline-col">
         
-        <!-- COL 2: Scheduled Timeline -->
         <VCard :title="scheduledTitle" class="agenda-card" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
-           <!-- All-Day Banner Row for Absences -->
            <div v-if="absencesToday.length > 0" class="absence-banner-row">
              <div v-for="a in absencesToday" :key="a.id"
                   style="background: var(--danger-soft); border: 1px solid var(--danger-soft); border-radius: var(--r-sm); padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--danger); display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"
@@ -725,10 +710,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
              </div>
            </div>
 
-           <!-- Desktop/Tablet Timeline -->
            <div class="timeline-container desktop-only" @dragover.prevent @drop.prevent.stop="dropOnTimeline($event)">
              <div class="timeline-inner">
-              <!-- Draw 18 hr lines -->
               <div class="hour-lines" style="position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column;">
                  <div v-for="h in 19" :key="h" class="h-line">
                    <span class="h-label">{{ (h+5) > 12 ? (h+5)-12 : (h+5) }}:00 {{ (h+5) >= 12 ? 'PM' : 'AM' }}</span>
@@ -736,13 +719,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                  </div>
               </div>
 
-               <!-- Now line -->
                <div v-if="nowLineTop !== null" :style="{ position: 'absolute', top: nowLineTop + '%', left: '60px', right: '10px', zIndex: 50, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '0' }">
                  <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex-shrink: 0;"></div>
                  <div style="flex: 1; height: 2px; background: var(--danger);"></div>
                </div>
 
-               <!-- Absolute positioned chips -->
                <div v-for="a in scheduledToday" :key="a.id"
                     class="scheduled-chip"
                     :style="[
@@ -799,7 +780,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
              </div>
            </div>
          
-         <!-- Mobile Timeline View — condensed list -->
          <div class="mobile-timeline mobile-only" ref="mobileTimelineRef"
               @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
            <template v-if="isLoadingActivities">
@@ -945,14 +925,12 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </div> <!-- end daily-grid -->
     </div> <!-- end daily-wrapper -->
 
-    <!-- Back FAB -->
     <button class="daily-back-fab" @click="closeDailyView" aria-label="Back to Family Hub">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M19 12H5M12 19l-7-7 7-7"/>
       </svg>
     </button>
 
-    <!-- Mobile bottom bar: back button + add button -->
     <div class="mobile-bottom-bar mobile-only">
       <button class="mobile-bottom-back" @click="closeDailyView" aria-label="Back to Family Hub">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -971,7 +949,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 
   </div> <!-- end daily-fullscreen-overlay -->
 
-  <!-- Task Library Bottom Sheet (mobile) -->
   <div v-if="showTaskSheet" class="task-sheet-backdrop" @click.self="showTaskSheet = false; pendingScheduleHour = null; pendingScheduleMinute = null;">
     <div class="task-sheet">
       <div class="task-sheet-handle"></div>
@@ -1028,7 +1005,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </div>
   </div>
 
-  <!-- Recurrence Modal -->
   <div v-if="showRecurrenceModal" class="modal-overlay">
     <VCard title="Schedule Future Copies" style="max-width: 350px; width: 100%;">
       <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
@@ -1053,7 +1029,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Time Modal -->
   <div v-if="showScheduleModal" class="modal-overlay bs-overlay">
     <VCard title="Confirm Time" style="max-width: 320px; width: 100%;">
       <div class="sheet-handle-bar"></div>
@@ -1080,7 +1055,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Bounty Modal -->
   <div v-if="showBountyModal" class="modal-overlay">
     <VCard title="Delegate Task (Bribe)" style="max-width: 350px; width: 100%;">
       <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
@@ -1102,7 +1076,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Delete Modal -->
   <div v-if="showDeleteModal" class="modal-overlay bs-overlay">
     <VCard title="Delete Recurring Activity" style="max-width: 350px; width: 100%;">
       <div class="sheet-handle-bar"></div>
@@ -1118,7 +1091,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Absence Logging Modal -->
   <div v-if="showAbsenceModal" class="modal-overlay">
     <VCard title="Log Time Off" style="max-width: 400px; width: 100%;">
       <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
@@ -1156,7 +1128,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Absence Detail Modal -->
   <div v-if="showAbsenceDetailModal" class="modal-overlay">
     <VCard title="Absence Details" style="max-width: 350px; width: 100%;">
       <div style="margin-bottom: 1.5rem;">
@@ -1185,7 +1156,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
     </VCard>
   </div>
 
-  <!-- Accept Bounty Confirmation Modal -->
   <div v-if="showAcceptBountyModal" class="modal-overlay">
     <VCard title="Claim task" style="max-width: 350px; width: 100%;">
       <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
@@ -1303,7 +1273,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   height: calc(100vh - 4rem); /* Occupy full viewport height minus padding */
 }
 
-/* Fix VCard internal layout to properly constrain height for the scrollable child */
 .col-card :deep(.v-card-body) {
   display: flex;
   flex-direction: column;
@@ -1311,7 +1280,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   min-height: 0;
 }
 
-/* Template Grid (Col 1) */
 .template-grid {
   display: flex;
   flex-direction: column;
@@ -1355,7 +1323,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   min-height: 600px;
 }
 
-/* Timeline (Col 2) */
 .timeline-container {
   flex: 1;
   position: relative;
@@ -1409,7 +1376,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 }
 .validate-btn:hover { background: rgba(255,255,255,0.45); }
 
-/* Completed (Col 3) */
 .confetti-bg {
   background-image: radial-gradient(var(--primary-soft) 1px, transparent 1px), radial-gradient(var(--success-soft) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -1495,7 +1461,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   }
 }
 
-/* ---- Mobile Timeline (condensed list) ---- */
 .mobile-timeline {
   flex: 1;
   overflow-y: auto;

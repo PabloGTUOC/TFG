@@ -25,7 +25,6 @@ const router = createRouter({
         { path: '/daily/:date', name: 'daily', component: DailyView, meta: { requiresAuth: true } },
         { path: '/marketplace', name: 'marketplace', component: MarketplaceView, meta: { requiresAuth: true } },
         { path: '/stats', name: 'stats', component: StatsView, meta: { requiresAuth: true } },
-        // Catch-all
         { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
     ]
 });
@@ -39,7 +38,6 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = !!authStore.user;
 
     if (to.meta.requiresAuth && !isAuthenticated) {
-        // Preserve the destination so we can return after login
         sessionStorage.setItem('returnUrl', to.fullPath);
         next('/login');
     } else if (isAuthenticated) {
@@ -49,7 +47,6 @@ router.beforeEach(async (to, from, next) => {
         if (!hasFamilies && !noFamilyAllowed.includes(to.name)) {
             next('/onboarding');
         } else if (to.meta.guest) {
-            // After login, honour any stored return URL (e.g. /join?token=...)
             const returnUrl = sessionStorage.getItem('returnUrl');
             if (returnUrl) {
                 sessionStorage.removeItem('returnUrl');

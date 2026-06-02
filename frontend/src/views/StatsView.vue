@@ -35,7 +35,6 @@ watch(familyId, () => loadStats(), { immediate: true });
 
 const navigateBack = () => router.push('/dashboard');
 
-// Extract universal caregivers from the API explicitly to ensure zero-task caregivers aren't clipped
 const caregivers = computed(() => {
   if (!stats.value) return [];
   return stats.value.activeCaregivers || [];
@@ -51,7 +50,6 @@ const SEMANTIC = {
 };
 const colors = [SEMANTIC.primary, SEMANTIC.success, SEMANTIC.warning, SEMANTIC.danger];
 
-// --- TREND LINE CONFIG ---
 const trendOptions = computed(() => {
   if (!stats.value) return {};
   
@@ -83,7 +81,6 @@ const trendOptions = computed(() => {
       series
     };
   } else {
-    // Single Global Family Line
     const data = months.map(m => {
        return stats.value.trendByMonth
           .filter(t => t.month === m)
@@ -111,12 +108,10 @@ const trendOptions = computed(() => {
   }
 });
 
-// --- CATEGORY PIE / BAR CONFIG ---
 const categoryOptions = computed(() => {
   if (!stats.value) return {};
 
   if (compareCaregivers.value && caregivers.value.length > 1) {
-     // Side-by-side grouped bar for categories to compare easily
      const cats = ['care', 'household'];
      const series = caregivers.value.map((cg, i) => {
         const data = cats.map(c => {
@@ -139,7 +134,6 @@ const categoryOptions = computed(() => {
         series
      };
   } else {
-     // Classic single Pie Chart representing family totals
      const careCount = stats.value.categorySplit.filter(c => c.category === 'care').reduce((sum, c) => sum + c.value, 0);
      const houseCount = stats.value.categorySplit.filter(c => c.category === 'household').reduce((sum, c) => sum + c.value, 0);
      
@@ -160,7 +154,6 @@ const categoryOptions = computed(() => {
   }
 });
 
-// --- COIN FLOW BY REASON (stacked bar) ---
 const coinFlowOptions = computed(() => {
   if (!stats.value?.coinFlowByReason?.length) return {};
   const flowData = stats.value.coinFlowByReason;
@@ -185,7 +178,6 @@ const coinFlowOptions = computed(() => {
   };
 });
 
-// --- LEADERBOARD (coin balance) ---
 const leaderboardOptions = computed(() => {
   if (!stats.value?.memberBalances?.length) return {};
   const data = [...stats.value.memberBalances].reverse();
@@ -202,7 +194,6 @@ const leaderboardOptions = computed(() => {
   };
 });
 
-// --- COMPLETION RATE ---
 const completionRateOptions = computed(() => {
   if (!stats.value?.completionRates?.length) return {};
   const data = [...stats.value.completionRates].map(d => ({ name: d.caregiver, rate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0, completed: d.completed, total: d.total })).reverse();
@@ -219,7 +210,6 @@ const completionRateOptions = computed(() => {
   };
 });
 
-// --- ACTIVITY STATUS DISTRIBUTION (donut) ---
 const statusDistOptions = computed(() => {
   if (!stats.value?.statusDistribution?.length) return {};
   const colorMap   = { completed: SEMANTIC.success, approved: SEMANTIC.primary, pending: SEMANTIC.warning, rejected: SEMANTIC.danger, pending_validation: SEMANTIC.primary };
@@ -236,7 +226,6 @@ const statusDistOptions = computed(() => {
   };
 });
 
-// --- BOUNTY STATS (offered / earned / refunded per user) ---
 const bountyOptions = computed(() => {
   if (!stats.value?.bountyStats?.length) return {};
   const data = stats.value.bountyStats;
@@ -255,7 +244,6 @@ const bountyOptions = computed(() => {
   };
 });
 
-// --- REWARDS CLAIMED BY USER ---
 const rewardsByUserOptions = computed(() => {
   if (!stats.value?.rewardsByUser?.length) return {};
   const data = [...stats.value.rewardsByUser].reverse();
@@ -273,7 +261,6 @@ const rewardsByUserOptions = computed(() => {
   };
 });
 
-// --- TOP REWARDS BY POPULARITY ---
 const topRewardsOptions = computed(() => {
   if (!stats.value?.topRewards?.length) return {};
   const data = [...stats.value.topRewards].reverse();
@@ -291,11 +278,9 @@ const topRewardsOptions = computed(() => {
   };
 });
 
-// --- ACTIVITY FREQUENCY BAR CONFIG ---
 const frequencyOptions = computed(() => {
   if (!stats.value) return {};
 
-  // Find the top 6 most common tasks across the family globally to set the Y-axis
   const GlobalFreqMap = {};
   stats.value.activityFrequency.forEach(a => {
      GlobalFreqMap[a.title] = (GlobalFreqMap[a.title] || 0) + a.value;
@@ -372,7 +357,6 @@ const frequencyOptions = computed(() => {
 
     <div v-if="!isLoading && stats" class="stats-body">
 
-      <!-- Mobile tab bar -->
       <div class="stats-tab-bar">
         <button :class="['stab', activeTab === 'overview' && 'stab--active']" @click="activeTab = 'overview'">Overview</button>
         <button :class="['stab', activeTab === 'members' && 'stab--active']" @click="activeTab = 'members'">Members</button>
@@ -622,14 +606,11 @@ input:checked + .slider:before { transform: translateX(22px); }
   margin: -8px 0 14px;
 }
 
-/* Desktop base styles for new header classes */
 .stats-header-row  { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .stats-header-left { display: flex; align-items: center; gap: 2rem; }
 
-/* ── Tab bar (mobile only) ──────────────────────── */
 .stats-tab-bar { display: none; }
 
-/* Tablet / large phone — stack grids at 768px */
 @media (max-width: 768px) {
   .stats-container { padding: 1.5rem 1rem; }
 
@@ -640,13 +621,10 @@ input:checked + .slider:before { transform: translateX(22px); }
   .stats-title { font-size: 1.8rem; }
   .mobile-hidden { display: none !important; }
 
-  /* KPI cards — keep 2 columns, tighten gap */
   .kpi-grid { gap: 1rem; }
 
-  /* All 2-col chart grids stack */
   .grid-2-cols { grid-template-columns: 1fr; gap: 1rem; }
 
-  /* Tab bar */
   .stats-tab-bar {
     display: flex;
     background: var(--bg);
@@ -678,7 +656,6 @@ input:checked + .slider:before { transform: translateX(22px); }
   .tab-hidden { display: none !important; }
 }
 
-/* Phone tweaks */
 @media (max-width: 480px) {
   .stats-title { font-size: 1.5rem; }
   .kpi-value { font-size: 1.8rem; }

@@ -24,13 +24,11 @@ dashboardRouter.get('/:familyId', async (req, res) => {
       const currentMonthStr = new Date().toISOString().slice(0, 7);
 
       if (!family.last_coin_distribution_month) {
-        // First time initialization
         await client.query(
           'UPDATE families SET last_coin_distribution_month = $1 WHERE id = $2',
           [currentMonthStr, familyId]
         );
       } else if (family.last_coin_distribution_month < currentMonthStr) {
-        // SWEEP PAST MONTHS
         let sweepMonthStr = family.last_coin_distribution_month;
 
         while (sweepMonthStr < currentMonthStr) {
@@ -63,7 +61,6 @@ dashboardRouter.get('/:familyId', async (req, res) => {
 
             const unclaimed = Math.max(0, totalGdp - explicit[0].total);
 
-            // Split and distribute
             const { rows: caretakers } = await client.query(
               `SELECT id, user_id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
               [familyId]
@@ -88,7 +85,6 @@ dashboardRouter.get('/:familyId', async (req, res) => {
             }
           }
 
-          // Advance month
           month++;
           if (month > 12) { month = 1; year++; }
           sweepMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
