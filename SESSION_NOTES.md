@@ -2,6 +2,33 @@
 
 ---
 
+## Session 10 — Notification testing + local DB setup (2026-06-02)
+
+### Local DB migrations
+Local dev backend (`postgres://localhost:5433/carecoins`) was missing `fcm_tokens`, `fcm_tokens_user_id` index, and `notification_preferences` tables — only Docker runs `init-db.js` automatically. Ran migrations manually via Node:
+```
+scripts/migrate-fcm.sql
+scripts/migrate-fcm-index.sql
+scripts/migrate-notif-prefs.sql
+```
+**Going forward**: any new migration added to `init-db.js` must also be run manually against the local DB.
+
+### Notification testing findings
+- `Notification.permission` confirmed `'granted'` in Chrome
+- DevTools Push → SW fires correctly, no JS errors
+- Notifications not showing visually → **macOS blocks Chrome notifications at the system level** even when browser permission is granted
+- Fix: System Settings → Notifications → Google Chrome → Allow Notifications ON + style set to Banners/Alerts
+- After fix, `new Notification('Test', {body: '...'})` showed correctly
+
+### Desktop vs mobile notification appearance
+Desktop (macOS): plain OS banner, Chrome icon, no custom styling — looks basic. Badge API calls fire but badge is not visible without PWA install.
+Mobile (Android/iOS PWA): full branded notification with app icon, title, body, badge on home screen icon — significantly better UX. This is the real target experience for the TFG demo.
+
+### Next step for full mobile test
+Deploy to Hetzner server → install PWA on phone → test notifications end-to-end.
+
+---
+
 ## Session 9 — Invitation system audit + gap fixes (2026-06-02)
 
 ### Audit findings
