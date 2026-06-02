@@ -16,6 +16,7 @@ const claimedRewards = ref([]);
 const rewardForm = ref({ title: '', description: '', amount: '', maxUses: '', validFrom: '', validUntil: '' });
 
 const isCaregiver = computed(() => role.value === 'caregiver');
+const activeTab = ref('store');
 
 const loadRewards = () => appStore.runAction(async () => {
   const fid = familyId.value;
@@ -83,8 +84,15 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 <template>
   <div class="marketplace-container" style="display: flex; flex-direction: column; gap: 2rem;">
 
+    <!-- Mobile tab bar -->
+    <div class="mkt-tab-bar">
+      <button :class="['mtab', activeTab === 'store' && 'mtab--active']" @click="activeTab = 'store'">Store</button>
+      <button :class="['mtab', activeTab === 'history' && 'mtab--active']" @click="activeTab = 'history'">History</button>
+      <button v-if="isCaregiver" :class="['mtab', activeTab === 'create' && 'mtab--active']" @click="activeTab = 'create'">Create</button>
+    </div>
+
     <!-- Available Rewards -->
-    <VCard title="The Reward Store">
+    <VCard title="The Reward Store" :class="{ 'tab-hidden': activeTab !== 'store' }">
       <p style="color:var(--text-secondary); margin-bottom: 2rem; max-width: 600px;">
         Spend your hard-earned CareCoins here! When you buy a reward, the coins are deducted from your personal bank.
       </p>
@@ -125,7 +133,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
     </VCard>
 
     <!-- Claimed Rewards -->
-    <VCard title="Recently Claimed Rewards">
+    <VCard title="Recently Claimed Rewards" :class="{ 'tab-hidden': activeTab !== 'history' }">
       <div v-if="claimedRewards.length > 0" style="display:flex; flex-direction:column; gap:1rem;">
         <div v-for="c in claimedRewards" :key="c.redemption_id"
              style="display:flex; align-items:center; gap:1.5rem; padding: 1rem 1.5rem;
@@ -151,7 +159,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
     </VCard>
 
     <!-- Admin Create Form -->
-    <VCard v-if="isCaregiver" title="Create New Reward">
+    <VCard v-if="isCaregiver" title="Create New Reward" :class="{ 'tab-hidden': activeTab !== 'create' }">
       <p class="text-sm" style="color:var(--text-secondary); margin-bottom: 1.5rem;">
         Add new treats that caregivers can purchase. Once created, they can be redeemed by anyone with enough coins.
         Set limits or deadlines to make them exclusive!
@@ -175,6 +183,9 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 </template>
 
 <style scoped>
+/* ── Tab bar (mobile only) ──────────────────────── */
+.mkt-tab-bar { display: none; }
+
 /* ── Grid ───────────────────────────────────────── */
 .reward-grid {
   display: grid;
@@ -305,6 +316,38 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
 @media (max-width: 768px) {
   .marketplace-container {
     padding: 0 1rem;
+  }
+  .mkt-tab-bar {
+    display: flex;
+    background: var(--bg);
+    border-radius: var(--r-pill);
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border);
+  }
+  .mtab {
+    flex: 1;
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-pill);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mtab--active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(14, 23, 38, 0.08);
+  }
+  .tab-hidden { display: none !important; }
+  .grid.three {
+    grid-template-columns: 1fr;
   }
 }
 </style>

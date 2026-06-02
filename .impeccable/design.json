@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-01T00:00:00Z",
+  "title": "Design System: CareCoins",
+  "extensions": {
+    "colorMeta": {
+      "primary":       { "role": "primary",   "displayName": "Trusted Action Blue",  "canonical": "#2563EB", "tonalRamp": ["#0f1f5c","#1a3a9e","#1d4ed8","#2563EB","#3b82f6","#60a5fa","#93c5fd","#dbeafe"] },
+      "primary-soft":  { "role": "primary",   "displayName": "Action Blue Tint",     "canonical": "#E8EFFE", "tonalRamp": ["#1e3a8a","#2563EB","#3b82f6","#93c5fd","#bfdbfe","#dbeafe","#eff6ff","#E8EFFE"] },
+      "success":       { "role": "secondary", "displayName": "Task Done Green",       "canonical": "#16A34A", "tonalRamp": ["#052e16","#14532d","#15803d","#16A34A","#22c55e","#4ade80","#86efac","#dcfce7"] },
+      "success-soft":  { "role": "secondary", "displayName": "Done Green Tint",       "canonical": "#E7F6EC", "tonalRamp": ["#052e16","#16A34A","#22c55e","#86efac","#bbf7d0","#d1fae5","#ecfdf5","#E7F6EC"] },
+      "warning":       { "role": "tertiary",  "displayName": "Household Amber",       "canonical": "#D97706", "tonalRamp": ["#451a03","#92400e","#b45309","#D97706","#f59e0b","#fbbf24","#fde68a","#fef3c7"] },
+      "warning-soft":  { "role": "tertiary",  "displayName": "Household Amber Tint",  "canonical": "#FEF1E1", "tonalRamp": ["#451a03","#D97706","#f59e0b","#fbbf24","#fde68a","#fef3c7","#fffbeb","#FEF1E1"] },
+      "danger":        { "role": "error",     "displayName": "Alert Red",             "canonical": "#DC2626", "tonalRamp": ["#450a0a","#7f1d1d","#991b1b","#DC2626","#ef4444","#f87171","#fca5a5","#fee2e2"] },
+      "danger-soft":   { "role": "error",     "displayName": "Alert Red Tint",        "canonical": "#FCE8E8", "tonalRamp": ["#450a0a","#DC2626","#ef4444","#fca5a5","#fecaca","#fee2e2","#fef2f2","#FCE8E8"] },
+      "bg":            { "role": "neutral",   "displayName": "Cool Background",       "canonical": "#F7F8FA", "tonalRamp": ["#0e1726","#1e293b","#475569","#94a3b8","#cbd5e1","#e2e8f0","#f1f5f9","#F7F8FA"] },
+      "surface":       { "role": "neutral",   "displayName": "Surface White",         "canonical": "#FFFFFF", "tonalRamp": ["#0e1726","#1e293b","#334155","#64748b","#94a3b8","#e2e8f0","#f8fafc","#FFFFFF"] },
+      "border":        { "role": "neutral",   "displayName": "Soft Border",           "canonical": "#E5E8EE", "tonalRamp": ["#0e1726","#1e293b","#475569","#94a3b8","#cbd5e1","#E5E8EE","#f1f5f9","#f8fafc"] },
+      "text-primary":  { "role": "neutral",   "displayName": "Deep Home Ink",         "canonical": "#0E1726", "tonalRamp": ["#0E1726","#1e293b","#334155","#475569","#64748b","#94a3b8","#cbd5e1","#f1f5f9"] },
+      "text-secondary":{ "role": "neutral",   "displayName": "Secondary Slate",       "canonical": "#5B6478", "tonalRamp": ["#0E1726","#1e293b","#334155","#5B6478","#94a3b8","#cbd5e1","#e2e8f0","#f8fafc"] },
+      "input-bg":      { "role": "neutral",   "displayName": "Input Fill",            "canonical": "#F1F5F9", "tonalRamp": ["#1e293b","#334155","#64748b","#94a3b8","#cbd5e1","#e2e8f0","#F1F5F9","#f8fafc"] },
+      "input-border":  { "role": "neutral",   "displayName": "Input Stroke",          "canonical": "#CBD5E1", "tonalRamp": ["#1e293b","#475569","#94a3b8","#CBD5E1","#e2e8f0","#f1f5f9","#f8fafc","#ffffff"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page-level hero headings. Used once per major surface." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings, card titles, view names." },
+      "title": { "displayName": "Title", "purpose": "Sub-section labels, modal titles." },
+      "body": { "displayName": "Body", "purpose": "All readable content. Max 65-75ch on prose surfaces." },
+      "label": { "displayName": "Label", "purpose": "Chips, badges, timestamps, filter pills, status indicators." }
+    },
+    "shadows": [
+      { "name": "ambient-card",  "value": "0 10px 25px -5px rgba(0,0,0,0.05)",        "purpose": "Default card lift at rest." },
+      { "name": "nav-float",     "value": "0 4px 24px rgba(14,23,38,0.06)",           "purpose": "Floating pill navigation." },
+      { "name": "modal",         "value": "0 10px 30px rgba(14,23,38,0.12)",          "purpose": "Modals and bottom sheets." },
+      { "name": "fab",           "value": "0 4px 20px rgba(0,0,0,0.25)",             "purpose": "Floating action buttons." },
+      { "name": "focus-ring",    "value": "0 0 0 3px rgba(37,99,235,0.2)",           "purpose": "Input and button focus state." },
+      { "name": "btn-primary",   "value": "0 4px 14px rgba(37,99,235,0.3)",          "purpose": "Primary button resting glow." },
+      { "name": "btn-primary-hover", "value": "0 6px 20px rgba(37,99,235,0.4)",      "purpose": "Primary button hover glow." }
+    ],
+    "motion": [
+      { "name": "standard",      "value": "cubic-bezier(0.4, 0, 0.2, 1)",  "duration": "200ms", "purpose": "Default state transitions (button hover, tab switch)." },
+      { "name": "enter",         "value": "cubic-bezier(0, 0, 0.2, 1)",    "duration": "200ms", "purpose": "Elements entering the screen." },
+      { "name": "exit",          "value": "cubic-bezier(0.4, 0, 1, 1)",    "duration": "150ms", "purpose": "Elements leaving the screen." },
+      { "name": "sheet-slide",   "value": "ease-out",                       "duration": "220ms", "purpose": "Bottom sheet slide-up animation." },
+      { "name": "skeleton",      "value": "linear",                         "duration": "1400ms", "purpose": "Skeleton shimmer loop. Disabled when prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "mobile",  "value": "768px",  "note": "Main breakpoint. Below: bottom tab bar, mobile timeline, hidden desktop nav." },
+      { "name": "small",   "value": "480px",  "note": "Secondary mobile reduction." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single most important action on any screen. One per view.",
+      "html": "<button class=\"ds-btn-primary\">Schedule</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 0.6rem 1.2rem; border-radius: 9999px; cursor: pointer; border: none; outline: none; white-space: nowrap; min-height: 44px; background: #2563EB; color: #ffffff; box-shadow: 0 4px 14px rgba(37,99,235,0.3); transition: all 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { filter: brightness(1.1); box-shadow: 0 6px 20px rgba(37,99,235,0.4); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting action. Cancel, close, back.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 0.6rem 1.2rem; border-radius: 9999px; cursor: pointer; outline: none; white-space: nowrap; min-height: 44px; background: rgba(15,23,42,0.05); color: #0E1726; border: 1px solid #CBD5E1; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-secondary:hover { background: rgba(15,23,42,0.1); } .ds-btn-secondary:active { transform: scale(0.97); } .ds-btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive actions inside modals only.",
+      "html": "<button class=\"ds-btn-danger\">Delete this and all future</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 0.6rem 1.2rem; border-radius: 9999px; cursor: pointer; outline: none; white-space: nowrap; min-height: 44px; background: #FCE8E8; color: #DC2626; border: 1px solid rgba(220,38,38,0.2); transition: all 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-danger:hover { background: rgba(220,38,38,0.15); } .ds-btn-danger:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard content container. Never nested.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Daily Schedule</h2><div class=\"ds-card-body\">Content goes here.</div></section>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #E5E8EE; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom: 1.5rem; overflow: hidden; } .ds-card-title { margin: 0; padding: 1.5rem 1.5rem 0.5rem; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: #0E1726; } .ds-card-body { padding: 1.5rem; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard text field. Pill radius matches button language.",
+      "html": "<div class=\"ds-input-wrapper\"><label class=\"ds-label\">Title</label><input class=\"ds-input\" type=\"text\" placeholder=\"Enter reason...\" /></div>",
+      "css": ".ds-input-wrapper { display: flex; flex-direction: column; width: 100%; } .ds-label { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.85rem; font-weight: 500; color: #5B6478; margin-bottom: 0.4rem; } .ds-input { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 16px; font-weight: 500; background: #F1F5F9; border: 1px solid #CBD5E1; color: #0E1726; padding: 0.6rem 0.8rem; border-radius: 9999px; width: 100%; box-sizing: border-box; transition: all 0.2s ease; outline: none; } .ds-input::placeholder { color: rgba(148,163,184,0.5); } .ds-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); background: #ffffff; } .ds-input:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "button-primary",
+      "description": "Category filter pill. Active state uses primary blue.",
+      "html": "<div class=\"ds-chip-group\"><button class=\"ds-chip ds-chip-active\">All</button><button class=\"ds-chip\">Care</button><button class=\"ds-chip\">Household</button></div>",
+      "css": ".ds-chip-group { display: flex; gap: 0.4rem; } .ds-chip { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 9999px; cursor: pointer; flex-shrink: 0; transition: all 0.2s; background: #FFFFFF; color: #5B6478; border: 1px solid #E5E8EE; } .ds-chip-active { background: #2563EB; color: #ffffff; border-color: #2563EB; } .ds-chip:hover:not(.ds-chip-active) { border-color: #CBD5E1; color: #0E1726; }"
+    },
+    {
+      "name": "Coin Counter",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Family coin balance pill in the navigation bar.",
+      "html": "<div class=\"ds-coin-counter\"><span class=\"ds-coin-avatar\">F</span><span class=\"ds-coin-amount\">240</span><span class=\"ds-coin-unit\">cc</span></div>",
+      "css": ".ds-coin-counter { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; background: #F7F8FA; border: 1px solid #E5E8EE; border-radius: 9999px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; } .ds-coin-counter:hover { border-color: #2563EB; box-shadow: 0 2px 8px rgba(14,23,38,0.05); } .ds-coin-avatar { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #2563EB; color: #fff; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-size: 13px; } .ds-coin-amount { color: #0E1726; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-size: 15px; } .ds-coin-unit { color: #5B6478; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 13px; }"
+    },
+    {
+      "name": "Activity Card (Timeline)",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Condensed timeline task card on mobile. Background set by assignee colour from MEMBER_THEMES.",
+      "html": "<div class=\"ds-tl-row\"><div class=\"ds-tl-time\">9:00am</div><div class=\"ds-tl-card\" style=\"background:#2563EB;\"><div class=\"ds-tl-header\"><span class=\"ds-tl-emoji\">❤️</span><div class=\"ds-tl-title-block\"><div class=\"ds-tl-title\">Morning meds</div><div class=\"ds-tl-meta\">🪙 20cc</div></div></div><div class=\"ds-tl-footer\"><span class=\"ds-tl-assignee\">Ana</span><div style=\"background:rgba(0,0,0,0.2);padding:3px 10px;border-radius:999px;font-size:0.78rem;font-weight:800;color:#fff;\">✓ Done</div></div></div></div>",
+      "css": ".ds-tl-row { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem; width: 100%; } .ds-tl-time { width: 52px; flex-shrink: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.72rem; font-weight: 700; color: #5B6478; padding-top: 0.6rem; text-align: right; line-height: 1.2; } .ds-tl-card { flex: 1; border-radius: 16px; padding: 0.65rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.12); box-sizing: border-box; color: #fff; } .ds-tl-header { display: flex; align-items: center; gap: 0.5rem; min-width: 0; } .ds-tl-emoji { font-size: 1.1rem; flex-shrink: 0; } .ds-tl-title-block { flex: 1; min-width: 0; } .ds-tl-title { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-size: 0.9rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-tl-meta { font-size: 0.72rem; font-weight: 700; opacity: 0.85; margin-top: 0.15rem; } .ds-tl-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.15); } .ds-tl-assignee { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.75rem; font-weight: 700; opacity: 0.85; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Family Operations Room",
+    "overview": "CareCoins is the shared dashboard a family runs on. The design reflects that: structured enough to carry real information (who does what, who earned what, what's left), warm enough to feel like home. Warmth is earned through legibility and fair representation, not through decorative softness. Every surface should feel like it was designed by someone who respects the people using it in a busy morning.\n\nDensity is a virtue here. Families operate under time pressure. The UI packs information efficiently without feeling clinical. Single sans-serif family (Plus Jakarta Sans, 800 weight for all headings) creates visual unity; the bold weight carries hierarchy without needing multiple typefaces. Color is semantic and sparing: blue means 'take action', green means 'done', amber means 'household', red means 'alert or danger'. Coins and contribution data are always legible at a glance.\n\nThis system explicitly rejects the social media aesthetic (no feeds, no engagement loops, no notification anxiety), cold corporate SaaS (no hero metrics, no navy-and-white enterprise chrome), and gamification theater (coins are a fairness tool, not a leaderboard sport).",
+    "keyCharacteristics": [
+      "Single typeface, full weight range — hierarchy through size + weight, never font-switching",
+      "Semantic color only — blue for action, green for done, amber for household, red for danger",
+      "Pill radius for interactive elements, 24px for containers, 8px for inline elements",
+      "Flat-by-default elevation — shadows are responses to state, not decoration",
+      "Mobile-first density — compact and purposeful; nothing wastes thumb-space"
+    ],
+    "rules": [
+      { "name": "The One Job Rule", "body": "Every color has one semantic role and stays in it. Blue is not used for decoration. Green is not used for branding. Amber is not used for warnings unrelated to household tasks.", "section": "colors" },
+      { "name": "The Weight-Or-Size Rule", "body": "Never use a lighter weight to create hierarchy — use size. The 800-weight heading at a smaller size beats the 600-weight heading at a larger size for readability in a dense mobile UI.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "A surface at rest has no shadow. A surface that responds (hover, focus, open) earns one. If you are adding a shadow to a static element that the user cannot interact with, remove it.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use primary (#2563EB) exclusively for primary actions, active states, and focus rings. Its scarcity is its power.",
+      "Do use full pill radius (9999px) on all buttons and inputs.",
+      "Do use weight 800 for all headings, 700 for all labels and chips, 500 for body.",
+      "Do pair semantic colors with text or icons — never use color as the only signal.",
+      "Do keep minimum touch targets at 44x44px on all interactive elements.",
+      "Do give cards a 1px solid border (#E5E8EE). Cards without borders disappear on the off-white background.",
+      "Do use text-wrap: balance on headline and title elements."
+    ],
+    "donts": [
+      "Don't introduce a notification-count badge, engagement metric, or streak visual. CareCoins is not a social product.",
+      "Don't use a second typeface. Plus Jakarta Sans at 500/700/800 is the complete typographic system.",
+      "Don't use opacity: 0.8 as a status signal on colored surfaces — it fails contrast.",
+      "Don't nest cards. A card inside a card is always wrong.",
+      "Don't use shadows on static, non-interactive elements.",
+      "Don't use border-left or border-right as a colored stripe accent.",
+      "Don't use gradient text (background-clip: text).",
+      "Don't build a leaderboard-first view. Coins are a fairness tool, not a competition score.",
+      "Don't use the cream/sand/warm-neutral band for backgrounds.",
+      "Don't use dark mode — the physical context is a bright kitchen or bedroom in the morning."
+    ]
+  }
+}

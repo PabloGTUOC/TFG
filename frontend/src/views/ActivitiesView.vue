@@ -14,6 +14,7 @@ const { familyId } = useCurrentFamily();
 const allActivities = ref([]);
 
 const categoryFilter = ref('all');
+const activeTab = ref('catalogue');
 
 // Show templates, sort alphabetically, filter by category
 const templates = computed(() => {
@@ -49,11 +50,11 @@ const fetchActivities = () => appStore.runAction(async () => {
   if (!fid) return;
   const data = await appStore.request(`/api/activities?familyId=${fid}`, { headers: appStore.authHeaders() });
   allActivities.value = data.activities || [];
-  
+
   const budgetData = await appStore.request(`/api/families/${fid}/budget`, { headers: appStore.authHeaders() });
   budgetInfo.value = budgetData;
-  updateSuggestedCoins(); // Initialize slider once budget is loaded
-}, 'Loaded activities and budget.');
+  updateSuggestedCoins();
+});
 
 const baseScore = computed(() => {
   if (!budgetInfo.value) return 0;
@@ -111,12 +112,19 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
 <template>
   <div class="activities-container" style="display: flex; flex-direction: column; gap: 1rem;">
     <!-- Header -->
-    <h2 style="margin-bottom: 1rem; font-weight: 800; letter-spacing: -0.02em;">Family Admin and Budget Hub</h2>
+    <h2 style="margin-bottom: 0.5rem; font-weight: 800; letter-spacing: -0.02em;">Activity Library</h2>
+
+    <!-- Mobile tab bar -->
+    <div class="activities-tab-bar">
+      <button :class="['atab', activeTab === 'catalogue' && 'atab--active']" @click="activeTab = 'catalogue'">Catalogue</button>
+      <button :class="['atab', activeTab === 'new' && 'atab--active']" @click="activeTab = 'new'">New Activity</button>
+      <button :class="['atab', activeTab === 'budget' && 'atab--active']" @click="activeTab = 'budget'">Budget</button>
+    </div>
 
     <div class="grid three" style="align-items: stretch; gap: 1.5rem;" v-if="budgetInfo">
 
       <!-- Column 1: Activity Catalogue List -->
-      <VCard title="Activity Catalogue" class="fixed-card">
+      <VCard title="Activity Catalogue" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'catalogue' }">
         <!-- Category Filters -->
         <div style="margin-bottom: 1.5rem; display:flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
            <button class="filter-btn" :class="{active: categoryFilter === 'all'}" @click="categoryFilter = 'all'">All</button>
@@ -150,10 +158,12 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
              No activities found.
           </div>
         </div>
+        <!-- Mobile shortcut to add tab -->
+        <button class="add-shortcut-btn" @click="activeTab = 'new'">+ New Activity</button>
       </VCard>
 
       <!-- Column 2: Register New Activity -->
-      <VCard title="Register New Activity" class="fixed-card">
+      <VCard title="New Activity" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'new' }">
         <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4; flex-shrink: 0;">
           Define a reusable activity template. Once approved, it appears in the Family Times sidebar and can be scheduled any number of times.
         </p>
@@ -191,7 +201,7 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
       </VCard>
 
       <!-- Column 3: Family Budget Health Gauge -->
-      <VCard title="Family Budget Health" class="fixed-card">
+      <VCard title="Family Budget Health" class="fixed-card" :class="{ 'tab-hidden': activeTab !== 'budget' }">
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 100%;">
           
           <div class="gauge-container" style="text-align: center; position: relative; width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: 2rem;">
@@ -250,6 +260,14 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* ── Tab bar (mobile only) ───────────────────────────────── */
+.activities-tab-bar { display: none; }
+
+/* shortcut button inside catalogue card — mobile only */
+.add-shortcut-btn {
+  display: none;
 }
 
 /* Filter Buttons */
@@ -421,6 +439,37 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   .activities-container {
     padding: 0 1rem;
   }
+  .activities-tab-bar {
+    display: flex;
+    background: var(--bg);
+    border-radius: var(--r-pill);
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+  }
+  .atab {
+    flex: 1;
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-pill);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .atab--active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(14, 23, 38, 0.08);
+  }
+  :deep(.tab-hidden) {
+    display: none !important;
+  }
   :deep(.fixed-card) {
     height: auto;
     min-height: 400px;
@@ -428,9 +477,28 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
   :deep(.fixed-card .v-card-body) {
     overflow: visible;
   }
+  .activity-scroll-area {
+    max-height: 320px;
+    overflow-y: auto !important;
+  }
   .gauge-text {
     font-size: 2.5rem;
   }
+  .add-shortcut-btn {
+    display: block;
+    margin-top: 1.25rem;
+    width: 100%;
+    background: var(--success, #16A34A);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .add-shortcut-btn:active { opacity: 0.85; }
 }
 </style>
 
