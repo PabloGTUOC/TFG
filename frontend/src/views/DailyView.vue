@@ -39,6 +39,74 @@ const navigateDay = (offset) => {
   router.push(`/daily/${yyyy}-${mm}-${dd}`);
 };
 
+// ── Day-navigation swipe (container) ────────────────────────
+let touchStartX = 0;
+let touchStartY = 0;
+let daySwipeActive = false;
+const onTouchStart = (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  daySwipeActive = true;
+};
+const onTouchEnd = (e) => {
+  if (!daySwipeActive) return;
+  daySwipeActive = false;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    navigateDay(dx < 0 ? 1 : -1);
+  }
+};
+
+// ── Card swipe-to-delete ─────────────────────────────────────
+const swipingId   = ref(null);
+const swipeDeltaX = ref(0);
+const dismissingIds = ref(new Set());
+let cardTouchStartX = 0;
+let cardTouchStartY = 0;
+let cardSwipeActive = false;
+
+const onCardTouchStart = (e, activity) => {
+  if (activity.status === 'completed') return;
+  daySwipeActive = false; // cancel day-nav so it doesn't fire on lift
+  cardTouchStartX = e.touches[0].clientX;
+  cardTouchStartY = e.touches[0].clientY;
+  swipingId.value = activity.id;
+  swipeDeltaX.value = 0;
+  cardSwipeActive = false;
+};
+
+const onCardTouchMove = (e, activity) => {
+  if (swipingId.value !== activity.id) return;
+  const dx = e.touches[0].clientX - cardTouchStartX;
+  const dy = e.touches[0].clientY - cardTouchStartY;
+  if (!cardSwipeActive) {
+    if (dx < -8 && Math.abs(dx) > Math.abs(dy)) {
+      cardSwipeActive = true;
+    } else if (Math.abs(dy) > 8) {
+      swipingId.value = null; // vertical scroll — abandon
+      return;
+    } else {
+      return;
+    }
+  }
+  swipeDeltaX.value = Math.min(0, dx);
+};
+
+const onCardTouchEnd = (e, activity) => {
+  if (swipingId.value !== activity.id) return;
+  cardSwipeActive = false;
+  if (swipeDeltaX.value < -80) {
+    dismissingIds.value = new Set([...dismissingIds.value, activity.id]);
+    swipingId.value = null;
+    swipeDeltaX.value = 0;
+    setTimeout(() => removeMobile(activity), 260);
+  } else {
+    swipeDeltaX.value = 0;
+    swipingId.value = null;
+  }
+};
+
 const familyActivities = ref([]);
 
 const showScheduleModal = ref(false);
@@ -561,7 +629,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 </script>
 
 <template>
-  <div class="daily-fullscreen-overlay" @click.self="closeDailyView">
+  <div class="daily-fullscreen-overlay" @click.self="closeDailyView" @dragover.prevent @drop.prevent="dropOut($event)">
     <div class="daily-wrapper" @dragover.prevent @drop.prevent="dropOut($event)">
       <div class="daily-header-row">
         <div class="daily-header-left">
@@ -732,23 +800,23 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            </div>
          
          <!-- Mobile Timeline View — condensed list -->
-         <div class="mobile-timeline mobile-only" ref="mobileTimelineRef">
+         <div class="mobile-timeline mobile-only" ref="mobileTimelineRef"
+              @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
            <template v-if="isLoadingActivities">
              <div v-for="i in 3" :key="i" class="skeleton-card" style="margin: 8px 12px;"></div>
            </template>
 
-           <div v-else-if="scheduledToday.length === 0" class="mobile-empty-state" style="padding-top: 3rem;">
-             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                  style="color:var(--border);margin-bottom:0.75rem;">
-               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-               <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-               <line x1="3" y1="10" x2="21" y2="10"/>
-             </svg>
-             <strong style="color:var(--text-primary);">Your day is wide open.</strong>
-             <span style="color:var(--text-secondary);font-size:0.85rem;margin-top:0.25rem;">
-               Tap the + button to schedule a task.
-             </span>
+           <div v-else-if="scheduledToday.length === 0" class="mobile-empty-state" @click="showTaskSheet = true">
+             <div class="empty-state-icon">
+               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                 <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                 <line x1="3" y1="10" x2="21" y2="10"/>
+               </svg>
+             </div>
+             <strong class="empty-state-title">Your day is wide open.</strong>
+             <span class="empty-state-sub">Tap here to schedule a task.</span>
            </div>
 
            <div v-else class="tl-list">
@@ -767,14 +835,24 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                </div>
 
                <!-- Task row: time axis + card -->
-               <div class="tl-row">
+               <div class="tl-row"
+                    :class="{
+                      'tl-row--swiping': swipingId === a.id,
+                      'tl-row--dismissing': dismissingIds.has(a.id)
+                    }"
+                    @touchstart.stop="onCardTouchStart($event, a)"
+                    @touchmove="onCardTouchMove($event, a)"
+                    @touchend.stop="onCardTouchEnd($event, a)">
                  <div class="tl-row-time">
                    {{ new Date(a.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }}
                  </div>
                  <div class="tl-card"
+                      :class="{ 'tl-card--dismiss': dismissingIds.has(a.id) }"
                       :style="{
                         background: a.status === 'rejected' ? 'var(--danger-soft)' : getAssigneeColor(a.assigned_to, a.category, a.status),
                         color: a.status === 'rejected' ? 'var(--danger)' : '#fff',
+                        transform: swipingId === a.id ? `translateX(${swipeDeltaX}px)` : undefined,
+                        transition: swipingId === a.id ? 'none' : 'transform 0.25s ease-out',
                       }">
                    <div class="tl-card-header">
                      <span class="tl-card-emoji">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
@@ -788,13 +866,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                          <span v-if="a.bounty_amount" class="tl-bounty-chip">+{{ a.bounty_amount }}cc</span>
                        </div>
                      </div>
-                     <button v-if="a.status !== 'completed'" @click.stop="removeMobile(a)"
-                             class="mobile-remove-btn" aria-label="Remove from schedule">
-                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                       </svg>
-                     </button>
                    </div>
 
                    <div class="tl-card-footer">
@@ -839,74 +910,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
            </div>
          </div>
 
-         <!-- Mobile Agenda View (kept as fallback, inactive) -->
-         <div v-if="false" class="mobile-agenda mobile-only" style="padding: 0.5rem 1rem 1rem; flex: 1; overflow-y: auto; flex-direction: column; gap: 1rem;">
-           <template v-if="isLoadingActivities">
-             <div v-for="i in 3" :key="i" class="skeleton-card"></div>
-           </template>
-           <div v-else-if="scheduledToday.length === 0" class="mobile-empty-state">
-             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border); margin-bottom: 0.75rem;">
-               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-             </svg>
-             <strong style="color: var(--text-primary); font-size: 1rem;">Your day is wide open.</strong>
-             <span style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">Tap any task below to add it to your day.</span>
-           </div>
-           
-           <div v-else v-for="a in scheduledToday" :key="a.id"
-                style="border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 0.8rem;" 
-                :style="[
-                  a.status === 'rejected'
-                    ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }
-                    : { background: getAssigneeColor(a.assigned_to, a.category, a.status) }
-                ]">
-             <div style="display:flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
-               <div style="display:flex; align-items: center; gap: 0.8rem; flex: 1;">
-                 <span style="font-size: 1.8rem; background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
-                 <div>
-                   <div style="font-weight: 800; font-size: 1.15rem; line-height: 1.2;">
-                     <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:4px;">⚠️</span>
-                     {{ a.title }}
-                   </div>
-                   <div style="font-size: 0.8rem; font-weight: 700; opacity: 0.9; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
-                     <span>🪙 {{ a.coin_value }}cc</span>
-                     <span v-if="a.bounty_amount" style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 999px;">+{{ a.bounty_amount }}cc bounty</span>
-                   </div>
-                 </div>
-               </div>
-               <div style="background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 10px; font-size: 0.95rem; font-weight: 800; flex-shrink: 0;">
-                 {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
-               </div>
-               <button v-if="a.status !== 'completed'" @click.stop="removeMobile(a)" class="mobile-remove-btn" aria-label="Remove from schedule">
-                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-               </button>
-             </div>
-             
-             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1);">
-               <div style="font-size: 0.8rem; font-weight: 700; opacity: 0.9;">
-                 {{ a.assigned_alias || 'Caregiver' }}
-               </div>
-               
-               <div style="display: flex; align-items: center; gap: 0.5rem;">
-                 <div v-if="a.status === 'pending_validation'">
-                   <button v-if="a.assigned_to !== familyStore.profile?.id && role === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn" style="padding: 0.4rem 1rem;">✓ Validate</button>
-                 </div>
-                 <div v-else-if="a.status === 'completed'" style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 0.85rem;">
-                   ✓ Done
-                 </div>
-                 <div v-else-if="['pending', 'approved'].includes(a.status)">
-                   <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'" 
-                           @click.stop="openBountyModal(a)" class="validate-btn" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 0.4rem 1rem;">
-                     Delegate
-                   </button>
-                   <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
-                           @click.stop="openAcceptBountyModal(a)" class="validate-btn" style="background: var(--success-soft); color: var(--success); border: none; padding: 0.4rem 1rem;">
-                     Take Over
-                   </button>
-                 </div>
-               </div>
-             </div>
-           </div>
-        </div>
         </VCard>
 
         <!-- Horizontal Completed Bar -->
@@ -1051,8 +1054,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   </div>
 
   <!-- Time Modal -->
-  <div v-if="showScheduleModal" class="modal-overlay">
+  <div v-if="showScheduleModal" class="modal-overlay bs-overlay">
     <VCard title="Confirm Time" style="max-width: 320px; width: 100%;">
+      <div class="sheet-handle-bar"></div>
       <div style="margin-bottom: 1.5rem;">
         <label style="display:block; margin-bottom: 0.75rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 800;">Starting at...</label>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1099,8 +1103,9 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   </div>
 
   <!-- Delete Modal -->
-  <div v-if="showDeleteModal" class="modal-overlay">
+  <div v-if="showDeleteModal" class="modal-overlay bs-overlay">
     <VCard title="Delete Recurring Activity" style="max-width: 350px; width: 100%;">
+      <div class="sheet-handle-bar"></div>
       <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.4;">
         <strong>{{ deleteTarget?.title }}</strong> is a recurring activity. Do you want to delete just this specific instance, or everything from this date onward?
       </p>
@@ -1496,6 +1501,8 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0.75rem 1rem calc(56px + env(safe-area-inset-bottom, 0px) + 1rem);
+  display: flex;
+  flex-direction: column;
 }
 .tl-list {
   display: flex;
@@ -1542,10 +1549,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 .tl-card-title {
   font-weight: 800;
   font-size: 0.9rem;
-  line-height: 1.2;
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .tl-card-meta {
   font-size: 0.72rem;
@@ -1624,7 +1632,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 16px rgba(14,23,38,0.06);
   z-index: 9998;
-  display: flex;
   align-items: center;
   gap: 0.75rem;
   padding-left: 1rem;
@@ -1720,15 +1727,94 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   .tl-hour-label { transition: none; }
   .task-sheet-fab { transition: none; }
   .task-sheet-fab:hover, .task-sheet-fab:active { transform: none; }
+  .bs-overlay :deep(.v-card) { animation: none; }
+}
+
+/* ── Card swipe-to-delete ───────────────────────────────── */
+.tl-row {
+  overflow: hidden;
+  border-radius: var(--r-md);
+  transition: background 0.15s;
+}
+.tl-row--swiping {
+  background: var(--danger-soft);
+}
+.tl-row--dismissing {
+  background: var(--danger-soft);
+}
+.tl-card--dismiss {
+  transform: translateX(-110%) !important;
+  opacity: 0 !important;
+  transition: transform 0.26s ease-out, opacity 0.2s ease-out !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-card--dismiss { transition: opacity 0.2s ease-out !important; transform: none !important; }
+  .tl-row { transition: none; }
+}
+
+/* ── Bottom-sheet modals (mobile only) ──────────────────── */
+.sheet-handle-bar { display: none; }
+
+@media (max-width: 768px) {
+  .bs-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .bs-overlay :deep(.v-card) {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    animation: sheet-slide-up 0.22s ease-out;
+  }
+  .sheet-handle-bar {
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 999px;
+    margin: 0 auto 1.25rem;
+  }
 }
 
 .mobile-empty-state {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2.5rem 1.5rem;
+  padding: 1.5rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-empty-state:active .empty-state-icon {
+  background: var(--primary-soft);
+  opacity: 0.7;
+}
+.empty-state-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  transition: opacity 0.15s;
+}
+.empty-state-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.empty-state-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .completed-bar-label {

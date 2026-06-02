@@ -23,7 +23,7 @@ const claimedRewards = ref([]);
 const currentWeekOffset = ref(0);
 const absences = ref([]);
 const showAbsenceModal = ref(false);
-const absenceForm = ref({ title: '', startTime: '', endTime: '' });
+const absenceForm = ref({ title: '', startDate: '', startTime: '09:00', endDate: '', endTime: '17:00' });
 const isSubmittingAbsence = ref(false);
 
 const isCaregiver = computed(() => role.value === 'caregiver');
@@ -53,13 +53,8 @@ const loadAbsences = () => appStore.runAction(async () => {
 });
 
 const openAbsenceModal = () => {
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
-  absenceForm.value = { 
-    title: '', 
-    startTime: `${dateStr}T09:00`, 
-    endTime: `${dateStr}T17:00` 
-  };
+  const dateStr = new Date().toISOString().split('T')[0];
+  absenceForm.value = { title: '', startDate: dateStr, startTime: '09:00', endDate: dateStr, endTime: '17:00' };
   showAbsenceModal.value = true;
 };
 
@@ -74,8 +69,8 @@ const confirmAbsence = async () => {
     const payload = {
       familyId: Number(familyId.value),
       title: absenceForm.value.title,
-      startTime: new Date(absenceForm.value.startTime).toISOString(),
-      endTime: new Date(absenceForm.value.endTime).toISOString()
+      startTime: new Date(`${absenceForm.value.startDate}T${absenceForm.value.startTime}`).toISOString(),
+      endTime: new Date(`${absenceForm.value.endDate}T${absenceForm.value.endTime}`).toISOString()
     };
     
     await appStore.request('/api/absences', {
@@ -342,7 +337,7 @@ const splitHighlight = (text) => {
                      :style="m.avatar_url ? avatarStyle(appStore.apiBase, m.avatar_url) : null">
                    {{ m.avatar_url ? '' : (m.role === 'caregiver' ? (m.name === 'Mama'?'👩🏽':'👨🏽') : '👦🏽') }}
                 </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ m.name || `User ${m.user_id}` }}</div>
+                <div class="member-name">{{ m.name || `User ${m.user_id}` }}</div>
                 <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${i % 4}`">
                    ● {{ m.coin_balance }} cc
                 </div>
@@ -355,7 +350,7 @@ const splitHighlight = (text) => {
                      :style="o.avatar_url ? avatarStyle(appStore.apiBase, o.avatar_url) : null">
                    {{ o.avatar_url ? '' : (o.actor_type === 'child' ? '👶🏽' : (o.actor_type === 'pet' ? '🐶' : '👴🏽')) }}
                 </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top: 0.8rem;">{{ o.name || 'Dependent' }}</div>
+                <div class="member-name">{{ o.name || 'Dependent' }}</div>
                 <div style="font-size: 12px; font-weight: 800; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.3rem;" :class="`text-color-${(i+activeMembers.length) % 4}`">
                    ● {{ getActorRemainingGdp(o).toLocaleString() }} cc
                 </div>
@@ -367,8 +362,8 @@ const splitHighlight = (text) => {
                 <div class="member-avatar" style="background: var(--bg); color: var(--text-secondary); font-size: 2rem;">
                    ⏳
                 </div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-secondary); margin-top: 0.8rem; text-align: center;">{{ pm.name || `User ${pm.user_id}` }}</div>
-                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 0.2rem;">Pending Approval</div>
+                <div class="member-name" style="color: var(--text-secondary);">{{ pm.name || `User ${pm.user_id}` }}</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-top: 0.2rem;">Pending approval</div>
                 <button @click="approveMember(pm.user_id)" style="margin-top: 1rem; width: 100%; background: var(--success); color: white; border: none; padding: 0.5rem; border-radius: var(--r-pill); font-weight: 800; cursor: pointer;">
                    Approve
                 </button>
@@ -388,112 +383,14 @@ const splitHighlight = (text) => {
        </div>
     </div>
 
-    <!-- Main Grid: Left (Offers + KPIs) | Right (Recent) -->
-    <div class="dashboard-main-grid">
-
-       <!-- LEFT COLUMN -->
-       <div>
-
-          <!-- Available Offers -->
-          <div v-if="availableOffers.length > 0" style="margin-bottom: 3rem;">
-             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
-               <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Task Offers & Bribes</h2>
-               <div style="background: var(--warning-soft); color: var(--warning); padding: 0.3rem 0.6rem; border-radius: var(--r-pill); font-size: 0.75rem; font-weight: 900;">{{ availableOffers.length }} ACTIVE</div>
-             </div>
-             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
-               <div v-for="offer in availableOffers" :key="'offer-'+offer.id"
-                    style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.2rem; box-shadow: 0 1px 2px rgba(14,23,38,0.04); display: flex; flex-direction: column; gap: 0.8rem; cursor: pointer; transition: box-shadow 0.2s;"
-                    @click="navigateToDaily(offer.starts_at.split('T')[0])">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--bg); border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
-                    <div style="background: var(--warning-soft); color: var(--warning); padding: 0.2rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
-                  </div>
-                  <div style="margin-top: 0.2rem;">
-                    <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                      <span class="material-symbols-rounded" style="font-size: 0.9rem;">calendar_today</span>
-                      {{ new Date(offer.starts_at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) }} • {{ new Date(offer.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
-                    </div>
-                  </div>
-               </div>
-             </div>
-          </div>
-
-          <!-- KPI Grid -->
-          <div class="kpi-grid" @click="navigateToStats" style="cursor: pointer;">
-             <KpiCard
-                label="Family Balance"
-                accent="primary"
-                :value="dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString()"
-                unit="cc"
-                :subtitle="`across ${dashboard.members.length} ${dashboard.members.length === 1 ? 'member' : 'members'}`"
-             />
-             <KpiCard
-                label="Tasks Today"
-                accent="success"
-                :value="`${completedToday.length}/${scheduledInstances.length}`"
-                :subtitle="todayPendingTasks > 0 ? `${todayPendingTasks} awaiting validation` : 'on track'"
-                :progress="scheduledInstances.length ? (completedToday.length / scheduledInstances.length) * 100 : 0"
-             />
-             <KpiCard
-                label="Open Bounties"
-                accent="warning"
-                :value="availableOffers.length"
-                :subtitle="availableOffers.length ? `${availableOffers.reduce((s, o) => s + (o.bounty_amount || 0), 0)} cc up for grabs` : 'No bounties open'"
-             />
-             <KpiCard
-                label="Recent Activity"
-                accent="ink"
-                :value="recentActivitiesList.length"
-                :subtitle="recentActivitiesList.length ? 'completed recently' : 'no recent activity'"
-             />
-          </div>
-
-       </div>
-
-       <!-- RIGHT COLUMN -->
-       <div style="min-height: 0; display: flex; flex-direction: column;">
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-             <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 0; margin-bottom: 1.5rem; flex-shrink: 0;">Recent Activity</h3>
-             
-             <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1; overflow-y: auto; padding-right: 0.5rem; padding-bottom: 1rem;">
-               <div v-for="item in recentActivitiesList" :key="item.id" style="display: flex; align-items: flex-start; gap: 1rem;">
-                  <div :style="`width: 40px; height: 40px; border-radius: 50%; background: ${item.bg}; color: ${item.color}; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; font-weight: bold;`">
-                     {{ item.icon }}
-                  </div>
-                  <div>
-                     <div style="font-weight: 800; color: var(--text-primary); font-size: 0.95rem; line-height: 1.3;">
-                       <template v-for="(part, i) in splitHighlight(item.title)" :key="i">
-                         <span v-if="part.highlight" style="font-weight:600; color:var(--text-secondary);">{{ part.text }}</span>
-                         <span v-else>{{ part.text }}</span>
-                       </template>
-                     </div>
-                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
-                       <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">{{ item.timeStr }}</span>
-                       <span style="font-size: 0.75rem; font-weight: 800;" :style="`color: ${item.coinColor};`">{{ item.coinText }}</span>
-                     </div>
-                  </div>
-               </div>
-               
-               <div v-if="recentActivitiesList.length === 0" style="color: var(--text-secondary); font-weight: 600;">No activity yet.</div>
-             </div>
-
-             <button @click="navigateToStats" style="margin-top: 1.5rem; width: 100%; padding: 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); font-weight: 700; font-size: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;">
-               See all activity
-             </button>
-          </div>
-       </div>
-
-    </div>
-
-    <!-- FULL-WIDTH BOTTOM ROW -->
+    <!-- FULL-WIDTH CALENDAR ROW -->
     <div class="week-section" style="background: var(--surface); border-radius: 20px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid var(--border);">
        <div class="week-header" style="margin-bottom: 2rem;">
           <div>
-            <div style="font-size: 0.8rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">This Week</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">This week</div>
             <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0; line-height: 1;">{{ weekLabel }}</h2>
           </div>
-          
+
           <div style="display: flex; align-items: center; gap: 1rem;">
             <button @click="openAbsenceModal" class="log-off-btn">+ Log Time Off</button>
             <div class="week-pagination-row" style="margin-left: 0.5rem;">
@@ -552,6 +449,103 @@ const splitHighlight = (text) => {
        </div><!-- end week-scroll -->
     </div>
 
+    <!-- Main Grid: Left (Offers + KPIs) | Right (Recent) -->
+    <div class="dashboard-main-grid">
+
+       <!-- LEFT COLUMN -->
+       <div>
+
+          <!-- Available Offers -->
+          <div v-if="availableOffers.length > 0" style="margin-bottom: 3rem;">
+             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
+               <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0;">Task Offers & Bribes</h2>
+               <div style="background: var(--warning-soft); color: var(--warning); padding: 0.3rem 0.6rem; border-radius: var(--r-pill); font-size: 0.75rem; font-weight: 800;">{{ availableOffers.length }} open</div>
+             </div>
+             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
+               <div v-for="offer in availableOffers" :key="'offer-'+offer.id"
+                    style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.2rem; box-shadow: 0 1px 2px rgba(14,23,38,0.04); display: flex; flex-direction: column; gap: 0.8rem; cursor: pointer; transition: box-shadow 0.2s;"
+                    @click="navigateToDaily(offer.starts_at.split('T')[0])">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--bg); border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
+                    <div style="background: var(--warning-soft); color: var(--warning); padding: 0.2rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
+                  </div>
+                  <div style="margin-top: 0.2rem;">
+                    <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                      {{ new Date(offer.starts_at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) }} · {{ new Date(offer.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                    </div>
+                  </div>
+               </div>
+             </div>
+          </div>
+
+          <!-- KPI Grid -->
+          <div class="kpi-grid" @click="navigateToStats" style="cursor: pointer;">
+             <KpiCard
+                label="Family Balance"
+                accent="primary"
+                :value="dashboard.members.reduce((sum, m) => sum + (m.coin_balance || 0), 0).toLocaleString()"
+                unit="cc"
+                :subtitle="`across ${dashboard.members.length} ${dashboard.members.length === 1 ? 'member' : 'members'}`"
+             />
+             <KpiCard
+                label="Tasks Today"
+                accent="success"
+                :value="`${completedToday.length}/${scheduledInstances.length}`"
+                :subtitle="todayPendingTasks > 0 ? `${todayPendingTasks} awaiting validation` : 'on track'"
+                :progress="scheduledInstances.length ? (completedToday.length / scheduledInstances.length) * 100 : 0"
+             />
+             <KpiCard
+                label="Open Bounties"
+                accent="warning"
+                :value="availableOffers.length"
+                :subtitle="availableOffers.length ? `${availableOffers.reduce((s, o) => s + (o.bounty_amount || 0), 0)} cc up for grabs` : 'No bounties open'"
+             />
+             <KpiCard
+                label="Recent Activity"
+                accent="ink"
+                :value="recentActivitiesList.length"
+                :subtitle="recentActivitiesList.length ? 'completed recently' : 'no recent activity'"
+             />
+          </div>
+
+       </div>
+
+       <!-- RIGHT COLUMN -->
+       <div style="min-height: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+             <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 0; margin-bottom: 1.5rem; flex-shrink: 0;">Recent Activity</h3>
+
+             <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1; overflow-y: auto; padding-right: 0.5rem; padding-bottom: 1rem;">
+               <div v-for="item in recentActivitiesList" :key="item.id" style="display: flex; align-items: flex-start; gap: 1rem;">
+                  <div :style="`width: 40px; height: 40px; border-radius: 50%; background: ${item.bg}; color: ${item.color}; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; font-weight: bold;`">
+                     {{ item.icon }}
+                  </div>
+                  <div>
+                     <div style="font-weight: 800; color: var(--text-primary); font-size: 0.95rem; line-height: 1.3;">
+                       <template v-for="(part, i) in splitHighlight(item.title)" :key="i">
+                         <span v-if="part.highlight" style="font-weight:600; color:var(--text-secondary);">{{ part.text }}</span>
+                         <span v-else>{{ part.text }}</span>
+                       </template>
+                     </div>
+                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
+                       <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">{{ item.timeStr }}</span>
+                       <span style="font-size: 0.75rem; font-weight: 800;" :style="`color: ${item.coinColor};`">{{ item.coinText }}</span>
+                     </div>
+                  </div>
+               </div>
+
+               <div v-if="recentActivitiesList.length === 0" style="color: var(--text-secondary); font-weight: 600;">No activity yet.</div>
+             </div>
+
+             <button @click="navigateToStats" style="margin-top: 1.5rem; width: 100%; padding: 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); font-weight: 700; font-size: 12px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;">
+               See all activity
+             </button>
+          </div>
+       </div>
+
+    </div>
+
     <!-- Add Care Object Modal -->
     <div v-if="showCareObjectModal" class="modal-overlay">
       <VCard title="Add Care Dependent" style="max-width: 400px; width: 100%;">
@@ -584,12 +578,18 @@ const splitHighlight = (text) => {
         
         <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.8rem;">
           <div>
-            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">Start Time</label>
-            <input type="datetime-local" v-model="absenceForm.startTime" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" />
+            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">Start</label>
+            <div class="datetime-row">
+              <input type="date" v-model="absenceForm.startDate" class="dt-input dt-date" />
+              <input type="time" v-model="absenceForm.startTime" class="dt-input dt-time" />
+            </div>
           </div>
           <div>
-            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">End Time</label>
-            <input type="datetime-local" v-model="absenceForm.endTime" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-button); font-size: 1rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); outline: none;" />
+            <label style="display: block; margin-bottom: 0.4rem; color: var(--text-primary); font-size: 0.9rem; font-weight: 600;">End</label>
+            <div class="datetime-row">
+              <input type="date" v-model="absenceForm.endDate" class="dt-input dt-date" />
+              <input type="time" v-model="absenceForm.endTime" class="dt-input dt-time" />
+            </div>
           </div>
         </div>
 
@@ -642,10 +642,22 @@ const splitHighlight = (text) => {
   transition: transform 0.2s;
 }
 .mockup-member-card:hover { transform: translateY(-2px); }
-.mockup-member-card.color-0 { border-bottom: 5px solid var(--primary); }
-.mockup-member-card.color-1 { border-bottom: 5px solid var(--success); }
-.mockup-member-card.color-2 { border-bottom: 5px solid var(--warning); }
-.mockup-member-card.color-3 { border-bottom: 5px solid var(--danger); }
+.mockup-member-card.color-0 { border-bottom: 3px solid var(--primary); }
+.mockup-member-card.color-1 { border-bottom: 3px solid var(--success); }
+.mockup-member-card.color-2 { border-bottom: 3px solid var(--warning); }
+.mockup-member-card.color-3 { border-bottom: 3px solid var(--danger); }
+
+.member-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin-top: 0.8rem;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
 
 .text-color-0 { color: var(--primary); }
 .text-color-1 { color: var(--success); }
@@ -850,5 +862,28 @@ const splitHighlight = (text) => {
 @media (max-width: 480px) {
   .dash-title { font-size: 24px; }
 }
+
+/* ── Date + time split inputs ────────────────────────────── */
+.datetime-row {
+  display: flex;
+  gap: 8px;
+}
+.dt-input {
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--r-pill);
+  font-size: 1rem;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
+  outline: none;
+  font-family: var(--font-family);
+  min-width: 0;
+}
+.dt-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+.dt-date { flex: 1; }
+.dt-time { width: 110px; flex-shrink: 0; }
 
 </style>

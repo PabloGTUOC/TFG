@@ -17,6 +17,7 @@ const rewardForm = ref({ title: '', description: '', amount: '', maxUses: '', va
 
 const isCaregiver = computed(() => role.value === 'caregiver');
 const activeTab = ref('store');
+const redeemTarget = ref(null);
 
 const loadRewards = () => appStore.runAction(async () => {
   const fid = familyId.value;
@@ -56,15 +57,16 @@ const createReward = () => appStore.runAction(async () => {
   await loadRewards();
 });
 
-const redeemReward = (reward) => appStore.runAction(async () => {
-  if (!confirm(`Are you sure you want to spend ${reward.cost} coins on '${reward.title}'?`)) return;
-
-  await appStore.request(`/api/marketplace/rewards/${reward.id}/redeem`, { 
-    method: 'POST', 
-    headers: appStore.authHeaders() 
+const redeemReward = (reward) => { redeemTarget.value = reward; };
+const confirmRedeem = () => appStore.runAction(async () => {
+  if (!redeemTarget.value) return;
+  const r = redeemTarget.value;
+  redeemTarget.value = null;
+  await appStore.request(`/api/marketplace/rewards/${r.id}/redeem`, {
+    method: 'POST',
+    headers: appStore.authHeaders()
   });
-  
-  appStore.setSuccess(`Successfully redeemed ${reward.title}!`);
+  appStore.setSuccess(`Successfully redeemed ${r.title}!`);
   await familyStore.fetchUserData();
   await loadRewards();
 });
@@ -179,6 +181,23 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
       </VButton>
     </VCard>
 
+  </div>
+
+  <!-- Redeem confirmation modal -->
+  <div v-if="redeemTarget" class="modal-overlay" @click.self="redeemTarget = null">
+    <VCard title="Confirm Redemption" style="max-width: 360px; width: 100%;">
+      <p style="color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.5;">
+        Spend <strong style="color: var(--warning);">🪙 {{ redeemTarget.cost }} cc</strong> on
+        <strong style="color: var(--text-primary);">{{ redeemTarget.title }}</strong>?
+      </p>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">
+        Coins will be deducted from your personal balance immediately.
+      </p>
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <VButton type="secondary" @click="redeemTarget = null">Cancel</VButton>
+        <VButton type="primary" @click="confirmRedeem">Spend coins</VButton>
+      </div>
+    </VCard>
   </div>
 </template>
 

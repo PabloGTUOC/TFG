@@ -102,9 +102,11 @@ const approveActivity = (activityId) => appStore.runAction(async () => {
   await fetchActivities();
 }, 'Activity approved! It is now available to drag onto the Family Times calendar.');
 
-const deleteActivity = (activityId) => appStore.runAction(async () => {
-  if (!confirm('Are you sure you want to delete this activity template?')) return;
-  await appStore.request(`/api/activities/${activityId}`, { method: 'DELETE', headers: appStore.authHeaders() });
+const confirmDeleteId = ref(null);
+const deleteActivity = (activityId) => { confirmDeleteId.value = activityId; };
+const executeDelete = () => appStore.runAction(async () => {
+  await appStore.request(`/api/activities/${confirmDeleteId.value}`, { method: 'DELETE', headers: appStore.authHeaders() });
+  confirmDeleteId.value = null;
   await fetchActivities();
 }, 'Activity template deleted.');
 </script>
@@ -246,6 +248,19 @@ const deleteActivity = (activityId) => appStore.runAction(async () => {
 
     </div>
 
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div v-if="confirmDeleteId" class="modal-overlay" @click.self="confirmDeleteId = null">
+    <VCard title="Delete Activity" style="max-width: 360px; width: 100%;">
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
+        Are you sure you want to delete this activity template? This cannot be undone.
+      </p>
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <VButton type="secondary" @click="confirmDeleteId = null">Cancel</VButton>
+        <VButton type="danger" @click="executeDelete">Delete</VButton>
+      </div>
+    </VCard>
   </div>
 </template>
 

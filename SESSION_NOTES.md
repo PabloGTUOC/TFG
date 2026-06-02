@@ -1,6 +1,226 @@
-# Session Notes — Mobile Daily View UI/UX Review & Fixes
+# Session Notes — Latest first
 
-## What was done this session
+---
+
+## Session 6 — Frontend design system audit + fixes (2026-06-02)
+
+### VCard.vue
+- `border-radius` fallback fixed: `var(--radius-card, 32px)` → `var(--r-lg, 24px)` — matches DESIGN.md spec
+
+### VButton.vue
+- Danger variant: `#fca5a5` hardcoded → `var(--danger)`, background → `var(--danger-soft)` — every destructive button in the app was the wrong shade
+- Outline hover: `rgba(139,92,246,0.1)` hardcoded purple → `var(--primary-soft)`
+
+### auth.js (store)
+- Toasts now auto-dismiss: success after 3.5s, errors after 5s
+- Module-level `_dismissTimer` with `clearTimeout` — rapid messages don't stack timers
+
+### JoinView.vue
+- Complete restyle from off-brand indigo/purple palette to design tokens
+- Background: `var(--bg)`, card: `var(--surface)` + border, button: `var(--primary)`, input: pill radius + `var(--input-bg/border)`, status states: `var(--danger-soft/success-soft)`
+
+### OnboardingView.vue
+- Gradient text (`background-clip: text`) removed from h2 → `color: var(--primary)` solid
+- `.pending-notice`: hardcoded amber → `var(--warning-soft)` + `var(--warning)`
+- `.invites-section`: hardcoded greens (`#f0fdf4`, `#bbf7d0`, `#15803d`) → `var(--success-soft)` + `var(--success)`
+
+### window.confirm() — replaced in 5 places across 3 views
+All native browser dialogs replaced with custom VCard modals:
+- `ActivitiesView`: delete template → `confirmDeleteId` ref + modal with Cancel / Delete
+- `MarketplaceView`: redeem reward → `redeemTarget` ref + modal showing reward name + cost
+- `ProfileView`: delete family, delete account, un-check activity → shared `requestConfirm()` pattern (one modal, one `runConfirm()` handler, reused for all three)
+
+### DailyView.vue — card title wrapping
+- `.tl-card-title`: removed `white-space: nowrap` + ellipsis → `-webkit-line-clamp: 2` — long activity names now wrap to 2 lines instead of being cut off. Card height stays predictable (max 2 lines).
+
+---
+
+## Session 5 — DailyView mobile polish (2026-06-02)
+
+### DailyView.vue — all changes are mobile-only
+
+**Dead code removed:**
+- `v-if="false"` old `.mobile-agenda` block deleted (67 lines, confirmed stable since session 2)
+
+**Day-swipe gesture:**
+- `touchstart` / `touchend` handlers on `.mobile-timeline` container
+- Swipe left → next day, swipe right → previous day
+- Threshold: 50px horizontal, must dominate vertical by 1.5× (ignores scroll gestures)
+- `.passive` modifier on both — no scroll performance penalty
+- `daySwipeActive` flag prevents stale state from triggering navigation accidentally
+
+**Card swipe-to-delete:**
+- Swipe left on any non-completed activity card → removes it (calls `removeMobile`)
+- Threshold: −80px horizontal, horizontal must dominate vertical
+- Live `transform: translateX` follows finger during drag
+- Row background transitions to `danger-soft` as soon as swipe is detected — visual cue
+- On commit: card flies off left + fades, `removeMobile` fires after 260ms
+- On abort (under threshold): card snaps back with `0.25s ease-out`
+- `prefers-reduced-motion` guard: no translate, just opacity fade
+- Isolated from day-navigation: card `touchstart`/`touchend` use `.stop` + `daySwipeActive = false`
+
+**X button removed:**
+- `.mobile-remove-btn` removed from timeline cards — swipe-to-delete replaces it, cleaner card layout
+
+**Bottom-sheet modals (Schedule + Delete):**
+- Added `bs-overlay` class to Schedule and Delete modal overlays
+- On mobile (≤768px): modals slide up from bottom (`align-items: flex-end`, `sheet-slide-up` animation, full-width, rounded top corners, safe-area padding)
+- Drag handle bar shown at top of each sheet on mobile
+- Desktop: unchanged (centered overlay)
+- `prefers-reduced-motion` guard added
+
+**Desktop bottom bar leak fixed:**
+- `display: flex` removed from `.mobile-bottom-bar` scoped CSS — was overriding global `.mobile-only { display: none }` due to scoped specificity
+
+**Empty state improved:**
+- Icon: was raw SVG in `var(--border)` color (invisible). Now inside a 64px primary-soft circle with primary-colored icon
+- Tappable: whole empty state opens task sheet (`showTaskSheet = true`) — instruction updated to "Tap here to schedule a task."
+- Tap feedback: `:active` dims the icon circle
+- Centering fixed: `.mobile-timeline` made `display: flex; flex-direction: column`, empty state gets `flex: 1` so `justify-content: center` has actual height to work within
+
+---
+
+## What is still pending
+
+### DailyView
+- All known loose ends resolved in session 5
+- No remaining mobile work identified
+
+### Views fully done
+- `ProfileView.vue` — submenu (session 2)
+- `ActivitiesView.vue` — submenu + fixes (sessions 3–4)
+- `MarketplaceView.vue` — submenu (session 3)
+- `StatsView.vue` — submenu + improvements (session 3)
+- `LandingView.vue` — full redesign (session 4)
+- `DashboardView.vue` — P0–P2 fixes (session 4)
+- `DailyView.vue` — mobile timeline + gestures + polish (sessions 2, 5)
+
+---
+
+## Session 4 — LandingView redesign + DashboardView fixes + DailyView drag bug (2026-06-02)
+
+### LandingView.vue — full redesign (impeccable critique)
+Critique score was 49/100. All P0–P2 issues resolved.
+
+**P0 (ban violations removed):**
+- Gradient text on hero h1 → solid `#93C5FD` (light blue, 10:1 contrast on dark bg)
+- Glassmorphism removed from all 3 containers (demo, ledger card, CTA) → plain bordered surface cards
+- Identical icon-card grid replaced with a 4-step flow (numbered circles + connecting rule, no icon wrappers)
+- Hero headline rewritten: "Every caregiver counted. Every task rewarded." — no buzzwords
+
+**P1 (copy + brand):**
+- All tracked uppercase eyebrows removed — single quiet `hero-kicker` pill in sentence case
+- False social proof ("Join thousands") → "Five minutes to set up. No subscriptions, no algorithms."
+- `prefers-reduced-motion` guard added throughout
+- Benefit copy: "Advanced ECharts Analytics" → "Contribution history at a glance", "Strict Role Management" → "One family, one ledger"
+
+**Brand elevation:**
+- Hero: deep ink `#0E1726` bg — distinct visual identity from the app shell
+- CTA section: primary blue bg — clear narrative arc dark → light → blue
+- All headings use `clamp()` for fluid scaling
+- Scroll reveals via `IntersectionObserver` with staggered steps
+
+**Phone mockup + SVG:**
+- Hero split into 2 columns: text left, phone mockup + family SVG right
+- Phone mockup: full CSS frame showing the daily timeline (progress bar, NOW divider, 3 colored cards, bottom nav)
+- Family SVG: 4 geometric person silhouettes in semantic brand colors below phone
+- Phone hidden at ≤768px (too small to be useful); visual column hidden entirely at ≤480px
+
+**Mobile responsiveness fixes:**
+- Hero padding reduced: 104px → 52px at 768px, 44px at 480px
+- Section padding: 88px → 52px at 768px, 44px at 480px
+- CTA: 96px → 56px at 768px
+- Subtitle opacity bumped: 0.62 → 0.75 (legibility on phone screens)
+- Kicker opacity: 0.50 → 0.65
+
+---
+
+### DashboardView.vue — P0–P2 fixes
+
+**P0:**
+- `datetime-local` in absence modal broken on iOS Safari → split into `date` + `time` fields (`absenceForm` now carries `startDate/startTime/endDate/endTime`)
+- Week calendar moved to position 3 in DOM (before KPI/activity grid) — applies to both desktop and mobile without CSS tricks
+
+**P1:**
+- Member card names truncated: `white-space: nowrap; overflow: hidden; text-overflow: ellipsis` via `.member-name` class — prevents overflow in 80px mobile cards
+- "THIS WEEK" eyebrow: removed `text-transform: uppercase; letter-spacing: 1px` → "This week", weight 700
+- "PENDING APPROVAL": same fix → "Pending approval"
+- "ACTIVE" offers badge → "open", `font-weight: 900 → 800`
+
+**P2:**
+- `border-bottom: 5px → 3px` on member cards
+- `material-symbols-rounded calendar_today` icon removed from offer cards (font not loaded → was rendering as raw text). Replaced with plain `·` separator
+
+**Reverted (user preference):**
+- "Manage Tribe →" kept hidden on mobile (was: user deliberately hid it)
+- Week calendar kept at order: 3, KPI grid at order: 4 on mobile (was: user deliberately set this ordering)
+
+**DailyView — mobile bottom bar desktop leak fixed:**
+- `display: flex` removed from `.mobile-bottom-bar` scoped CSS — was overriding the global `.mobile-only { display: none }` from App.vue due to scoped specificity
+
+---
+
+### DailyView.vue — drag-to-cancel bug fixed
+
+Three root causes identified and fixed:
+
+| # | Layer | Issue | Fix |
+|---|---|---|---|
+| 1 | Backend | `assigned_to !== me.id` hard 403 — caregivers couldn't unschedule activities assigned to others | Added caregiver bypass: `assertMemberRole` check, caregivers can delete any family activity |
+| 2 | Backend | Status check blocked `'pending'` activities — frontend allows dragging them but backend returned 409 | Added `'pending'` to allowed statuses |
+| 3 | Frontend | Overlay `padding: 4rem 2rem` around wrapper had no `@dragover.prevent` — drops on margins showed "not-allowed" and were silently swallowed | Added `@dragover.prevent @drop.prevent="dropOut"` to `.daily-fullscreen-overlay` |
+
+---
+
+## What is still pending
+
+### DailyView loose ends
+- **Day-swipe gesture** — navigating between days uses `<` / `>` buttons; swipe left/right is a likely user expectation
+- **Bottom sheet modals** — Schedule and Delete modals would feel more native as bottom sheets rather than centered overlays
+- **Old `.mobile-agenda` cleanup** — the `v-if="false"` block can be fully deleted once the timeline is confirmed stable on device
+
+### Views fully done
+- `ProfileView.vue` — submenu in session 2
+- `ActivitiesView.vue` — submenu + fixes in sessions 3–4
+- `MarketplaceView.vue` — submenu in session 3
+- `StatsView.vue` — submenu + improvements in session 3
+- `LandingView.vue` — full redesign in session 4
+- `DashboardView.vue` — P0–P2 fixes in session 4
+
+---
+
+## Session 3 — Mobile submenu sweep + StatsView improvements (2026-06-02)
+
+### ActivitiesView.vue
+- Added mobile tab bar: **Catalogue / New Activity / Budget** (same pill-within-pill pattern as ProfileView)
+- Scroll cap on catalogue list: `max-height: 320px` + `overflow-y: auto` — ~4 items visible, then scroll
+- Removed success toast on `fetchActivities` (was showing "Loaded activities and budget" on every page load)
+- Renamed heading "Family Admin and Budget Hub" → "Activity Library"
+- `+ New Activity` shortcut button at bottom of Catalogue tab (mobile only, jumps to New Activity tab)
+
+### MarketplaceView.vue
+- Added mobile tab bar: **Store / History / Create** (Create tab only rendered for caregivers)
+- Admin create form grid collapses to single column on mobile
+- Desktop layout and all animations untouched
+
+### StatsView.vue
+- Removed success toast on `loadStats`
+- Added mobile tab bar: **Overview / Members / Economy**
+  - Overview: KPIs + Trend + Category Balance + Task Frequency
+  - Members: Leaderboard + Completion Rate + Bounty stats
+  - Economy: Coin Flow + Marketplace + Workflow Health
+- KPI grid keeps 2 columns on mobile (was collapsing to 1)
+- Back button hidden on mobile (bottom nav already handles navigation)
+- Toggle label renamed "Family Mode" → "Compare caregivers"
+- Chart height bumped 260px → 300px on small phones (full-width single-column now)
+- Desktop: tab bar hidden, full scroll with section dividers unchanged
+
+### Committed
+All changes committed as `dd740b6 mobile ready`.
+
+---
+
+## Session 2 — Mobile Daily View UI/UX Review & Fixes
 
 ### 1. Project context created
 - `PRODUCT.md` written at project root — register (product + brand landing), users, brand personality (loving, trusted, fun), anti-references (no Facebook/Instagram), design principles.
@@ -99,24 +319,20 @@ Replaced the flat colored card list with a condensed timeline. All 6 phases impl
 
 ## What is still pending
 
-### Other views not yet reviewed
-- `DashboardView.vue` — main family hub (has uncommitted changes from before this session)
-- `ActivitiesView.vue`
-- `MarketplaceView.vue`
-- `StatsView.vue`
-- `ProfileView.vue`
-- `LandingView.vue` — **brand register** surface, highest priority for acquisition
+### Priority 1 — LandingView.vue
+Brand register surface — the first thing a new user sees. Not yet reviewed.
+Flagged as **highest priority for acquisition**. Needs a full design + copy review.
 
-### Landing page (brand register)
-Needs a full brand-register review with `/impeccable critique LandingView` or `/impeccable craft landing page`.
+### Priority 2 — DashboardView.vue
+Main family hub. Has not been reviewed for mobile UX. No known uncommitted changes as of session 3.
 
-### DESIGN.md not created
-Run `/impeccable document` to capture the current visual system so future impeccable commands stay on-brand automatically.
-
-### DailyView — remaining opportunities
+### Priority 3 — DailyView loose ends
 - **Day-swipe gesture** — navigating between days uses `<` / `>` buttons; swipe left/right is a likely user expectation
 - **Bottom sheet modals** — Schedule and Delete modals would feel more native as bottom sheets rather than centered overlays
 - **Old `.mobile-agenda` cleanup** — the `v-if="false"` block can be fully deleted once the timeline is confirmed stable on device
 
-### DashboardView.vue has uncommitted changes
-`git status` at session start showed `M frontend/src/views/DashboardView.vue`. Those changes were not touched.
+### Views fully done
+- `ProfileView.vue` — submenu in session 2
+- `ActivitiesView.vue` — submenu + fixes in session 3
+- `MarketplaceView.vue` — submenu in session 3
+- `StatsView.vue` — submenu + 4 improvements in session 3

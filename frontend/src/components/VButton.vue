@@ -75,15 +75,15 @@ defineEmits(['click']);
   border: 1px solid var(--accent-primary);
 }
 .outline:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-soft);
 }
 
 .danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-soft);
 }
 .danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
+  filter: brightness(0.95);
 }
 </style>

@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+
+let _dismissTimer = null;
 import { watch } from 'vue';
 import { auth } from '../firebase';
 import { useFamilyStore } from './family';
@@ -143,11 +145,15 @@ export const useAuthStore = defineStore('auth', {
     setSuccess(message) {
       this.success = message;
       this.error = '';
+      clearTimeout(_dismissTimer);
+      _dismissTimer = setTimeout(() => { this.success = ''; }, 3500);
     },
 
     setError(message) {
       this.error = message;
       this.success = '';
+      clearTimeout(_dismissTimer);
+      _dismissTimer = setTimeout(() => { this.error = ''; }, 5000);
     },
 
     clearMessages() {

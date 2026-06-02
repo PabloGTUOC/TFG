@@ -97,75 +97,86 @@ const join = async () => {
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  background: var(--bg);
 }
 .join-card {
-  background: #fff;
-  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   padding: 3rem 2.5rem;
   max-width: 420px;
   width: 100%;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(99,102,241,0.15);
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
 }
 .join-icon { font-size: 3rem; margin-bottom: 1rem; }
 h1 {
   font-size: 1.8rem;
-  font-weight: 900;
-  color: #1e1b4b;
+  font-weight: 800;
+  color: var(--text-primary);
   margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
 }
-.join-sub { color: #64748b; margin: 0 0 2rem; font-size: 0.95rem; }
+.join-sub { color: var(--text-secondary); margin: 0 0 2rem; font-size: 0.95rem; }
 
 .join-form { display: flex; flex-direction: column; gap: 1rem; text-align: left; }
 .field-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-secondary);
 }
 .alias-input {
   padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-pill);
   font-size: 1rem;
-  color: #1e293b;
-  background: #f8fafc;
+  color: var(--text-primary);
+  background: var(--input-bg);
   outline: none;
-  transition: border-color 0.2s;
+  font-family: var(--font-family);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
-.alias-input:focus { border-color: #6366f1; background: #fff; }
+.alias-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  background: var(--surface);
+}
 
 .join-btn {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: var(--primary);
   color: #fff;
   border: none;
-  border-radius: 9999px;
+  border-radius: var(--r-pill);
   padding: 0.85rem 2rem;
   font-weight: 800;
   font-size: 1rem;
+  font-family: var(--font-family);
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+  transition: opacity 0.15s, transform 0.15s;
+  min-height: 44px;
 }
-.join-btn:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+.join-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.join-btn:active:not(:disabled) { transform: scale(0.98); }
 .join-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .join-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  border-radius: 12px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--r-md);
   padding: 1rem;
   font-size: 0.9rem;
+  font-weight: 600;
   margin-bottom: 1rem;
 }
 .join-success {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
-  border-radius: 12px;
+  background: var(--success-soft);
+  border: 1px solid var(--success-soft);
+  color: var(--success);
+  border-radius: var(--r-md);
   padding: 1rem;
   font-size: 0.9rem;
   font-weight: 700;
@@ -173,8 +184,9 @@ h1 {
 .back-link {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.85rem;
+  font-family: var(--font-family);
   cursor: pointer;
   margin-top: 1.5rem;
   text-decoration: underline;

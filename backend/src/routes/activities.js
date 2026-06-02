@@ -629,8 +629,10 @@ activitiesRouter.delete('/:id', validateParams('id'), async (req, res) => {
         return { data: { success: true } };
       }
 
-      if (act.assigned_to !== me.id) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
-      if (act.status !== 'approved' && act.status !== 'pending_validation') return { error: { code: 409, message: 'Can only un-schedule upcoming or pending validation activities.' } };
+      const caregiverCheck = await assertMemberRole(client, me.id, act.family_id, 'caregiver');
+      const isCaregiver = !caregiverCheck;
+      if (act.assigned_to !== me.id && !isCaregiver) return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
+      if (act.status !== 'approved' && act.status !== 'pending_validation' && act.status !== 'pending') return { error: { code: 409, message: 'Can only un-schedule upcoming activities.' } };
 
       // Revert bounty if the person offered one — coins were charged at offer time, so refund them now.
 

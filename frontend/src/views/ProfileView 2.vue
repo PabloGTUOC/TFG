@@ -151,32 +151,20 @@ const loadDeletionRequests = async () => {
   }
 };
 
-const showConfirm = ref(false);
-const confirmTitle = ref('');
-const confirmBody = ref('');
-const confirmDanger = ref(false);
-let pendingConfirmFn = null;
-const requestConfirm = (title, body, danger, fn) => {
-  confirmTitle.value = title; confirmBody.value = body; confirmDanger.value = danger;
-  pendingConfirmFn = fn; showConfirm.value = true;
-};
-const runConfirm = async () => {
-  showConfirm.value = false;
-  if (pendingConfirmFn) await pendingConfirmFn();
-  pendingConfirmFn = null;
-};
-
 const deleteFamily = () => {
-  requestConfirm(
-    'Delete family',
-    'If there are other caregivers this sends them a deletion request. All family data will be permanently removed.',
-    true,
-    () => appStore.runAction(async () => {
-      const res = await appStore.request(`/api/families/${familyId.value}`, { method: 'DELETE', headers: appStore.authHeaders() });
-      if (res.deleted) { window.location.href = '/'; }
-      else if (res.pendingApproval) { appStore.setSuccess('Deletion request sent to other caregivers.'); await loadDeletionRequests(); }
-    }, 'Family deletion processed.')
-  );
+  if (!confirm('Are you SURE you want to delete this family? If there are other caregivers, this will send them a deletion request. This action cannot be undone!')) return;
+  appStore.runAction(async () => {
+    const res = await appStore.request(`/api/families/${familyId.value}`, {
+      method: 'DELETE',
+      headers: appStore.authHeaders()
+    });
+    if (res.deleted) {
+      window.location.href = '/';
+    } else if (res.pendingApproval) {
+      alert('Deletion request sent to other caregivers. Please wait for their approval.');
+      await loadDeletionRequests();
+    }
+  }, 'Family deletion processed.');
 };
 
 const respondToDeletionRequest = (reqId, action) => appStore.runAction(async () => {
@@ -214,15 +202,14 @@ const updateProfile = () => appStore.runAction(async () => {
 }, 'Personal details updated successfully!');
 
 const deleteAccount = () => {
-  requestConfirm(
-    'Delete account',
-    'Your profile will be anonymized and all your pending activities deleted. This cannot be undone.',
-    true,
-    () => appStore.runAction(async () => {
-      await appStore.request('/api/me', { method: 'DELETE', headers: appStore.authHeaders() });
-      await appStore.logout();
-    }, 'Account deleted.')
-  );
+  if (!confirm('Are you SURE you want to delete your account? This will anonymize your profile and cannot be undone. All your pending activities will be deleted.')) return;
+  appStore.runAction(async () => {
+    await appStore.request('/api/me', {
+      method: 'DELETE',
+      headers: appStore.authHeaders()
+    });
+    await appStore.logout();
+  }, 'Account deleted.');
 };
 
 // ── Coin ledger ───────────────────────────────────────────
@@ -244,17 +231,13 @@ const loadLedger = async () => {
   }
 };
 
-const uncheckActivity = (item) => {
-  requestConfirm(
-    'Un-check activity',
-    `This will revert ${Math.abs(item.amount)} cc from your balance for "${item.activity_title}".`,
-    false,
-    () => appStore.runAction(async () => {
-      await appStore.request(`/api/activities/${item.activity_id}/revert`, { method: 'POST', headers: appStore.authHeaders() });
-      await familyStore.fetchUserData();
-      await loadLedger();
-    }, 'Activity unchecked and balance reverted.')
-  );
+const uncheckActivity = async (item) => {
+  if (!confirm(`Are you sure you want to un-check '${item.activity_title}'? It will revert ${item.amount} cc from your balance.`)) return;
+  await appStore.runAction(async () => {
+    await appStore.request(`/api/activities/${item.activity_id}/revert`, { method: 'POST', headers: appStore.authHeaders() });
+    await familyStore.fetchUserData();
+    await loadLedger();
+  }, 'Activity unchecked and bank reverted.');
 };
 
 // ── Invite link (QR + share) ──────────────────────────────
@@ -699,17 +682,6 @@ const formatLedgerDate = (ds) => {
 
       </div><!-- /right-col -->
     </div>
-  </div>
-
-  <!-- Shared confirmation modal -->
-  <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm = false">
-    <VCard :title="confirmTitle" style="max-width: 380px; width: 100%;">
-      <p style="color: var(--text-secondary); line-height: 1.55; margin-bottom: 1.5rem;">{{ confirmBody }}</p>
-      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-        <VButton type="secondary" @click="showConfirm = false">Cancel</VButton>
-        <VButton :type="confirmDanger ? 'danger' : 'primary'" @click="runConfirm">Confirm</VButton>
-      </div>
-    </VCard>
   </div>
 </template>
 

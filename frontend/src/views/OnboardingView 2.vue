@@ -239,9 +239,9 @@ const createFamily = () => appStore.runAction(async () => {
 .onboarding-header h2 {
   font-size: 2.5rem;
   margin-bottom: 1rem;
-  color: var(--primary);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .onboarding-header p {
   color: var(--text-secondary);
@@ -284,26 +284,25 @@ hr {
   margin: 2rem 0;
 }
 .pending-notice {
-  background: var(--warning-soft);
-  border: 1px solid var(--warning-soft);
-  color: var(--warning);
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #fef08a;
   padding: 1rem;
-  border-radius: var(--r-md);
+  border-radius: 8px;
   text-align: center;
   margin-bottom: 2rem;
-  font-weight: 600;
 }
 .invites-section {
-  background: var(--success-soft);
-  border: 1px solid var(--success-soft);
-  border-radius: var(--r-lg);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 2rem;
 }
 .invites-title {
   font-size: 1rem;
   font-weight: 800;
-  color: var(--success);
+  color: #15803d;
   margin: 0 0 1rem;
 }
 .invite-row {

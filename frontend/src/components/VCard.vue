@@ -22,7 +22,7 @@ const props = defineProps({
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-card, 32px);
+  border-radius: var(--r-lg, 24px);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
   margin-bottom: 1.5rem;
   overflow: hidden;
