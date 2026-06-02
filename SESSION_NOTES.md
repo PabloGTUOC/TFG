@@ -2,6 +2,42 @@
 
 ---
 
+## Session 8 — Notification preferences P3 (2026-06-02)
+
+### DB
+- `backend/scripts/migrate-notif-prefs.sql` (new) — `notification_preferences` table: one row per user, 5 boolean columns (`activity_assigned`, `activity_validated`, `activity_completed`, `bounty_offered`, `family_events`), all default `true`
+- Wired into `init-db.js` — runs automatically on next `docker compose up`
+
+### Backend — `notify.js`
+- Each exported function now destructures `prefKey` from the payload
+- Added `LEFT JOIN notification_preferences np ON np.user_id = ft.user_id` to every token query
+- `prefClause(prefKey)` helper injects `AND COALESCE(np.{col}, true) = true` — users with no saved row receive all notifications (safe default)
+- Column name validated against `VALID_PREF_KEYS` Set before interpolation (no SQL injection risk)
+
+### Backend — call sites (`activities.js`, `families.js`)
+All 6 notify calls now pass the correct `prefKey`:
+| Event | prefKey |
+|---|---|
+| New activity / needs approval / needs validation | `activity_assigned` |
+| Activity completed | `activity_completed` |
+| Activity validated (coins earned) | `activity_validated` |
+| Bounty offered | `bounty_offered` |
+| Family deletion | `family_events` |
+
+### Backend — new routes (`me.js`)
+- `GET /api/me/notification-preferences` — returns current prefs, falls back to all-true defaults if no row exists
+- `PUT /api/me/notification-preferences` — upserts 5 booleans; validates all fields are boolean before touching DB
+
+### Frontend — `ProfileView.vue`
+- `notifPrefs` ref + `notifPrefDefs` constant (5 labels)
+- `loadNotifPrefs()` called on `onMounted` and after enabling notifications
+- `saveNotifPrefs()` called on each toggle flip via `@change`
+- `handleEnableNotifications()` wraps `enableNotifications()` + `loadNotifPrefs()`
+- Toggle list shown only when `notifPermission === 'granted'`
+- iOS-style toggle switch CSS (custom `appearance: none` checkbox with `::after` knob)
+
+---
+
 ## Session 7 — Mobile push notifications P0+P1+P2 (2026-06-02)
 
 ### Audit
@@ -59,11 +95,12 @@ Enhancement plan proposed: P0 (critical fixes) → P1 (deep link on tap) → P2 
 
 ## What is still pending
 
-### Notifications (P3–P5)
-- **P3 — Notification preferences**: new `notification_preferences` table + per-category toggles in ProfileView + backend check before sending. ~3h.
+### Notifications (P4–P5)
 - **P4 — Badge count**: Badging API (`navigator.setAppBadge`) driven by unread count. ~1h.
 - **P5 — Notification inbox**: `notifications` DB table + in-app notification center. Longer-term / post-TFG scope.
-- ~~**DB migration pending**~~ — wired into `init-db.js`; runs automatically on next `docker compose up`.
+
+### All other views
+- All frontend views confirmed done as of Session 6.
 
 ### All other views
 - All frontend views confirmed done as of Session 6.

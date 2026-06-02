@@ -24,6 +24,10 @@ async function main() {
   await pool.query(await fs.readFile(fcmIndexPath, 'utf8'));
   console.log('FCM token index ready.');
 
+  const notifPrefsPath = path.join(__dirname, 'migrate-notif-prefs.sql');
+  await pool.query(await fs.readFile(notifPrefsPath, 'utf8'));
+  console.log('Notification preferences table ready.');
+
   await pool.end();
 }
 

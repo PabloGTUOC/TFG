@@ -29,10 +29,12 @@ messaging.onBackgroundMessage((payload) => {
     badge: '/icon-192.png',
     data: payload.data || {},
   });
+  self.navigator?.setAppBadge?.();
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  self.navigator?.clearAppBadge?.();
   const url = event.notification.data?.url || '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

@@ -27,12 +27,18 @@ const closeDropdown = (e) => {
 // Sync FCM token whenever the user logs in or the page refreshes while logged in
 watch(user, (u) => { if (u) initNotifications(); });
 
+const onVisibilityChange = () => {
+  if (document.visibilityState === 'visible') navigator.clearAppBadge?.();
+};
+
 onMounted(() => {
   document.addEventListener('click', closeDropdown);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', closeDropdown);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 });
 
 const handleLogout = async () => {

@@ -90,6 +90,7 @@ activitiesRouter.post('/', validateBody({
       title: 'New activity pending approval',
       body: `"${result.data.title}" needs your review.`,
       url: '/activities',
+      prefKey: 'activity_assigned',
     });
     return res.status(201).json({ activity: result.data });
   } catch (err) {
@@ -267,6 +268,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         title: 'Activity scheduled for you',
         body: `"${act.title}" starts at ${when}.`,
         url: '/activities',
+        prefKey: 'activity_assigned',
       });
     }
     if (act.status === 'pending_validation') {
@@ -274,6 +276,7 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
         title: 'Activity needs validation',
         body: `"${act.title}" was added in the past and needs your approval.`,
         url: '/activities',
+        prefKey: 'activity_assigned',
       });
     }
     return res.status(201).json({ activity: act, warning: result.warning });
@@ -424,6 +427,7 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
       title: 'Activity completed',
       body: `"${result.inst.title}" has just been completed.`,
       url: '/activities',
+      prefKey: 'activity_completed',
     });
     return res.status(200).json(result.data);
   } catch (err) {
@@ -490,6 +494,7 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
       title: 'Activity validated!',
       body: `Your activity was approved. You earned ${result.data.coinsAwarded} coins.`,
       url: '/dashboard',
+      prefKey: 'activity_validated',
     });
     return res.json(result.data);
   } catch (err) {
@@ -552,6 +557,7 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
       title: 'Bounty offered on a shift!',
       body: `Someone is offering ${result.bountyAmount} coins for someone to take their activity.`,
       url: '/activities',
+      prefKey: 'bounty_offered',
     });
     return res.json(result.data);
   } catch (err) {

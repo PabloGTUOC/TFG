@@ -352,3 +352,56 @@ meRouter.delete('/fcm-token', async (req, res) => {
     return res.status(500).json({ error: 'Failed to remove token.' });
   }
 });
+
+// ─────────────────────────────────────────────
+// GET  /api/me/notification-preferences
+// PUT  /api/me/notification-preferences
+// ─────────────────────────────────────────────
+const DEFAULT_PREFS = {
+  activity_assigned: true,
+  activity_validated: true,
+  activity_completed: true,
+  bounty_offered: true,
+  family_events: true,
+};
+
+meRouter.get('/notification-preferences', async (req, res) => {
+  try {
+    const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
+    const { rows } = await pool.query(
+      `SELECT activity_assigned, activity_validated, activity_completed, bounty_offered, family_events
+       FROM notification_preferences WHERE user_id = $1`,
+      [user.id]
+    );
+    return res.json(rows[0] ? { ...DEFAULT_PREFS, ...rows[0] } : DEFAULT_PREFS);
+  } catch (err) {
+    console.error('GET /notification-preferences error:', err);
+    return res.status(500).json({ error: 'Failed to load preferences.' });
+  }
+});
+
+meRouter.put('/notification-preferences', async (req, res) => {
+  const { activity_assigned, activity_validated, activity_completed, bounty_offered, family_events } = req.body;
+  if ([activity_assigned, activity_validated, activity_completed, bounty_offered, family_events].some(v => typeof v !== 'boolean')) {
+    return res.status(400).json({ error: 'All preference fields must be boolean.' });
+  }
+  try {
+    const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
+    await pool.query(
+      `INSERT INTO notification_preferences
+         (user_id, activity_assigned, activity_validated, activity_completed, bounty_offered, family_events)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id) DO UPDATE SET
+         activity_assigned  = $2,
+         activity_validated = $3,
+         activity_completed = $4,
+         bounty_offered     = $5,
+         family_events      = $6`,
+      [user.id, activity_assigned, activity_validated, activity_completed, bounty_offered, family_events]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('PUT /notification-preferences error:', err);
+    return res.status(500).json({ error: 'Failed to save preferences.' });
+  }
+});

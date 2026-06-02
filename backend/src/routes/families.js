@@ -671,6 +671,7 @@ familiesRouter.delete('/:familyId',
           title: 'Family deletion requested',
           body: 'A caregiver has requested to delete the family. Your approval is needed.',
           url: '/dashboard',
+          prefKey: 'family_events',
         });
       }
       return res.json(result.data);

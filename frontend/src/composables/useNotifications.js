@@ -34,7 +34,8 @@ export function useNotifications() {
       const url = payload.data?.url;
       if (!title || Notification.permission !== 'granted') return;
       const n = new Notification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png' });
-      if (url) n.onclick = () => { window.focus(); router.push(url); };
+      navigator.setAppBadge?.();
+      n.onclick = () => { window.focus(); navigator.clearAppBadge?.(); if (url) router.push(url); };
     });
   }
 

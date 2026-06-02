@@ -15,6 +15,44 @@ const appStore = useAuthStore();
 const familyStore = useFamilyStore();
 const actors = computed(() => familyStore.actors || []);
 const { permission: notifPermission, enable: enableNotifications, disable: disableNotifications } = useNotifications();
+
+const notifPrefDefs = [
+  { key: 'activity_assigned',  label: 'Activity assigned to me' },
+  { key: 'activity_validated', label: 'Activity approved & coins earned' },
+  { key: 'activity_completed', label: 'Family activity completed' },
+  { key: 'bounty_offered',     label: 'Bounty offered on a shift' },
+  { key: 'family_events',      label: 'Family management events' },
+];
+
+const notifPrefs = ref({
+  activity_assigned: true, activity_validated: true,
+  activity_completed: true, bounty_offered: true, family_events: true,
+});
+
+const loadNotifPrefs = async () => {
+  if (notifPermission.value !== 'granted') return;
+  try {
+    const data = await appStore.request('/api/me/notification-preferences', { headers: appStore.authHeaders() });
+    notifPrefs.value = data;
+  } catch { /* ignore */ }
+};
+
+const saveNotifPrefs = async () => {
+  try {
+    await appStore.request('/api/me/notification-preferences', {
+      method: 'PUT',
+      headers: appStore.authHeaders(),
+      body: JSON.stringify(notifPrefs.value),
+    });
+  } catch {
+    appStore.setError('Failed to save notification preferences.');
+  }
+};
+
+const handleEnableNotifications = async () => {
+  await enableNotifications();
+  await loadNotifPrefs();
+};
 const userAvatarInput = ref(null);
 
 // ── Avatar uploads ────────────────────────────────────────
@@ -303,7 +341,7 @@ const shareInviteLink = () => {
   }).catch(() => {});
 };
 
-onMounted(() => { loadLedger(); loadInvitations(); loadDeletionRequests(); });
+onMounted(() => { loadLedger(); loadInvitations(); loadDeletionRequests(); loadNotifPrefs(); });
 watch(currentMonth, () => loadLedger());
 watch(isCaregiver, (v) => { if (v) { loadInvitations(); loadDeletionRequests(); } });
 
@@ -476,13 +514,21 @@ const formatLedgerDate = (ds) => {
               </button>
             </div>
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-              <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.6rem;">Push Notifications</div>
-              <button v-if="notifPermission !== 'granted'" class="update-btn" @click="enableNotifications">
-                🔔 Enable Notifications
+              <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.75rem;">Push Notifications</div>
+              <button v-if="notifPermission !== 'granted'" class="update-btn" @click="handleEnableNotifications">
+                Enable Notifications
               </button>
-              <div v-else style="display: flex; align-items: center; gap: 0.75rem;">
-                <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">✓ Notifications enabled</span>
-                <button @click="disableNotifications" style="font-size: 0.8rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; text-decoration: underline;">Disable</button>
+              <div v-else>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                  <span style="font-size: 0.85rem; color: var(--success); font-weight: 600;">✓ Notifications enabled</span>
+                  <button @click="disableNotifications" style="font-size: 0.8rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; text-decoration: underline;">Disable</button>
+                </div>
+                <div class="notif-pref-list">
+                  <label v-for="pref in notifPrefDefs" :key="pref.key" class="notif-pref-row">
+                    <span class="notif-pref-label">{{ pref.label }}</span>
+                    <input type="checkbox" class="notif-pref-toggle" v-model="notifPrefs[pref.key]" @change="saveNotifPrefs" />
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -1367,6 +1413,59 @@ const formatLedgerDate = (ds) => {
 
   .qr-img { width: 100px; height: 100px; }
 }
+
+/* ── Notification preferences toggles ──────────────────────── */
+.notif-pref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.notif-pref-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.notif-pref-row:last-child { border-bottom: none; }
+.notif-pref-row:hover { background: rgba(99, 102, 241, 0.04); }
+.notif-pref-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+.notif-pref-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 22px;
+  background: #cbd5e1;
+  border-radius: 9999px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.notif-pref-toggle:checked { background: #6366f1; }
+.notif-pref-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.notif-pref-toggle:checked::after { transform: translateX(18px); }
 
 /* ── Profile Tab Bar ─────────────────────────────────────── */
 .profile-tab-bar { display: none; }
