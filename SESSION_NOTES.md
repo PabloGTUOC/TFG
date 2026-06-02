@@ -2,6 +2,38 @@
 
 ---
 
+## Session 9 — Invitation system audit + gap fixes (2026-06-02)
+
+### Audit findings
+Full end-to-end audit of the invitation system. Both flows (email invite + shareable link/QR) confirmed working. Gap 3 ("uses counter incremented for already-member users") was investigated and found NOT to be a real bug — the `uses` UPDATE runs after the 409 early return, so `withTransaction` commits with no DB changes.
+
+### Gaps fixed
+
+**Gap 1 — FCM push when user joins via invite link (`join-by-token`)**
+- `notifyFamilyCaregivers` added after successful join
+- Message: `"${displayName} joined your family via invite link."`
+- `url: '/dashboard'`, `prefKey: 'family_events'`
+- `userId`, `familyId`, `displayName` threaded out of the transaction so notify has the data it needs
+
+**Gap 2 — FCM push when user accepts email invitation (`join-request`)**
+- Same pattern: `notifyFamilyCaregivers` fires after successful acceptance
+- Message: `"${displayName} joined your family."`
+- Same `url` and `prefKey`
+
+**Gap 4 — Alias validation inconsistency in `join-by-token`**
+- Added `validateBody({ token: [required(), string(1, 500)], alias: [string(1, 50)] })`
+- Removed manual `if (!token ...) return 400` — `validateBody` now handles it
+- Now consistent with `join-request` which already validated alias via middleware
+
+### Remaining low-priority gaps (post-TFG)
+- No "decline invitation" UI or endpoint (schema allows `status = 'declined'`, unused)
+- Invite links default to unlimited uses / no expiry — frontend could default to e.g. 7-day expiry
+- No rate limiting on invite endpoints
+- `expiresAt` not validated to be in the future
+- Email send failures silently swallowed (`.catch()` with no user feedback)
+
+---
+
 ## Session 8 — Notification preferences P3 (2026-06-02)
 
 ### DB

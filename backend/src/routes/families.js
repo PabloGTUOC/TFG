@@ -250,10 +250,16 @@ familiesRouter.post('/join-request', validateBody({
         [familyId, user.id, user.display_name || user.email]
       );
 
-      return { data: { success: true, status: 'active' } };
+      return { data: { success: true, status: 'active' }, userId: user.id, familyId, displayName: user.display_name || user.email };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyFamilyCaregivers(result.familyId, result.userId, {
+      title: 'Invitation accepted',
+      body: `${result.displayName} joined your family.`,
+      url: '/dashboard',
+      prefKey: 'family_events',
+    });
     return res.status(200).json(result.data);
   } catch (err) {
     console.error(err);
@@ -262,11 +268,11 @@ familiesRouter.post('/join-request', validateBody({
 });
 
 // Join a family via a shareable invite link token.
-familiesRouter.post('/join-by-token', async (req, res) => {
+familiesRouter.post('/join-by-token', validateBody({
+  token: [required(), string(1, 500)],
+  alias: [string(1, 50)],
+}), async (req, res) => {
   const { token, alias } = req.body;
-  if (!token || typeof token !== 'string') {
-    return res.status(400).json({ error: 'token is required.' });
-  }
 
   try {
     const result = await withTransaction(async (client) => {
@@ -312,10 +318,16 @@ familiesRouter.post('/join-by-token', async (req, res) => {
 
       await client.query(`UPDATE invite_links SET uses = uses + 1 WHERE id = $1`, [link.id]);
 
-      return { data: { success: true, familyId: link.family_id } };
+      return { data: { success: true, familyId: link.family_id }, userId: user.id, familyId: link.family_id, displayName: user.display_name || user.email };
     });
 
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    notifyFamilyCaregivers(result.familyId, result.userId, {
+      title: 'New member joined',
+      body: `${result.displayName} joined your family via invite link.`,
+      url: '/dashboard',
+      prefKey: 'family_events',
+    });
     return res.json(result.data);
   } catch (err) {
     console.error(err);
