@@ -1,17 +1,19 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from './stores/auth';
 import { useFamilyStore } from './stores/family';
 import { useRouter } from 'vue-router';
 import { Home, Calendar, ShoppingBag, User, BarChart2 } from 'lucide-vue-next';
 import { avatarStyle } from './utils/avatarStyle';
+import { useNotifications } from './composables/useNotifications';
 
 const authStore = useAuthStore();
 const familyStore = useFamilyStore();
 const router = useRouter();
 const { success, error, user, authReady } = storeToRefs(authStore);
 const { families } = storeToRefs(familyStore);
+const { init: initNotifications } = useNotifications();
 
 const showDropdown = ref(false);
 const profileMenuRef = ref(null);
@@ -21,6 +23,9 @@ const closeDropdown = (e) => {
     showDropdown.value = false;
   }
 };
+
+// Sync FCM token whenever the user logs in or the page refreshes while logged in
+watch(user, (u) => { if (u) initNotifications(); });
 
 onMounted(() => {
   document.addEventListener('click', closeDropdown);

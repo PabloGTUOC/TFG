@@ -6,15 +6,21 @@ function getMessaging() {
   try { return admin.messaging(); } catch { return null; }
 }
 
-async function sendToTokens(tokens, { title, body }) {
+async function sendToTokens(tokens, { title, body, url }) {
   const messaging = getMessaging();
   if (!messaging || !tokens.length) return [];
 
-  const response = await messaging.sendEachForMulticast({
+  const message = {
     tokens,
     notification: { title, body },
-    webpush: { notification: { icon: '/icon-192.png', badge: '/icon-192.png' } },
-  });
+    webpush: {
+      notification: { icon: '/icon-192.png', badge: '/icon-192.png' },
+      ...(url && { fcmOptions: { link: url } }),
+    },
+    ...(url && { data: { url } }),
+  };
+
+  const response = await messaging.sendEachForMulticast(message);
 
   return tokens.filter((_, i) => {
     const err = response.responses[i].error?.code;

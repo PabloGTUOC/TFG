@@ -20,6 +20,10 @@ async function main() {
   await pool.query(await fs.readFile(fcmMigrationPath, 'utf8'));
   console.log('FCM token table ready.');
 
+  const fcmIndexPath = path.join(__dirname, 'migrate-fcm-index.sql');
+  await pool.query(await fs.readFile(fcmIndexPath, 'utf8'));
+  console.log('FCM token index ready.');
+
   await pool.end();
 }
 

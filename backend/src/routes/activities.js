@@ -89,6 +89,7 @@ activitiesRouter.post('/', validateBody({
     notifyFamilyCaregivers(result.data.family_id, result.data.created_by, {
       title: 'New activity pending approval',
       body: `"${result.data.title}" needs your review.`,
+      url: '/activities',
     });
     return res.status(201).json({ activity: result.data });
   } catch (err) {
@@ -265,12 +266,14 @@ activitiesRouter.post('/:activityId/schedule', validateParams('activityId'), val
       notifyUser(act.assigned_to, {
         title: 'Activity scheduled for you',
         body: `"${act.title}" starts at ${when}.`,
+        url: '/activities',
       });
     }
     if (act.status === 'pending_validation') {
       notifyFamilyCaregivers(act.family_id, act.assigned_to, {
         title: 'Activity needs validation',
         body: `"${act.title}" was added in the past and needs your approval.`,
+        url: '/activities',
       });
     }
     return res.status(201).json({ activity: act, warning: result.warning });
@@ -420,6 +423,7 @@ activitiesRouter.post('/:activityId/complete', validateParams('activityId'), asy
     notifyFamilyAll(result.inst.family_id, result.inst.assigned_to, {
       title: 'Activity completed',
       body: `"${result.inst.title}" has just been completed.`,
+      url: '/activities',
     });
     return res.status(200).json(result.data);
   } catch (err) {
@@ -485,6 +489,7 @@ activitiesRouter.post('/:id/validate', validateParams('id'), async (req, res) =>
     notifyUser(result.act.assigned_to, {
       title: 'Activity validated!',
       body: `Your activity was approved. You earned ${result.data.coinsAwarded} coins.`,
+      url: '/dashboard',
     });
     return res.json(result.data);
   } catch (err) {
@@ -546,6 +551,7 @@ activitiesRouter.post('/:id/bounty', validateParams('id'), async (req, res) => {
     notifyFamilyAll(result.act.family_id, result.act.assigned_to, {
       title: 'Bounty offered on a shift!',
       body: `Someone is offering ${result.bountyAmount} coins for someone to take their activity.`,
+      url: '/activities',
     });
     return res.json(result.data);
   } catch (err) {
