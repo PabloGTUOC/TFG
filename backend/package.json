@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "dev:test": "FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 node src/server.js",
     "db:init": "node scripts/init-db.js",
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1 tests/**/*.test.js"
   },
   "engines": {
     "node": ">=20"

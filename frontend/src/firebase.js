@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, connectAuthEmulator, browserLocalPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
@@ -12,7 +12,16 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// In emulator mode use localStorage so Playwright storageState() can capture the token.
+// In production keep the default (indexedDB) for better security.
+export const auth = import.meta.env.VITE_USE_EMULATOR === 'true'
+  ? initializeAuth(app, { persistence: browserLocalPersistence })
+  : getAuth(app);
+
+if (import.meta.env.VITE_USE_EMULATOR === 'true') {
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+}
 
 export async function getFirebaseMessaging() {
   if (!(await isSupported())) return null;

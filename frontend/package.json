@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:test": "VITE_USE_EMULATOR=true vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "test:unit": "node node_modules/vitest/vitest.mjs run",
+    "test:e2e": "node node_modules/@playwright/test/cli.js test",
+    "test:e2e:ui": "node node_modules/@playwright/test/cli.js test --ui"
   },
   "dependencies": {
     "echarts": "^6.0.0",
@@ -20,6 +24,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/test-utils": "^2.4.9",
     "jsdom": "^29.1.0",

@@ -1,0 +1,428 @@
+import { assertActiveMember } from '../db/users.js';
+import { runAutoCompleteSweep } from '../db/autoComplete.js';
+import { assertMemberRole } from '../middleware/rbac.js';
+
+export async function listActivities(client, userId, familyId) {
+  if (!await assertActiveMember(client, familyId, userId)) {
+    return { error: { code: 403, message: 'Not a family member.' } };
+  }
+  await runAutoCompleteSweep(client, familyId);
+  const { rows } = await client.query(
+    `SELECT a.id, a.title, a.category, a.starts_at, a.ends_at, a.duration_minutes,
+            a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.is_recurrent,
+            a.approved_by, a.approved_at, a.bounty_amount, a.bounty_offered_by,
+            fm.alias AS assigned_alias,
+            COALESCE(fm.alias, u.display_name) AS assigned_to_name
+     FROM activities a
+     LEFT JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
+     LEFT JOIN users u ON u.id = a.assigned_to
+     WHERE a.family_id = $1
+     ORDER BY a.is_template DESC, a.starts_at ASC NULLS FIRST`,
+    [familyId]
+  );
+  return { data: { activities: rows } };
+}
+
+export async function createActivity(client, userId, { familyId, title, category, durationMinutes, coinValue, isRecurrent }) {
+  if (!await assertActiveMember(client, familyId, userId)) {
+    return { error: { code: 403, message: 'Not a family member.' } };
+  }
+  const { rows } = await client.query(
+    `INSERT INTO activities
+       (family_id, created_by, assigned_to, title, category,
+        starts_at, ends_at, duration_minutes, coin_value, status, is_template, is_recurrent)
+     VALUES ($1, $2, NULL, $3, $4, NULL, NULL, $5, $6, 'pending', true, $7)
+     RETURNING *`,
+    [
+      familyId, userId,
+      title.trim(), category,
+      Number(durationMinutes),
+      coinValue ? Number(coinValue) : Number(durationMinutes),
+      Boolean(isRecurrent),
+    ]
+  );
+  return { data: rows[0] };
+}
+
+export async function approveActivity(client, userId, activityId) {
+  const { rows: tmplRows } = await client.query(
+    `SELECT * FROM activities WHERE id = $1 AND is_template = true
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!tmplRows.length) return { error: { code: 404, message: 'Template not found.' } };
+  const tmpl = tmplRows[0];
+  if (tmpl.status !== 'pending') {
+    return { error: { code: 409, message: 'Only pending templates can be approved.' } };
+  }
+  const rbacErr = await assertMemberRole(client, userId, tmpl.family_id, 'caregiver');
+  if (rbacErr) return rbacErr;
+  await client.query(
+    `UPDATE activities SET status = 'approved', approved_by = $1, approved_at = NOW() WHERE id = $2`,
+    [userId, tmpl.id]
+  );
+  return { data: { approved: true } };
+}
+
+export async function scheduleActivity(client, userId, activityId, startsAt) {
+  const { rows: tmpl } = await client.query(
+    `SELECT * FROM activities
+     WHERE id = $1 AND is_template = true AND status = 'approved'
+       AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')`,
+    [activityId, userId]
+  );
+  if (!tmpl.length) {
+    return { error: { code: 404, message: 'Approved activity template not found.' } };
+  }
+  const t = tmpl[0];
+  const start = new Date(startsAt);
+  const endsAtDate = new Date(start.getTime() + t.duration_minutes * 60000);
+  const isPast = endsAtDate < new Date();
+  let initialStatus = isPast ? 'pending_validation' : 'approved';
+
+  if (isPast) {
+    const { rows: cgRows } = await client.query(
+      `SELECT user_id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
+      [t.family_id]
+    );
+    if (cgRows.length === 1 && cgRows[0].user_id === userId) initialStatus = 'approved';
+  }
+
+  const { rows: absenceOverlap } = await client.query(
+    `SELECT id, title FROM absences
+     WHERE user_id = $1 AND family_id = $2 AND (start_time < $4 AND end_time > $3)`,
+    [userId, t.family_id, start.toISOString(), endsAtDate.toISOString()]
+  );
+  if (absenceOverlap.length > 0) {
+    return { error: { code: 400, message: `You are marked as absent during this time ("${absenceOverlap[0].title}").` } };
+  }
+
+  const { rows: budgetRows } = await client.query(`
+    SELECT f.monthly_coin_budget,
+      COALESCE((
+        SELECT SUM(coin_value) FROM activities
+        WHERE family_id = $1 AND is_template = false
+          AND status IN ('approved', 'completed')
+          AND date_trunc('month', starts_at) = date_trunc('month', $2::timestamptz)
+      ), 0)::int as used_this_month
+    FROM families f WHERE f.id = $1
+  `, [t.family_id, start.toISOString()]);
+
+  let warning = null;
+  if (budgetRows.length && budgetRows[0].used_this_month + Number(t.coin_value) > budgetRows[0].monthly_coin_budget) {
+    warning = 'budget_exceeded';
+  }
+
+  const { rows } = await client.query(
+    `INSERT INTO activities
+       (family_id, created_by, assigned_to, title, category,
+        starts_at, ends_at, duration_minutes, coin_value,
+        status, is_template, is_recurrent, approved_by, approved_at)
+     VALUES ($1, $2, $3, $4, $5, $6::timestamptz,
+             $6::timestamptz + ($7::int || ' minutes')::interval,
+             $7::int, $8::int, $11, false, $12, $9, $10)
+     RETURNING *`,
+    [
+      t.family_id, t.created_by, userId, t.title, t.category,
+      start.toISOString(), Number(t.duration_minutes), Number(t.coin_value),
+      t.approved_by, t.approved_at, initialStatus, t.is_recurrent,
+    ]
+  );
+  let activity = rows[0];
+
+  if (initialStatus === 'approved' && isPast) {
+    await runAutoCompleteSweep(client, t.family_id);
+    const { rows: updated } = await client.query(`SELECT * FROM activities WHERE id = $1`, [activity.id]);
+    if (updated.length) activity = updated[0];
+  }
+  return { data: activity, warning };
+}
+
+export async function createRecurrence(client, userId, instanceId, { frequency, untilDate }) {
+  const until = new Date(untilDate);
+  until.setHours(23, 59, 59, 999);
+
+  const { rows: actRows } = await client.query(
+    `SELECT * FROM activities WHERE id = $1 AND is_template = false AND is_recurrent = true
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')`,
+    [instanceId, userId]
+  );
+  if (!actRows.length) return { error: { code: 404, message: 'Valid recurrent scheduled instance not found.' } };
+  const act = actRows[0];
+
+  let current = new Date(act.starts_at);
+  const clones = [];
+  while (true) {
+    if (frequency === 'daily') current.setDate(current.getDate() + 1);
+    else if (frequency === 'weekdays') {
+      current.setDate(current.getDate() + 1);
+      if (current.getDay() === 0 || current.getDay() === 6) continue;
+    } else if (frequency === 'weekly') current.setDate(current.getDate() + 7);
+    if (current > until) break;
+    clones.push(new Date(current));
+  }
+  if (!clones.length) return { data: { created: 0 } };
+
+  let count = 0;
+  for (const d of clones) {
+    const startIso = d.toISOString();
+    const endIso = new Date(d.getTime() + act.duration_minutes * 60000).toISOString();
+    const { rows: absenceOverlap } = await client.query(
+      `SELECT id FROM absences WHERE user_id = $1 AND family_id = $2 AND (start_time < $4 AND end_time > $3)`,
+      [act.assigned_to, act.family_id, startIso, endIso]
+    );
+    if (absenceOverlap.length > 0) continue;
+    await client.query(
+      `INSERT INTO activities
+         (family_id, created_by, assigned_to, title, category,
+          starts_at, ends_at, duration_minutes, coin_value,
+          status, is_template, is_recurrent, approved_by, approved_at)
+       VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$6::timestamptz+($7::int||' minutes')::interval,$7,$8,$11,false,true,$9,$10)`,
+      [act.family_id, act.created_by, act.assigned_to, act.title, act.category,
+       startIso, act.duration_minutes, act.coin_value, act.approved_by, act.approved_at, 'approved']
+    );
+    count++;
+  }
+  return { data: { created: count } };
+}
+
+export async function completeActivity(client, userId, instanceId) {
+  const { rows: instRows } = await client.query(
+    `SELECT * FROM activities
+     WHERE id = $1 AND is_template = false AND assigned_to = $2 AND status = 'approved'
+       AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [instanceId, userId]
+  );
+  if (!instRows.length) {
+    return { error: { code: 404, message: 'Instance not found, not yours, or already completed.' } };
+  }
+  const inst = instRows[0];
+  await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [inst.id]);
+
+  const bountyAmt = inst.bounty_amount || 0;
+  const totalAward = (inst.coin_value || 0) + bountyAmt;
+  if (totalAward > 0) {
+    await client.query(
+      `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+      [totalAward, inst.family_id, inst.assigned_to]
+    );
+    if (inst.coin_value > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
+        [inst.family_id, inst.assigned_to, inst.id, inst.coin_value]
+      );
+    }
+    if (bountyAmt > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_earned')`,
+        [inst.family_id, inst.assigned_to, inst.id, bountyAmt]
+      );
+    }
+  }
+  return { data: { completed: true, coinsAwarded: totalAward }, inst };
+}
+
+export async function validateActivity(client, userId, activityId) {
+  const { rows: actRows } = await client.query(
+    `SELECT id, family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
+  const act = actRows[0];
+  if (act.status !== 'pending_validation') return { error: { code: 409, message: 'Activity is not pending validation.' } };
+  if (act.assigned_to === userId) return { error: { code: 403, message: 'You cannot validate your own retroactive activity.' } };
+
+  await client.query(`UPDATE activities SET status = 'completed' WHERE id = $1`, [act.id]);
+
+  const bountyAmt = act.bounty_amount || 0;
+  const totalAward = (act.coin_value || 0) + bountyAmt;
+  if (totalAward > 0) {
+    await client.query(
+      `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+      [totalAward, act.family_id, act.assigned_to]
+    );
+    if (act.coin_value > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
+        [act.family_id, act.assigned_to, act.id, act.coin_value]
+      );
+    }
+    if (bountyAmt > 0) {
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_earned')`,
+        [act.family_id, act.assigned_to, act.id, bountyAmt]
+      );
+    }
+  }
+  return { data: { success: true, coinsAwarded: totalAward }, act };
+}
+
+export async function offerBounty(client, userId, activityId, bountyAmount) {
+  const { rows: actRows } = await client.query(
+    `SELECT family_id, assigned_to, starts_at FROM activities WHERE id = $1
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
+  const act = actRows[0];
+  if (act.assigned_to !== userId) {
+    return { error: { code: 403, message: 'Only the assigned caregiver can offer a bounty on this shift.' } };
+  }
+  const { rows: memRows } = await client.query(
+    `SELECT coin_balance FROM family_members WHERE family_id = $1 AND user_id = $2 AND status = 'active'`,
+    [act.family_id, userId]
+  );
+  if (!memRows.length || memRows[0].coin_balance < bountyAmount) {
+    return { error: { code: 409, message: 'Insufficient personal coins to offer this bounty.' } };
+  }
+  await client.query(
+    `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
+    [bountyAmount, act.family_id, userId]
+  );
+  await client.query(
+    `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_escrow')`,
+    [act.family_id, userId, activityId, -bountyAmount]
+  );
+  await client.query(
+    `UPDATE activities SET bounty_amount = $1, bounty_offered_by = $2 WHERE id = $3`,
+    [bountyAmount, userId, activityId]
+  );
+  return { data: { success: true }, act, bountyAmount };
+}
+
+export async function acceptBounty(client, userId, activityId) {
+  const { rows: actRows } = await client.query(
+    `SELECT family_id, assigned_to, bounty_amount, bounty_offered_by, status FROM activities WHERE id = $1
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!actRows.length) return { error: { code: 404, message: 'Activity not found.' } };
+  const act = actRows[0];
+  if (act.status === 'completed' || act.status === 'pending_validation') {
+    return { error: { code: 409, message: 'Cannot accept bounty for a completed or pending validation activity.' } };
+  }
+  if (act.assigned_to === userId) return { error: { code: 409, message: 'You already own this shift.' } };
+  if (!act.bounty_amount || !act.bounty_offered_by) return { error: { code: 409, message: 'No bounty available.' } };
+  await client.query(`UPDATE activities SET assigned_to = $1 WHERE id = $2`, [userId, activityId]);
+  return { data: { success: true } };
+}
+
+export async function deleteActivity(client, userId, activityId, isSeries) {
+  const { rows } = await client.query(
+    `SELECT family_id, assigned_to, created_by, status, starts_at,
+            bounty_amount, bounty_offered_by, title, category, is_template
+     FROM activities WHERE id = $1
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
+  const act = rows[0];
+
+  if (act.is_template) {
+    const roleErr = await assertMemberRole(client, userId, act.family_id, 'caregiver');
+    if (roleErr && act.created_by !== userId) {
+      return { error: { code: 403, message: 'Only caregivers or the creator can delete an activity template.' } };
+    }
+    await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+    return { data: { success: true } };
+  }
+
+  const caregiverCheck = await assertMemberRole(client, userId, act.family_id, 'caregiver');
+  const isCaregiver = !caregiverCheck;
+  if (act.assigned_to !== userId && !isCaregiver) {
+    return { error: { code: 403, message: 'Cannot delete an activity that is not yours.' } };
+  }
+  if (!['approved', 'pending_validation', 'pending'].includes(act.status)) {
+    return { error: { code: 409, message: 'Can only un-schedule upcoming activities.' } };
+  }
+
+  if (isSeries) {
+    const { rows: refundRows } = await client.query(`
+      SELECT bounty_amount, bounty_offered_by FROM activities
+      WHERE family_id = $1 AND title = $2 AND category = $3 AND assigned_to = $4
+        AND is_template = false AND is_recurrent = true AND starts_at >= $5
+        AND status IN ('approved', 'pending_validation') AND bounty_amount > 0 AND bounty_offered_by IS NOT NULL
+    `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+    for (const refund of refundRows) {
+      await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+        [refund.bounty_amount, act.family_id, refund.bounty_offered_by]
+      );
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1,$2,$3,'bounty_refunded')`,
+        [act.family_id, refund.bounty_offered_by, refund.bounty_amount]
+      );
+    }
+    await client.query(`
+      DELETE FROM activities
+      WHERE family_id = $1 AND title = $2 AND category = $3 AND assigned_to = $4
+        AND is_template = false AND is_recurrent = true AND starts_at >= $5
+        AND status IN ('approved', 'pending_validation')
+    `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+  } else {
+    if (act.bounty_amount > 0 && act.bounty_offered_by) {
+      await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+        [act.bounty_amount, act.family_id, act.bounty_offered_by]
+      );
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_refunded')`,
+        [act.family_id, act.bounty_offered_by, activityId, act.bounty_amount]
+      );
+    }
+    await client.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+  }
+  return { data: { success: true } };
+}
+
+export async function revertActivity(client, userId, activityId) {
+  const { rows } = await client.query(
+    `SELECT family_id, assigned_to, status, coin_value, bounty_amount, bounty_offered_by
+     FROM activities WHERE id = $1
+     AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
+     FOR UPDATE`,
+    [activityId, userId]
+  );
+  if (!rows.length) return { error: { code: 404, message: 'Activity not found.' } };
+  const act = rows[0];
+  if (act.assigned_to !== userId) return { error: { code: 403, message: "Cannot revert someone else's completion." } };
+  if (act.status !== 'completed') return { error: { code: 409, message: 'Activity is not completed.' } };
+
+  const bountyAmt = act.bounty_amount || 0;
+  const totalAward = (act.coin_value || 0) + bountyAmt;
+  if (totalAward > 0) {
+    await client.query(
+      `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
+      [totalAward, act.family_id, userId]
+    );
+    if (act.coin_value > 0) {
+      await client.query(
+        `UPDATE coin_ledger SET amount = $1, reason = 'activity_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'activity_completed'`,
+        [-act.coin_value, activityId, userId]
+      );
+    }
+    if (bountyAmt > 0) {
+      await client.query(
+        `UPDATE coin_ledger SET amount = $1, reason = 'bounty_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'bounty_earned'`,
+        [-bountyAmt, activityId, userId]
+      );
+      await client.query(
+        `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
+        [bountyAmt, act.family_id, act.bounty_offered_by]
+      );
+      await client.query(
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_refunded')`,
+        [act.family_id, act.bounty_offered_by, activityId, bountyAmt]
+      );
+    }
+  }
+  await client.query(`UPDATE activities SET status = 'rejected' WHERE id = $1`, [activityId]);
+  return { data: { success: true, coinsDeducted: totalAward } };
+}

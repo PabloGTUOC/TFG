@@ -11,10 +11,11 @@ function getFirebaseApp() {
   }
 
   if (!admin.apps.length) {
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId
-    });
+    // When Auth Emulator is active, verifyIdToken is local — no real credential needed.
+    const credential = process.env.FIREBASE_AUTH_EMULATOR_HOST
+      ? undefined
+      : admin.credential.applicationDefault();
+    firebaseApp = admin.initializeApp({ ...(credential && { credential }), projectId });
   } else {
     firebaseApp = admin.app();
   }

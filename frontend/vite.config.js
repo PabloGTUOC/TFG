@@ -105,6 +105,8 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       globals: true,
+      pool: 'vmThreads',
+      exclude: ['**/node_modules/**', 'e2e/**'],
     }
   };
 });

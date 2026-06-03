@@ -11,3 +11,9 @@ firebase-credentials.json
 
 # OS generated files
 .DS_Store
+
+# Playwright — auth tokens and test artifacts (never commit)
+frontend/e2e/auth.state.json
+frontend/test-results/
+frontend/playwright-report/
+backend/test-results-backend.txt

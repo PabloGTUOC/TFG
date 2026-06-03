@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
-import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
+import { upsertUserFromAuth } from '../db/users.js';
 import { notifyFamilyCaregivers } from '../utils/notify.js';
 import { sendInvitationEmail } from '../utils/mailer.js';
 import { validateBody, validateParams, required, string, positiveInt } from '../middleware/validate.js';
@@ -9,64 +9,44 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { insertDefaultActivities } from '../db/defaultActivities.js';
 import { inviteLinksRouter } from './inviteLinks.js';
-
-async function sendFamilyDeletionRequestEmail(email, familyName, requestedByName) {
-  console.log(`[MOCK EMAIL] To: ${email}`);
-  console.log(`[MOCK EMAIL] Subject: Family Deletion Request: ${familyName}`);
-  console.log(`[MOCK EMAIL] Body: ${requestedByName} has requested to delete the family "${familyName}". Please log in to approve or reject this request.`);
-}
+import * as familyService from '../services/familyService.js';
+import * as memberService from '../services/memberService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination(req, file, cb) {
     const safeFamilyId = String(Number(req.params.familyId));
-    const safeActorId  = String(Number(req.params.actorId));
+    const safeActorId = String(Number(req.params.actorId));
     if (safeFamilyId === 'NaN' || safeActorId === 'NaN') return cb(new Error('Invalid ID.'));
     const dir = path.join(__dirname, '../../uploads/families', safeFamilyId, 'actors', safeActorId);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: function (req, file, cb) {
+  filename(_req, file, cb) {
     cb(null, 'avatar' + path.extname(file.originalname).toLowerCase());
-  }
+  },
 });
-
 const upload = multer({
   storage,
   limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: function (_req, file, cb) {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPEG, PNG, and WebP images are allowed.'));
-    }
-  }
+  fileFilter(_req, file, cb) {
+    ALLOWED_MIME_TYPES.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only JPEG, PNG, and WebP images are allowed.'));
+  },
 });
 
 export const familiesRouter = Router();
 
 familiesRouter.get('/', async (req, res) => {
   try {
-    const families = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      const { rows } = await client.query(
-        `SELECT f.id, f.name, f.monthly_coin_budget, fm.role, fm.coin_balance
-         FROM family_members fm
-         JOIN families f ON f.id = fm.family_id
-         WHERE fm.user_id = $1
-         ORDER BY f.created_at DESC`,
-        [user.id]
-      );
-      return rows;
+      return familyService.listFamilies(client, user.id);
     });
-
-    return res.json({ families });
+    return res.json(result.data);
   } catch {
     return res.status(500).json({ error: 'Failed to load families.' });
   }
@@ -75,43 +55,13 @@ familiesRouter.get('/', async (req, res) => {
 familiesRouter.get('/:familyId/budget', async (req, res) => {
   const familyId = Number(req.params.familyId);
   if (!familyId) return res.status(400).json({ error: 'Invalid familyId.' });
-
   try {
-    const data = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-
-      if (!await assertActiveMember(client, familyId, user.id)) return null;
-
-      const { rows } = await client.query(`
-        SELECT 
-          f.monthly_coin_budget,
-          COALESCE((
-            SELECT SUM(coin_value) 
-            FROM activities 
-            WHERE family_id = $1 
-              AND is_template = false 
-              AND status = 'completed'
-              AND date_trunc('month', starts_at) = date_trunc('month', NOW())
-          ), 0)::int as used_this_month
-        FROM families f
-        WHERE f.id = $1
-      `, [familyId]);
-
-      if (!rows.length) return null;
-
-      const d = rows[0];
-      const baseRatePerHour = d.monthly_coin_budget / 720;
-
-      return {
-        monthlyBudget: d.monthly_coin_budget,
-        usedThisMonth: d.used_this_month,
-        remainingBudget: Math.max(0, d.monthly_coin_budget - d.used_this_month),
-        baseRatePerHour: parseFloat(baseRatePerHour.toFixed(2))
-      };
+      return familyService.getFamilyBudget(client, user.id, familyId);
     });
-
-    if (!data) return res.status(403).json({ error: 'Not a family member or family not found.' });
-    return res.json(data);
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
   } catch (err) {
     console.error('Failed to get family budget:', err);
     return res.status(500).json({ error: 'Failed to fetch family budget.' });
@@ -123,130 +73,31 @@ familiesRouter.post('/', validateBody({
   mainCaretakerName: [string(1, 100)],
   alias: [string(1, 50)],
 }), async (req, res) => {
-  const { name, mainCaretakerName, caretakers = [], objectsOfCare = [], alias } = req.body;
-
-  if (!name || typeof name !== 'string') {
-    return res.status(400).json({ error: 'name is required.' });
-  }
-
-  let monthlyCoinBudget = 0;
-  for (const obj of objectsOfCare) {
-    if (obj.careTime === 'full_time') {
-      monthlyCoinBudget += 24 * 30; // 720
-    } else if (obj.careTime === 'part_time') {
-      monthlyCoinBudget += 12 * 30; // 360
-    }
-  }
-  if (monthlyCoinBudget === 0) monthlyCoinBudget = 1000;
-
+  const { name, mainCaretakerName, caretakers, objectsOfCare, alias } = req.body;
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required.' });
   try {
-    const family = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-
-      if (mainCaretakerName && mainCaretakerName.trim()) {
-        await client.query(
-          `UPDATE users SET display_name = $1 WHERE id = $2`,
-          [mainCaretakerName.trim(), user.id]
-        );
-        user.display_name = mainCaretakerName.trim();
-      }
-
-      const createdFamily = await client.query(
-        `INSERT INTO families (name, monthly_coin_budget, created_by)
-         VALUES ($1, $2, $3)
-         RETURNING id, name, monthly_coin_budget`,
-        [name.trim(), monthlyCoinBudget, user.id]
-      );
-      const famId = createdFamily.rows[0].id;
-
-      await client.query(
-        `INSERT INTO family_members (family_id, user_id, role, status, alias)
-         VALUES ($1, $2, 'caregiver', 'active', $3)`,
-        [famId, user.id, alias ? alias.trim() : null]
-      );
-
-      await client.query(
-        `INSERT INTO actors (family_id, user_id, actor_type, name)
-         VALUES ($1, $2, 'person', $3)`,
-        [famId, user.id, user.display_name]
-      );
-
-      for (const ct of caretakers) {
-        if (ct.email && ct.email.trim()) {
-          await client.query(
-            `INSERT INTO family_invitations (family_id, email, name, invited_by)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (family_id, email) DO NOTHING`,
-            [famId, ct.email.trim(), ct.name?.trim() || null, user.id]
-          );
-        }
-      }
-
-      for (const obj of objectsOfCare) {
-        if (obj.name && obj.name.trim()) {
-          await client.query(
-            `INSERT INTO actors (family_id, actor_type, name, care_time)
-             VALUES ($1, $2, $3, $4)`,
-            [famId, obj.type || 'child', obj.name.trim(), obj.careTime || 'full_time']
-          );
-        }
-      }
-
-      await insertDefaultActivities(client, famId, user.id, objectsOfCare);
-
-      return createdFamily.rows[0];
+      return familyService.createFamily(client, user, { name, mainCaretakerName, alias, caretakers, objectsOfCare });
     });
-
-    return res.status(201).json({ family });
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.status(201).json({ family: result.data });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to create family.' });
   }
 });
 
-
 familiesRouter.post('/join-request', validateBody({
   familyId: [required(), positiveInt()],
   alias: [string(1, 50)],
 }), async (req, res) => {
   const { familyId, alias } = req.body;
-
   try {
     const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-
-      if (!user.email) {
-        return { error: { code: 400, message: 'Your account has no email address. Use an invite link instead.' } };
-      }
-
-      const { rows: invRows } = await client.query(
-        `SELECT id FROM family_invitations WHERE family_id = $1 AND email = $2 AND status = 'pending'`,
-        [familyId, user.email.toLowerCase()]
-      );
-      if (!invRows.length) {
-        return { error: { code: 403, message: 'No pending invitation found for your email address.' } };
-      }
-
-      await client.query(
-        `INSERT INTO family_members (family_id, user_id, role, status, alias)
-         VALUES ($1, $2, 'caregiver', 'active', $3)
-         ON CONFLICT (family_id, user_id) DO UPDATE
-           SET status = 'active', alias = COALESCE(EXCLUDED.alias, family_members.alias)`,
-        [familyId, user.id, alias ? alias.trim() : null]
-      );
-
-      await client.query(`UPDATE family_invitations SET status = 'accepted' WHERE id = $1`, [invRows[0].id]);
-
-      await client.query(
-        `INSERT INTO actors (family_id, user_id, actor_type, name)
-         VALUES ($1, $2, 'person', $3)
-         ON CONFLICT (family_id, user_id) DO NOTHING`,
-        [familyId, user.id, user.display_name || user.email]
-      );
-
-      return { data: { success: true, status: 'active' }, userId: user.id, familyId, displayName: user.display_name || user.email };
+      return memberService.joinByInvitation(client, user, { familyId, alias });
     });
-
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
     notifyFamilyCaregivers(result.familyId, result.userId, {
       title: 'Invitation accepted',
@@ -266,54 +117,11 @@ familiesRouter.post('/join-by-token', validateBody({
   alias: [string(1, 50)],
 }), async (req, res) => {
   const { token, alias } = req.body;
-
   try {
     const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-
-      const { rows: linkRows } = await client.query(
-        `SELECT id, family_id, max_uses, uses, expires_at, revoked FROM invite_links WHERE id = $1 FOR UPDATE`,
-        [token]
-      );
-      if (!linkRows.length) return { error: { code: 404, message: 'Invalid invite link.' } };
-
-      const link = linkRows[0];
-      if (link.revoked) return { error: { code: 410, message: 'This invite link has been revoked.' } };
-      if (link.expires_at && new Date(link.expires_at) < new Date()) {
-        return { error: { code: 410, message: 'This invite link has expired.' } };
-      }
-      if (link.max_uses !== null && link.uses >= link.max_uses) {
-        return { error: { code: 410, message: 'This invite link has reached its maximum uses.' } };
-      }
-
-      const { rows: existing } = await client.query(
-        `SELECT status FROM family_members WHERE family_id = $1 AND user_id = $2`,
-        [link.family_id, user.id]
-      );
-      if (existing.length && existing[0].status === 'active') {
-        return { error: { code: 409, message: 'You are already an active member of this family.' } };
-      }
-
-      await client.query(
-        `INSERT INTO family_members (family_id, user_id, role, status, alias)
-         VALUES ($1, $2, 'caregiver', 'active', $3)
-         ON CONFLICT (family_id, user_id) DO UPDATE
-           SET status = 'active', alias = COALESCE(EXCLUDED.alias, family_members.alias)`,
-        [link.family_id, user.id, alias ? alias.trim() : null]
-      );
-
-      await client.query(
-        `INSERT INTO actors (family_id, user_id, actor_type, name)
-         VALUES ($1, $2, 'person', $3)
-         ON CONFLICT (family_id, user_id) DO NOTHING`,
-        [link.family_id, user.id, user.display_name || user.email]
-      );
-
-      await client.query(`UPDATE invite_links SET uses = uses + 1 WHERE id = $1`, [link.id]);
-
-      return { data: { success: true, familyId: link.family_id }, userId: user.id, familyId: link.family_id, displayName: user.display_name || user.email };
+      return memberService.joinByToken(client, user, { token, alias });
     });
-
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
     notifyFamilyCaregivers(result.familyId, result.userId, {
       title: 'New member joined',
@@ -335,26 +143,12 @@ familiesRouter.patch('/:familyId/members/:userId/role',
     const familyId = Number(req.params.familyId);
     const userId = Number(req.params.userId);
     const { role } = req.body;
-
-    if (!['caregiver', 'member'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role.' });
-    }
-
+    if (!['caregiver', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
     try {
       const result = await withTransaction(async (client) => {
-        const me = await upsertUserFromAuth(client, req.auth);
-        const updated = await client.query(
-          `UPDATE family_members
-         SET role = $1
-         WHERE family_id = $2 AND user_id = $3
-         RETURNING family_id, user_id, role`,
-          [role, familyId, userId]
-        );
-        if (!updated.rowCount) return { error: { code: 404, message: 'Family member not found.' } };
-
-        return { data: { member: updated.rows[0] } };
+        await upsertUserFromAuth(client, req.auth);
+        return memberService.updateMemberRole(client, familyId, userId, role);
       });
-
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       return res.json(result.data);
     } catch {
@@ -368,25 +162,13 @@ familiesRouter.post('/:familyId/members/:userId/approve',
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const userId = Number(req.params.userId);
-
     try {
       const result = await withTransaction(async (client) => {
-        const { rowCount } = await client.query(
-          `UPDATE family_members
-           SET status = 'active', role = 'caregiver'
-           WHERE family_id = $1 AND user_id = $2 AND status = 'pending'`,
-          [familyId, userId]
-        );
-
-        if (rowCount === 0) {
-          return { error: 'Pending member not found.' };
-        }
-
-        return { success: true };
+        await upsertUserFromAuth(client, req.auth);
+        return memberService.approveMember(client, familyId, userId);
       });
-
-      if (result.error) return res.status(404).json({ error: result.error });
-      return res.json(result);
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.json(result.data);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to approve member.' });
@@ -400,28 +182,13 @@ familiesRouter.post('/:familyId/actors',
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const { name, actorType, careTime } = req.body;
-
-    const type = ['child', 'pet', 'elderly', 'person'].includes(actorType) ? actorType : 'child';
-    const time = ['full_time', 'part_time'].includes(careTime) ? careTime : 'full_time';
-    const budgetIncrease = time === 'full_time' ? 720 : 360;
-
     try {
       const result = await withTransaction(async (client) => {
-        const { rows } = await client.query(
-          `INSERT INTO actors (family_id, actor_type, name, care_time)
-           VALUES ($1, $2, $3, $4) RETURNING *`,
-          [familyId, type, name, time]
-        );
-
-        await client.query(
-          `UPDATE families SET monthly_coin_budget = monthly_coin_budget + $1 WHERE id = $2`,
-          [budgetIncrease, familyId]
-        );
-
-        return rows[0];
+        await upsertUserFromAuth(client, req.auth);
+        return memberService.addActor(client, familyId, { name, actorType, careTime });
       });
-
-      return res.status(201).json(result);
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.status(201).json(result.data);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to add object of care.' });
@@ -434,29 +201,11 @@ familiesRouter.delete('/:familyId/actors/:actorId',
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const actorId = Number(req.params.actorId);
-
     try {
       const result = await withTransaction(async (client) => {
-        const { rows } = await client.query(
-          `SELECT * FROM actors WHERE id = $1 AND family_id = $2`,
-          [actorId, familyId]
-        );
-        if (!rows.length) return { error: { code: 404, message: 'Actor not found.' } };
-
-        const actor = rows[0];
-        if (actor.actor_type !== 'pet') {
-          return { error: { code: 403, message: 'Only pets can be removed.' } };
-        }
-
-        const budgetDecrease = actor.care_time === 'full_time' ? 720 : 360;
-        await client.query(`DELETE FROM actors WHERE id = $1`, [actorId]);
-        await client.query(
-          `UPDATE families SET monthly_coin_budget = monthly_coin_budget - $1 WHERE id = $2`,
-          [budgetDecrease, familyId]
-        );
-        return { data: actor };
+        await upsertUserFromAuth(client, req.auth);
+        return memberService.removeActor(client, familyId, actorId);
       });
-
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       return res.json({ message: 'Pet removed successfully.' });
     } catch (err) {
@@ -471,9 +220,7 @@ familiesRouter.post('/:familyId/actors/:actorId/avatar',
       if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'File too large. Maximum size is 2 MB.' });
       }
-      if (err) {
-        return res.status(400).json({ error: err.message });
-      }
+      if (err) return res.status(400).json({ error: err.message });
       next();
     });
   },
@@ -481,87 +228,52 @@ familiesRouter.post('/:familyId/actors/:actorId/avatar',
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No avatar image uploaded.' });
-
     const familyId = Number(req.params.familyId);
     const actorId = Number(req.params.actorId);
     const avatarUrl = `/uploads/families/${req.params.familyId}/actors/${req.params.actorId}/${req.file.filename}`;
-
     try {
       const result = await withTransaction(async (client) => {
-        const { rows } = await client.query(
-          `UPDATE actors SET avatar_url = $1 WHERE id = $2 AND family_id = $3 RETURNING *`,
-          [avatarUrl, actorId, familyId]
-        );
-        if (!rows.length) return { error: { code: 404, message: 'Actor not found.' } };
-        return { data: rows[0] };
+        await upsertUserFromAuth(client, req.auth);
+        return memberService.updateActorAvatar(client, familyId, actorId, avatarUrl);
       });
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
-      return res.json({ avatar_url: result.data.avatar_url });
+      return res.json(result.data);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to upload actor avatar.' });
     }
   });
 
-// ─────────────────────────────────────────────
-// GET /api/families/:familyId/invitations
-// Returns all pending invitations for the family (any member)
-// ─────────────────────────────────────────────
 familiesRouter.get('/:familyId/invitations', validateParams('familyId'), async (req, res) => {
   const familyId = Number(req.params.familyId);
   try {
-    const rows = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      if (!await assertActiveMember(client, familyId, user.id)) return null;
-      const { rows } = await client.query(
-        `SELECT id, email, name, status, created_at
-         FROM family_invitations
-         WHERE family_id = $1 AND status = 'pending'
-         ORDER BY created_at DESC`,
-        [familyId]
-      );
-      return rows;
+      return memberService.listInvitations(client, user.id, familyId);
     });
-    if (rows === null) return res.status(403).json({ error: 'Not a family member.' });
-    return res.json({ invitations: rows });
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch invitations.' });
   }
 });
 
-// ─────────────────────────────────────────────
-// GET /api/families/:familyId/members
-// Returns all active human members for the family (with avatars)
-// ─────────────────────────────────────────────
 familiesRouter.get('/:familyId/members', validateParams('familyId'), async (req, res) => {
   const familyId = Number(req.params.familyId);
   try {
-    const rows = await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      if (!await assertActiveMember(client, familyId, user.id)) return null;
-      const { rows } = await client.query(
-        `SELECT fm.user_id as id, COALESCE(fm.alias, u.display_name, u.email) as name, fm.role, fm.status, u.avatar_url
-         FROM family_members fm
-         JOIN users u ON u.id = fm.user_id
-         WHERE fm.family_id = $1 AND fm.status = 'active'
-         ORDER BY u.created_at ASC`,
-        [familyId]
-      );
-      return rows;
+      return memberService.listMembers(client, user.id, familyId);
     });
-    if (rows === null) return res.status(403).json({ error: 'Not a family member.' });
-    return res.json({ members: rows });
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch members.' });
   }
 });
 
-// ─────────────────────────────────────────────
-// POST /api/families/:familyId/invitations
-// Creates an email invitation (caregiver only)
-// ─────────────────────────────────────────────
 familiesRouter.post('/:familyId/invitations',
   validateParams('familyId'),
   validateBody({ email: [required(), string(1, 255)] }),
@@ -569,106 +281,38 @@ familiesRouter.post('/:familyId/invitations',
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const { email, name } = req.body;
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email address.' });
     }
-
     try {
-      const { invitation, inviterName, familyName } = await withTransaction(async (client) => {
+      const result = await withTransaction(async (client) => {
         const user = await upsertUserFromAuth(client, req.auth);
-
-        const { rows: familyRows } = await client.query(
-          `SELECT name FROM families WHERE id = $1`, [familyId]
-        );
-        const fName = familyRows[0]?.name || 'your family';
-        const iName = user.display_name || user.email || 'A caregiver';
-
-        const { rows } = await client.query(
-          `INSERT INTO family_invitations (family_id, email, name, invited_by)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (family_id, email) DO UPDATE
-             SET status = 'pending', name = EXCLUDED.name, invited_by = EXCLUDED.invited_by
-           RETURNING id, email, name, status, created_at`,
-          [familyId, email.toLowerCase().trim(), name?.trim() || null, user.id]
-        );
-        return { invitation: rows[0], inviterName: iName, familyName: fName };
+        return memberService.createInvitation(client, user, familyId, { email, name });
       });
-
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       sendInvitationEmail({
-        toEmail: invitation.email,
-        toName: invitation.name,
-        inviterName,
-        familyName,
+        toEmail: result.data.invitation.email,
+        toName: result.data.invitation.name,
+        inviterName: result.data.inviterName,
+        familyName: result.data.familyName,
       }).catch(err => console.error('sendInvitationEmail error:', err));
-
-      return res.status(201).json({ invitation });
+      return res.status(201).json({ invitation: result.data.invitation });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to create invitation.' });
     }
   });
 
-// ─────────────────────────────────────────────
-// DELETE /api/families/:familyId
-// Delete a family or request deletion
-// ─────────────────────────────────────────────
 familiesRouter.delete('/:familyId',
   validateParams('familyId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
-
     try {
       const result = await withTransaction(async (client) => {
-        const me = await upsertUserFromAuth(client, req.auth);
-
-        const { rows: caregivers } = await client.query(
-          `SELECT u.id, u.email, u.display_name 
-           FROM family_members fm
-           JOIN users u ON u.id = fm.user_id
-           WHERE fm.family_id = $1 AND fm.role = 'caregiver' AND fm.status = 'active'`,
-          [familyId]
-        );
-
-        const { rows: familyRows } = await client.query(`SELECT name FROM families WHERE id = $1`, [familyId]);
-        if (!familyRows.length) return { error: { code: 404, message: 'Family not found.' } };
-        const familyName = familyRows[0].name;
-
-        if (caregivers.length <= 1) {
-          await client.query(`DELETE FROM families WHERE id = $1`, [familyId]);
-          return { data: { success: true, deleted: true } };
-        } else {
-          const { rows: existing } = await client.query(
-            `SELECT id FROM family_deletion_requests WHERE family_id = $1 AND status = 'pending'`,
-            [familyId]
-          );
-          if (existing.length > 0) {
-            return { error: { code: 409, message: 'A deletion request is already pending.' } };
-          }
-
-          const { rows: reqRows } = await client.query(
-            `INSERT INTO family_deletion_requests (family_id, requested_by) VALUES ($1, $2) RETURNING id`,
-            [familyId, me.id]
-          );
-          const reqId = reqRows[0].id;
-
-          for (const cg of caregivers) {
-            if (cg.id !== me.id) {
-              await client.query(
-                `INSERT INTO family_deletion_approvals (request_id, caregiver_id) VALUES ($1, $2)`,
-                [reqId, cg.id]
-              );
-              if (cg.email) {
-                await sendFamilyDeletionRequestEmail(cg.email, familyName, me.display_name || me.email);
-              }
-            }
-          }
-
-          return { data: { success: true, pendingApproval: true }, familyId, requesterId: me.id };
-        }
+        const user = await upsertUserFromAuth(client, req.auth);
+        return familyService.deleteFamily(client, user, familyId);
       });
-
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       if (result.data.pendingApproval) {
         notifyFamilyCaregivers(result.familyId, result.requesterId, {
@@ -685,92 +329,34 @@ familiesRouter.delete('/:familyId',
     }
   });
 
-// ─────────────────────────────────────────────
-// GET /api/families/:familyId/deletion-requests
-// ─────────────────────────────────────────────
 familiesRouter.get('/:familyId/deletion-requests',
   validateParams('familyId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     try {
-      const rows = await withTransaction(async (client) => {
-        const me = await upsertUserFromAuth(client, req.auth);
-        
-        const { rows: reqs } = await client.query(
-          `SELECT r.id, r.status, r.created_at, u.display_name as requested_by_name
-           FROM family_deletion_requests r
-           JOIN users u ON u.id = r.requested_by
-           WHERE r.family_id = $1 AND r.status = 'pending'`,
-          [familyId]
-        );
-        
-        if (!reqs.length) return [];
-        
-        const reqData = reqs[0];
-        
-        const { rows: approvals } = await client.query(
-          `SELECT a.status, u.display_name as caregiver_name, a.caregiver_id
-           FROM family_deletion_approvals a
-           JOIN users u ON u.id = a.caregiver_id
-           WHERE a.request_id = $1`,
-          [reqData.id]
-        );
-        
-        reqData.approvals = approvals;
-        return [reqData];
+      const result = await withTransaction(async (client) => {
+        await upsertUserFromAuth(client, req.auth);
+        return familyService.getDeletionRequests(client, familyId);
       });
-      return res.json({ deletionRequests: rows });
+      return res.json(result.data);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to fetch deletion requests.' });
     }
   });
 
-// ─────────────────────────────────────────────
-// POST /api/families/:familyId/deletion-requests/:requestId/approve
-// ─────────────────────────────────────────────
 familiesRouter.post('/:familyId/deletion-requests/:requestId/approve',
   validateParams('familyId', 'requestId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const requestId = Number(req.params.requestId);
-
     try {
       const result = await withTransaction(async (client) => {
-        const me = await upsertUserFromAuth(client, req.auth);
-
-        const { rows: reqCheck } = await client.query(
-          `SELECT id FROM family_deletion_requests WHERE id = $1 AND family_id = $2`,
-          [requestId, familyId]
-        );
-        if (!reqCheck.length) return { error: { code: 404, message: 'Deletion request not found.' } };
-
-        const { rows: approvalRows } = await client.query(
-          `UPDATE family_deletion_approvals
-           SET status = 'approved', responded_at = NOW()
-           WHERE request_id = $1 AND caregiver_id = $2
-           RETURNING id`,
-          [requestId, me.id]
-        );
-
-        if (!approvalRows.length) return { error: { code: 404, message: 'Approval record not found or not yours.' } };
-
-        const { rows: pending } = await client.query(
-          `SELECT id FROM family_deletion_approvals WHERE request_id = $1 AND status != 'approved'`,
-          [requestId]
-        );
-
-        if (pending.length === 0) {
-          await client.query(`UPDATE family_deletion_requests SET status = 'approved' WHERE id = $1`, [requestId]);
-          await client.query(`DELETE FROM families WHERE id = $1`, [familyId]);
-          return { data: { success: true, deleted: true } };
-        }
-
-        return { data: { success: true, pendingApproval: true } };
+        const user = await upsertUserFromAuth(client, req.auth);
+        return familyService.approveDeletion(client, user.id, familyId, requestId);
       });
-
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       return res.json(result.data);
     } catch (err) {
@@ -779,41 +365,17 @@ familiesRouter.post('/:familyId/deletion-requests/:requestId/approve',
     }
   });
 
-// ─────────────────────────────────────────────
-// POST /api/families/:familyId/deletion-requests/:requestId/reject
-// ─────────────────────────────────────────────
 familiesRouter.post('/:familyId/deletion-requests/:requestId/reject',
   validateParams('familyId', 'requestId'),
   requireRole('caregiver', r => r.params.familyId),
   async (req, res) => {
     const familyId = Number(req.params.familyId);
     const requestId = Number(req.params.requestId);
-
     try {
       const result = await withTransaction(async (client) => {
-        const me = await upsertUserFromAuth(client, req.auth);
-
-        const { rows: reqCheck } = await client.query(
-          `SELECT id FROM family_deletion_requests WHERE id = $1 AND family_id = $2`,
-          [requestId, familyId]
-        );
-        if (!reqCheck.length) return { error: { code: 404, message: 'Deletion request not found.' } };
-
-        const { rows: approvalRows } = await client.query(
-          `UPDATE family_deletion_approvals
-           SET status = 'rejected', responded_at = NOW()
-           WHERE request_id = $1 AND caregiver_id = $2
-           RETURNING id`,
-          [requestId, me.id]
-        );
-
-        if (!approvalRows.length) return { error: { code: 404, message: 'Approval record not found or not yours.' } };
-
-        await client.query(`UPDATE family_deletion_requests SET status = 'rejected' WHERE id = $1`, [requestId]);
-
-        return { data: { success: true } };
+        const user = await upsertUserFromAuth(client, req.auth);
+        return familyService.rejectDeletion(client, user.id, familyId, requestId);
       });
-
       if (result.error) return res.status(result.error.code).json({ error: result.error.message });
       return res.json(result.data);
     } catch (err) {
