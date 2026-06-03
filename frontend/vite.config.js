@@ -71,8 +71,8 @@ export default defineConfig(({ mode }) => {
           short_name: 'CareCoins',
           start_url: '/',
           display: 'standalone',
-          background_color: '#0d0f1a',
-          theme_color: '#8b5cf6',
+          background_color: '#F7F8FA',
+          theme_color: '#2563EB',
           icons: [
             {
               src: '/icon-192.png',
@@ -96,6 +96,8 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       host: true,
+      port: 5173,
+      strictPort: true,
       headers: {
         "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
       }

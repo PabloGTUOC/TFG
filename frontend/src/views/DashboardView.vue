@@ -278,20 +278,7 @@ const getActorRemainingGdp = (actor) => {
    return Math.max(0, Math.floor(max - usedShare));
 };
 
-const MEMBER_THEMES = [
-  { completed: '#2563EB', pending: '#EBAD25' }, // Blue -> Orange
-  { completed: '#16A34A', pending: '#A3166F' }, // Green -> Pink
-  { completed: '#D97706', pending: '#0668D9' }, // Orange -> Blue
-  { completed: '#DC2626', pending: '#26DC8C' }  // Red -> Cyan
-];
 
-const getAssigneeColor = (assigned_to, status) => {
-  if (!assigned_to) return '#94A3B8';
-  const index = activeMembers.value.findIndex(m => m.user_id === assigned_to);
-  if (index === -1) return '#94A3B8';
-  const theme = MEMBER_THEMES[index % MEMBER_THEMES.length];
-  return status === 'completed' ? theme.completed : theme.pending;
-};
 
 const HIGHLIGHT_VERBS = /completed|added|spent|got|organized/;
 const splitHighlight = (text) => {
@@ -411,18 +398,20 @@ const splitHighlight = (text) => {
                 <div style="font-weight: 700; line-height: 1.2; word-break: break-word;">{{ abs.title }}</div>
               </div>
               <div v-for="a in dayObj.acts" :key="a.id"
-                   style="border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; font-weight: 600; color: #fff; display: flex; flex-direction: column; gap: 3px; cursor: pointer;"
-                   :style="[
+                   style="border-radius: var(--r-sm); padding: 4px 6px; font-size: 10px; font-weight: 600; display: flex; flex-direction: column; gap: 3px; cursor: pointer;"
+                   :style="
                      a.status === 'rejected'
-                       ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)', opacity: 1 }
-                       : { background: getAssigneeColor(a.assigned_to, a.status), opacity: a.status === 'completed' ? 1 : 0.8 }
-                   ]"
+                       ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }
+                       : a.status === 'completed'
+                         ? { background: a.category === 'care' ? 'var(--success)' : 'var(--warning)', color: 'var(--text-primary)' }
+                         : { background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
+                   "
                    @click.stop="navigateToDaily(dayObj.dateStr)">
                 <div style="display:flex; align-items: center; justify-content: space-between; gap: 2px;">
                   <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
                     <span v-if="a.status === 'rejected'" title="Rejected" style="margin-right:2px;">⚠️</span>{{ a.title }}
                   </div>
-                  <span v-if="a.bounty_amount" style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 999px; font-size: 9px; font-weight: 800; flex-shrink: 0;">+{{a.bounty_amount}}cc</span>
+                  <span v-if="a.bounty_amount" style="background: var(--warning-soft); color: var(--warning); padding: 1px 4px; border-radius: 999px; font-size: 9px; font-weight: 800; flex-shrink: 0;">+{{a.bounty_amount}}cc</span>
                 </div>
                 <div style="opacity: 0.8; font-size: 9px;">
                   {{ new Date(a.starts_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}

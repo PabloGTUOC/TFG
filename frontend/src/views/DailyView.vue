@@ -307,22 +307,22 @@ const loadMembers = () => appStore.runAction(async () => {
   familyMembers.value = (data.members || []).sort((a, b) => b.coin_balance - a.coin_balance);
 });
 
-const MEMBER_THEMES = [
-  { completed: '#2563EB', pending: '#EBAD25' }, // Blue -> Orange
-  { completed: '#16A34A', pending: '#A3166F' }, // Green -> Pink
-  { completed: '#D97706', pending: '#0668D9' }, // Orange -> Blue
-  { completed: '#DC2626', pending: '#26DC8C' }  // Red -> Cyan
-];
-const DEFAULT_CARE_THEME = { completed: '#16A34A', pending: '#A3166F' };
-const DEFAULT_HOUSEHOLD_THEME = { completed: '#D97706', pending: '#0668D9' };
+const getCardStyle = (activity) => {
+  if (activity.status === 'rejected') {
+    return { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' };
+  }
+  if (activity.status === 'completed') {
+    return { background: activity.category === 'care' ? 'var(--success)' : 'var(--warning)', color: '#fff' };
+  }
+  return { background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' };
+};
 
-const getAssigneeColor = (assigned_to, category, status) => {
-  const defaultTheme = category === 'care' ? DEFAULT_CARE_THEME : DEFAULT_HOUSEHOLD_THEME;
-  if (!assigned_to) return status === 'completed' ? defaultTheme.completed : defaultTheme.pending;
-  const idx = familyMembers.value.findIndex(m => m.id === assigned_to);
-  if (idx === -1) return status === 'completed' ? defaultTheme.completed : defaultTheme.pending;
-  const theme = MEMBER_THEMES[idx % MEMBER_THEMES.length];
-  return status === 'completed' ? theme.completed : theme.pending;
+const getMemberAvatarStyle = (assigned_alias) => {
+  const idx = familyMembers.value.findIndex(m => (m.alias || m.name) === assigned_alias);
+  const bgs = ['var(--primary-soft)', 'var(--success-soft)', 'var(--warning-soft)', 'var(--danger-soft)'];
+  const fgs = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)'];
+  const i = idx === -1 ? 0 : idx % 4;
+  return { background: bgs[i], color: fgs[i] };
 };
 
 const isLoadingActivities = ref(true);
@@ -728,9 +728,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                     class="scheduled-chip"
                     :style="[
                       a._style,
-                      a.status === 'rejected'
-                        ? { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }
-                        : { background: getAssigneeColor(a.assigned_to, a.category, a.status) },
+                      getCardStyle(a),
                       a.is_recurrent && a.status !== 'completed' ? { cursor: 'pointer' } : {}
                     ]"
                     :draggable="a.status !== 'completed'" @dragstart="a.status !== 'completed' ? dragStartScheduled($event, a) : null"
@@ -745,33 +743,33 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                  </div>
                  
                  <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <div class="text-xs" style="font-weight:800; background: rgba(0,0,0,0.1); padding: 4px 10px; border-radius: 999px;">
+                  <div class="text-xs" style="font-weight:800; background: var(--bg); border: 1px solid var(--border); padding: 4px 10px; border-radius: 999px; color: var(--text-secondary);">
                     {{ new Date(a.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }}
                   </div>
-                  
+
                   <div v-if="a.status === 'pending_validation'" style="display: flex; align-items: center; gap: 0.4rem;">
                     <button v-if="a.assigned_to !== familyStore.profile?.id && role === 'caregiver'" @click.stop="validateActivity(a.id)" class="validate-btn">✓ Validate</button>
                   </div>
-                  <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px;">
+                  <div v-else-if="a.status === 'completed'" class="text-xs" style="font-weight: bold; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 999px; color: #fff;">
                     ✓ Done
                   </div>
                   <div v-else-if="['pending', 'approved'].includes(a.status)" style="display: flex; align-items: center; gap: 0.4rem;">
                     <!-- My Task -> I can offer Bribe -->
-                    <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'" 
-                            @click.stop="openBountyModal(a)" class="validate-btn" style="background: rgba(0,0,0,0.15); border: 2px solid rgba(255,165,0,0.5); color: #fff;">
-                      💸 Delegate (-cc)
+                    <button v-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'"
+                            @click.stop="openBountyModal(a)" class="validate-btn" style="background: var(--warning-soft); border: 1px solid var(--warning); color: var(--warning);">
+                      Delegate (-cc)
                     </button>
                     <!-- My Task with Bribe already offered -->
-                    <span v-else-if="a.assigned_to === familyStore.profile?.id && a.bounty_amount" class="text-xs" style="background: rgba(255, 165, 0, 0.2); padding: 4px 8px; border-radius: 999px; font-weight:800; border: 1px solid rgba(255,165,0,0.8);">
+                    <span v-else-if="a.assigned_to === familyStore.profile?.id && a.bounty_amount" class="text-xs" style="background: var(--warning-soft); padding: 4px 8px; border-radius: 999px; font-weight:800; border: 1px solid var(--warning); color: var(--warning);">
                       Offering: {{ a.bounty_amount }}cc
                     </span>
                     <!-- Other User's Task with Bribe -> I can ACCEPT Bribe -->
                     <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
-                            @click.stop="openAcceptBountyModal(a)" class="validate-btn" style="background: var(--success-soft); border: 2px solid var(--success); color: var(--success);">
-                      🤑 Take Over (+{{a.bounty_amount}}cc)
+                            @click.stop="openAcceptBountyModal(a)" class="validate-btn" style="background: var(--success-soft); border: 1px solid var(--success); color: var(--success);">
+                      Take Over (+{{a.bounty_amount}}cc)
                     </button>
                     <!-- Other User's Task with NO bribe -->
-                    <span v-else-if="a.assigned_to !== familyStore.profile?.id && !a.bounty_amount" class="text-xs" style="background: rgba(0,0,0,0.1); padding: 4px 8px; border-radius: 999px; font-weight: 800;">
+                    <span v-else-if="a.assigned_to !== familyStore.profile?.id && !a.bounty_amount" class="text-xs" style="background: var(--bg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 999px; font-weight: 800; color: var(--text-secondary);">
                       Assigned to {{ a.assigned_alias || 'Caregiver' }}
                     </span>
                   </div>
@@ -827,13 +825,14 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                    {{ new Date(a.starts_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }}
                  </div>
                  <div class="tl-card"
-                      :class="{ 'tl-card--dismiss': dismissingIds.has(a.id) }"
-                      :style="{
-                        background: a.status === 'rejected' ? 'var(--danger-soft)' : getAssigneeColor(a.assigned_to, a.category, a.status),
-                        color: a.status === 'rejected' ? 'var(--danger)' : '#fff',
-                        transform: swipingId === a.id ? `translateX(${swipeDeltaX}px)` : undefined,
-                        transition: swipingId === a.id ? 'none' : 'transform 0.25s ease-out',
-                      }">
+                      :class="[{ 'tl-card--dismiss': dismissingIds.has(a.id) }, a.status === 'completed' ? 'tl-card--colored' : 'tl-card--on-surface']"
+                      :style="[
+                        getCardStyle(a),
+                        {
+                          transform: swipingId === a.id ? `translateX(${swipeDeltaX}px)` : undefined,
+                          transition: swipingId === a.id ? 'none' : 'transform 0.25s ease-out',
+                        }
+                      ]">
                    <div class="tl-card-header">
                      <span class="tl-card-emoji">{{ a.category === 'care' ? '❤️' : '🍽️' }}</span>
                      <div class="tl-card-title-block">
@@ -861,7 +860,7 @@ const validateActivity = (aid) => appStore.runAction(async () => {
                        </div>
                        <button v-else-if="a.assigned_to === familyStore.profile?.id && !a.bounty_amount && role === 'caregiver'"
                                @click.stop="openBountyModal(a)" class="validate-btn"
-                               style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:0.35rem 0.9rem;">
+                               style="background:var(--warning-soft);border:1px solid var(--warning);color:var(--warning);padding:0.35rem 0.9rem;">
                          Delegate
                        </button>
                        <button v-else-if="a.assigned_to !== familyStore.profile?.id && a.bounty_amount && role === 'caregiver'"
@@ -1349,7 +1348,6 @@ const validateActivity = (aid) => appStore.runAction(async () => {
 
 .scheduled-chip {
   border-radius: var(--r-md);
-  color: #fff;
   padding: 0.6rem 1.2rem;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
   z-index: 10;
@@ -1370,11 +1368,11 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   transform: scale(0.98);
 }
 .validate-btn {
-  background: rgba(255,255,255,0.25); border: none; color: #fff;
-  border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: 600;
-  padding: 4px 8px; transition: background 0.2s;
+  background: var(--primary-soft); border: 1px solid var(--primary); color: var(--primary);
+  border-radius: var(--r-sm); cursor: pointer; font-size: 0.7rem; font-weight: 700;
+  padding: 4px 8px; transition: background 0.2s, color 0.2s;
 }
-.validate-btn:hover { background: rgba(255,255,255,0.45); }
+.validate-btn:hover { background: var(--primary); color: #fff; }
 
 .confetti-bg {
   background-image: radial-gradient(var(--primary-soft) 1px, transparent 1px), radial-gradient(var(--success-soft) 1px, transparent 1px);
@@ -1533,6 +1531,13 @@ const validateActivity = (aid) => appStore.runAction(async () => {
   background: rgba(255,255,255,0.2);
   padding: 1px 5px;
   border-radius: 999px;
+}
+.tl-card--on-surface .tl-bounty-chip {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.tl-card--on-surface .tl-card-footer {
+  border-top: 1px solid var(--border);
 }
 .tl-card-footer {
   display: flex;
