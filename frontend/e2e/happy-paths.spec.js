@@ -11,23 +11,24 @@ test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
+    // Wait for the dashboard root (v-if on members.length > 0) — data may take a moment
+    await page.locator('.dashboard-root').waitFor({ state: 'visible', timeout: 15000 });
   });
 
   test('renders Family Hub heading', async ({ page }) => {
-    await expect(page.getByText('Family Hub')).toBeVisible();
+    await expect(page.getByText('Family Hub')).toBeVisible({ timeout: 10000 });
   });
 
   test('shows active family members section', async ({ page }) => {
-    await expect(page.getByText('Active Family Members')).toBeVisible();
+    await expect(page.getByText('Active Family Members')).toBeVisible({ timeout: 10000 });
   });
 
   test('week calendar is visible', async ({ page }) => {
-    // The week section heading
-    await expect(page.locator('.week-section')).toBeVisible();
+    await expect(page.locator('.week-section')).toBeVisible({ timeout: 10000 });
   });
 
   test('KPI cards are present', async ({ page }) => {
-    await expect(page.locator('.kpi-grid')).toBeVisible();
+    await expect(page.locator('.kpi-grid')).toBeVisible({ timeout: 10000 });
   });
 
   test('no JavaScript errors on load', async ({ page }) => {
@@ -56,9 +57,9 @@ test.describe('Daily view', () => {
     const today = new Date().toISOString().split('T')[0];
     await page.goto(`/daily/${today}`);
     await page.waitForLoadState('networkidle');
-    // Both templates should appear in the library
-    await expect(page.getByText('Morning Walk')).toBeVisible();
-    await expect(page.getByText('Tidy Kitchen')).toBeVisible();
+    // Both templates should appear in the library sidebar (scoped to avoid matching timeline chips)
+    await expect(page.locator('.task-library .task-row', { hasText: 'Morning Walk' }).first()).toBeVisible();
+    await expect(page.locator('.task-library .task-row', { hasText: 'Tidy Kitchen' }).first()).toBeVisible();
   });
 
   test('date navigation moves to next day', async ({ page }) => {

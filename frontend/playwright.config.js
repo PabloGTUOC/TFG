@@ -19,22 +19,51 @@ export default defineConfig({
   },
 
   projects: [
-    // Authenticated tests — load saved session
+    // ── Authenticated as user1 ───────────────────────────────
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/auth.state.json' },
-      testIgnore: ['**/landing.spec.js', '**/dashboard.spec.js'],
+      testIgnore: [
+        '**/landing.spec.js', '**/dashboard.spec.js',
+        '**/onboarding.spec.js', '**/two-users.spec.js',
+      ],
     },
-    // Public tests — no auth state
+
+    // ── Public (no auth) ─────────────────────────────────────
     {
       name: 'chromium-public',
       use: { ...devices['Desktop Chrome'] },
       testMatch: ['**/landing.spec.js', '**/dashboard.spec.js'],
     },
+
+    // ── Two-user tests (user1 + user2 contexts inside each test)
+    {
+      name: 'chromium-multi',
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/auth.state.json' },
+      testMatch: ['**/two-users.spec.js'],
+    },
+
+    // ── Onboarding user (no family) ──────────────────────────
+    {
+      name: 'chromium-onboard',
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/onboarding.state.json' },
+      testMatch: ['**/onboarding.spec.js'],
+    },
+
+    // ── WebKit (Safari engine) — happy paths + public ────────
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], storageState: 'e2e/auth.state.json' },
+      testMatch: ['**/happy-paths.spec.js'],
+    },
+    {
+      name: 'webkit-public',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: ['**/landing.spec.js'],
+    },
   ],
 
   webServer: [
-    // 1. Firebase Auth Emulator
     {
       command: `firebase emulators:start --only auth --project tfg-carecoins`,
       url: 'http://localhost:9099',
@@ -42,7 +71,6 @@ export default defineConfig({
       timeout: 30000,
       cwd: path.join(__dirname, '..'),
     },
-    // 2. Backend (with emulator env var)
     {
       command: 'npm run dev:test',
       url: 'http://localhost:3000/health',
@@ -50,7 +78,6 @@ export default defineConfig({
       timeout: 30000,
       cwd: path.join(__dirname, '../backend'),
     },
-    // 3. Frontend (with emulator env var)
     {
       command: 'npm run dev:test',
       url: 'http://localhost:5173',

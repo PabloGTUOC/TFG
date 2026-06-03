@@ -6,6 +6,9 @@ firebase-credentials.json
 .idea/
 .claude/
 
+# Private session notes — never commit
+SESSION_NOTES.md
+
 # Logs
 *.log
 
@@ -14,6 +17,8 @@ firebase-credentials.json
 
 # Playwright — auth tokens and test artifacts (never commit)
 frontend/e2e/auth.state.json
+frontend/e2e/auth2.state.json
+frontend/e2e/onboarding.state.json
 frontend/test-results/
 frontend/playwright-report/
 backend/test-results-backend.txt
