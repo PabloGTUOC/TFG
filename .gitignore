@@ -6,9 +6,6 @@ firebase-credentials.json
 .idea/
 .claude/
 
-# Docs — local only, not committed
-docs/
-
 # Logs
 *.log
 

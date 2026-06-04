@@ -165,3 +165,21 @@ CREATE TABLE IF NOT EXISTS family_deletion_approvals (
   responded_at TIMESTAMPTZ,
   UNIQUE (request_id, caregiver_id)
 );
+
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fcm_tokens_user_id ON fcm_tokens (user_id);
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id            BIGINT  PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  activity_assigned  BOOLEAN NOT NULL DEFAULT true,
+  activity_validated BOOLEAN NOT NULL DEFAULT true,
+  activity_completed BOOLEAN NOT NULL DEFAULT true,
+  bounty_offered     BOOLEAN NOT NULL DEFAULT true,
+  family_events      BOOLEAN NOT NULL DEFAULT true
+);

@@ -19,8 +19,8 @@ CareCoins uses a single design token system defined in `DESIGN.md` and `frontend
 
 ### Core UI Components (`src/components/`)
 
-- **`KpiCard.vue`** — Key Performance Indicator card. Supports label, value, unit, subtext, and optional progress bar. Colour accents: primary, success, warning, danger, ink.
-- **`VButton.vue`** — Button with variants: `primary`, `secondary`, `outline`, `danger`. Full pill radius. Supports disabled state and `block` (full-width) prop.
+- **`KpiCard.vue`** — Key Performance Indicator card. Supports label, value, unit, subtitle, delta badge, and optional progress bar. Colour accents: primary, success, warning, danger, ink.
+- **`VButton.vue`** — Button with `type` prop: `primary`, `secondary`, `outline`, `danger`. Full pill radius. Supports `disabled` and `block` (full-width) props.
 - **`VCard.vue`** — Structural container with consistent padding, rounded corners (`--r-lg`), and ambient shadow. Accepts optional `title` prop.
 - **`VInput.vue`** — Text input wrapper with integrated label, placeholder, and v-model support. Pill radius matching buttons.
 - **`VSelect.vue`** — Styled native `<select>` with `{ value, label }` options array and v-model.
@@ -50,7 +50,7 @@ Extracted from `ProfileView.vue`:
 - **`MarketplaceView.vue`** — Reward store. Members redeem CareCoins for custom rewards. Mobile tab bar (Store / History / Create).
 - **`ProfileView.vue`** — Personal area shell. Tab container (`My Profile` / `Family` / `Wallet`) delegating to `AccountSettings`, `FamilyCircle`, `WalletPanel`. Owns data loading and the confirm dialog.
 - **`StatsView.vue`** — ECharts analytics dashboard. Lifetime wealth, coin flow trends, category splits, completion rates, leaderboard. Mobile tab bar (Overview / Members / Economy).
-- **`OnboardingView.vue`** — Setup wizard. Create family or join via email invite / token link.
+- **`OnboardingView.vue`** — Setup wizard for new users with no family. Three steps: family name, caregiver name/alias, optional objects of care.
 - **`JoinView.vue`** — Invite link handler. Parses token from URL, prompts for alias, joins family.
 - **`LoginView.vue`** — Email/password and Google OAuth authentication.
 
@@ -250,7 +250,7 @@ CareCoins uses Firebase Cloud Messaging (FCM) for mobile push notifications.
 1. **Template creation** — caregiver defines title, category, duration, coin value.
 2. **Approval** — a caregiver approves the template before it can be scheduled.
 3. **Scheduling** — approved template dragged onto the daily timeline (desktop) or selected from the task sheet (mobile). Supports recurring instances.
-4. **Bounty (optional)** — assignee can't do the task, offers coins from their balance. Any family member can accept and take over.
+4. **Bounty (optional)** — a caregiver offers extra coins on an activity. Any family member can accept the bounty and take over the task.
 5. **Completion** — assignee marks task done → status becomes `pending_validation`.
 6. **Validation** — a different caregiver validates → coins minted in `coin_ledger`, user balance updated.
 7. **Auto-complete** — `autoComplete.js` sweep transitions approved past-due tasks automatically.
@@ -259,7 +259,7 @@ CareCoins uses Firebase Cloud Messaging (FCM) for mobile push notifications.
 
 ## Part 6: Automated Tests
 
-141 tests across three layers. See `automatic-testing-E2E.md` for full test descriptions.
+116 unique test definitions (141 execution instances) across three layers. E2E tests run on multiple browser projects, so some definitions execute more than once. See `automatic-testing-E2E.md` for full test descriptions.
 
 ### Layer 1 — Backend Unit Tests (44 tests)
 
@@ -282,7 +282,7 @@ cd frontend && npm test
 
 Covers: `getCardStyle` status/category mapping (6 cases), `formatGap` time formatting (4 cases), `useTimeline` positioning algorithm (8 cases), auth and family stores (7 cases).
 
-### Layer 3 — E2E Integration Tests (72 tests)
+### Layer 3 — E2E Integration Tests (47 definitions, 72 executions)
 
 **Runner:** Playwright 1.60. **Browsers:** Chromium + WebKit (Safari). **Location:** `frontend/e2e/`.  
 Uses the Firebase Auth Emulator — no real Google account needed, fully offline.
@@ -311,7 +311,7 @@ Requires three services (started automatically by Playwright if not already runn
 
 ### Prerequisites
 - Node.js 20+, npm
-- PostgreSQL 12+ (local instance on port 5433, or use Docker)
+- PostgreSQL 16 (local instance, or use Docker)
 - Firebase project with Auth + FCM enabled
 
 ### Environment variables
@@ -337,25 +337,13 @@ cd backend && npm install && npm run dev   # hot-reload on :3000
 cd frontend && npm install && npm run dev  # Vite dev server on :5173
 ```
 
-**Important:** The Docker `db-init` service runs all migrations automatically on `docker compose up`. For local dev against a bare Postgres instance, run migrations manually once:
+**Important:** The Docker `db-init` service runs all migrations automatically on `docker compose up`. For local dev against a bare Postgres instance, run the init script once:
 
 ```bash
-cd backend
-node -e "
-import('./src/db/pool.js').then(async ({ pool }) => {
-  const fs = await import('fs/promises');
-  const files = [
-    'src/db/schema.sql',
-    'scripts/migrate-deletion.sql',
-    'scripts/migrate-fcm.sql',
-    'scripts/migrate-fcm-index.sql',
-    'scripts/migrate-notif-prefs.sql',
-  ];
-  for (const f of files) { await pool.query(await fs.readFile(f, 'utf8')); console.log('✓', f); }
-  await pool.end();
-});
-"
+cd backend && npm run db:init
 ```
+
+This executes `scripts/init-db.js`, which applies `schema.sql` and all migration scripts in order (all statements are idempotent — safe to re-run).
 
 ### Running with Docker (recommended)
 
