@@ -6,8 +6,8 @@ firebase-credentials.json
 .idea/
 .claude/
 
-# Private session notes — never commit
-SESSION_NOTES.md
+# Docs — local only, not committed
+docs/
 
 # Logs
 *.log
@@ -21,4 +21,3 @@ frontend/e2e/auth2.state.json
 frontend/e2e/onboarding.state.json
 frontend/test-results/
 frontend/playwright-report/
-backend/test-results-backend.txt
