@@ -526,7 +526,7 @@ const sheetFilterStyle = (val) => ({
         </button>
       </div>
       <div style="padding:0 1rem 0.5rem;flex-shrink:0;">
-        <input type="text" v-model="sheetSearch" placeholder="Search tasks…" style="width:100%;box-sizing:border-box;padding:0.6rem 1rem;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-primary);font-size:0.9rem;outline:none;" />
+        <input type="text" v-model="sheetSearch" placeholder="Search tasks…" style="width:100%;box-sizing:border-box;padding:0.6rem 1rem;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-primary);font-size:16px;outline:none;" />
         <div style="display:flex;gap:0.4rem;overflow-x:auto;padding:0.5rem 0 0.25rem;scrollbar-width:none;">
           <button @click="sheetFilter = 'all'"       :style="sheetFilterStyle('all')">All</button>
           <button @click="sheetFilter = 'care'"      :style="sheetFilterStyle('care')">Care</button>
@@ -678,6 +678,7 @@ const sheetFilterStyle = (val) => ({
   position: sticky;
   top: 2rem;
   height: calc(100vh - 4rem); /* Occupy full viewport height minus padding */
+  height: calc(100dvh - 4rem);
 }
 
 .col-card :deep(.v-card-body) {

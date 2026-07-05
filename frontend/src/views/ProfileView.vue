@@ -226,18 +226,18 @@ watch(isCaregiver, (v) => { if (v) { loadInvitations(); loadDeletionRequests(); 
 <style scoped>
 .personal-area { max-width:1080px; margin:0 auto; padding-top:1rem; }
 .page-heading { margin-bottom:2.5rem; }
-.page-heading h1 { font-size:3rem; font-weight:900; color:#1e1b4b; margin:0 0 0.4rem; letter-spacing:-1px; }
+.page-heading h1 { font-size:3rem; font-weight:800; color:#1e1b4b; margin:0 0 0.4rem; letter-spacing:-1px; }
 .page-heading p  { color:#64748b; font-size:1rem; margin:0; }
 .two-col-grid { display:grid; grid-template-columns:2fr 1fr; gap:2rem; align-items:start; }
 .left-col, .right-col { display:flex; flex-direction:column; gap:2rem; min-width:0; }
 .family-banner { display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%); border-radius:16px; padding:1rem 1.75rem; margin-bottom:2rem; box-shadow:0 6px 20px rgba(99,102,241,0.3); }
 .family-banner__left { display:flex; align-items:center; gap:1rem; }
 .family-banner__icon { font-size:1.8rem; }
-.family-banner__name { font-size:1.2rem; font-weight:900; color:#fff; letter-spacing:-0.3px; }
+.family-banner__name { font-size:1.2rem; font-weight:800; color:#fff; letter-spacing:-0.3px; }
 .family-banner__sub  { font-size:0.78rem; color:rgba(255,255,255,0.65); font-weight:600; margin-top:0.1rem; }
 .family-banner__id { display:flex; align-items:center; gap:0.6rem; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:9999px; padding:0.45rem 1.1rem; }
 .family-id-label { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:rgba(255,255,255,0.65); }
-.family-id-value { font-size:1rem; font-weight:900; color:#fff; font-family:monospace; letter-spacing:0.5px; }
+.family-id-value { font-size:1rem; font-weight:800; color:#fff; font-family:monospace; letter-spacing:0.5px; }
 .deletion-requests-banner { background:#fee2e2; border:1px solid #fca5a5; border-radius:16px; padding:1.5rem; margin-bottom:2rem; color:#991b1b; }
 .profile-tab-bar { display:none; }
 @media (max-width:768px) {

@@ -214,7 +214,7 @@ const shareInviteLink = () => navigator.share({ title: 'Join my CareCoins family
 .add-actor-form { margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid #f1f5f9; }
 .form-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.25rem; }
 .form-field label { display:block; font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem; }
-.text-input { width:100%; box-sizing:border-box; padding:0.65rem 1rem; border:1px solid #e2e8f0; border-radius:12px; font-size:0.95rem; color:#1e293b; background:#f8fafc; outline:none; transition:border-color 0.2s; }
+.text-input { width:100%; box-sizing:border-box; padding:0.65rem 1rem; border:1px solid #e2e8f0; border-radius:12px; font-size:1rem; color:#1e293b; background:#f8fafc; outline:none; transition:border-color 0.2s; }
 .text-input:focus { border-color:#6366f1; background:#fff; }
 .update-btn { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border:none; border-radius:9999px; padding:0.7rem 2rem; font-weight:800; font-size:1rem; cursor:pointer; }
 .cancel-btn { background:#f1f5f9; color:#64748b; border:none; border-radius:9999px; padding:0.7rem 2rem; font-weight:700; font-size:1rem; cursor:pointer; }

@@ -302,7 +302,7 @@ const hashId = (id) => String(id).split('').reduce((acc, c) => acc + c.charCodeA
   padding: 0.4rem 0.9rem;
   border-radius: var(--r-pill);
 }
-.coin-amount { color: var(--warning); font-weight: 900; font-size: 1.1rem; }
+.coin-amount { color: var(--warning); font-weight: 800; font-size: 1.1rem; }
 .coin-label  { color: var(--warning); font-weight: 700; font-size: 0.8rem; opacity: 0.75; }
 
 .buy-btn {

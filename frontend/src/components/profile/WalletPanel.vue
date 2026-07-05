@@ -105,7 +105,7 @@ defineExpose({ currentMonth });
 <style scoped>
 .balance-widget { background:#0f172a; border-radius:24px; padding:2rem; color:#fff; }
 .balance-label { font-size:0.72rem; font-weight:800; letter-spacing:1px; color:#94a3b8; text-transform:uppercase; margin-bottom:0.5rem; }
-.balance-amount { font-size:2.8rem; font-weight:900; line-height:1; margin-bottom:1.5rem; }
+.balance-amount { font-size:2.8rem; font-weight:800; line-height:1; margin-bottom:1.5rem; }
 .balance-unit { font-size:1.2rem; font-weight:700; color:#fbbf24; margin-left:0.3rem; }
 .ledger-preview { display:flex; flex-direction:column; gap:0.75rem; margin-bottom:1.5rem; }
 .ledger-preview-row { display:flex; justify-content:space-between; align-items:center; padding:0.75rem 1rem; background:rgba(255,255,255,0.06); border-radius:12px; }
@@ -120,6 +120,9 @@ defineExpose({ currentMonth });
 .full-ledger-card { background:#fff; border-radius:20px; padding:1.5rem; box-shadow:0 4px 20px rgba(0,0,0,0.06); margin-top:0; }
 .full-ledger-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; font-size:0.95rem; color:#1e293b; }
 .month-picker { border:1px solid #e2e8f0; border-radius:8px; padding:0.35rem 0.6rem; font-size:0.85rem; outline:none; }
+@media (max-width: 768px) {
+  .month-picker { font-size: 16px; } /* sub-16px inputs trigger iOS focus auto-zoom */
+}
 .ledger-list { display:flex; flex-direction:column; gap:0.6rem; }
 .ledger-item { display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; }
 .ledger-details { display:flex; flex-direction:column; gap:0.15rem; }

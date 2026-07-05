@@ -153,6 +153,8 @@ const coinAliasInitial = computed(() => {
 <style>
 .app-layout {
   min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   flex-direction: column;
 }
@@ -405,6 +407,7 @@ const coinAliasInitial = computed(() => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--primary);
 }
 

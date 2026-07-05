@@ -354,7 +354,7 @@ const splitHighlight = (text) => {
              <div style="font-weight: 800; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.6rem;">Today</div>
              <div style="font-size: 14px; font-weight: 800; margin-top: 0.2rem; color: var(--primary);">{{ completedToday.length }}/{{ scheduledInstances.length }}</div>
              <div style="font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">tasks</div>
-             <div v-if="todayPendingTasks > 0" style="margin-top: 0.4rem; background: var(--warning-soft); color: var(--warning); font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 999px; line-height: 1.6;">{{ todayPendingTasks }} due</div>
+             <div v-if="todayPendingTasks > 0" style="margin-top: 0.4rem; background: var(--warning-soft); color: var(--warning); font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 999px; line-height: 1.6;">{{ todayPendingTasks }} due</div>
           </div>
        </div>
     </div>
@@ -440,7 +440,7 @@ const splitHighlight = (text) => {
                     @click="navigateToDaily(offer.starts_at.split('T')[0])">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div style="font-size: 1.8rem; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--bg); border-radius: 50%;">{{ offer.category === 'care' ? '❤️' : '🍽️' }}</div>
-                    <div style="background: var(--warning-soft); color: var(--warning); padding: 0.2rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem; font-weight: 900;">+{{ offer.bounty_amount }}cc</div>
+                    <div style="background: var(--warning-soft); color: var(--warning); padding: 0.2rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem; font-weight: 800;">+{{ offer.bounty_amount }}cc</div>
                   </div>
                   <div style="margin-top: 0.2rem;">
                     <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.3rem;">{{ offer.title }}</div>

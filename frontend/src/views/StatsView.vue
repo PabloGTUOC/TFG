@@ -461,6 +461,7 @@ const frequencyOptions = computed(() => {
   padding: 2.5rem;
   background: var(--bg);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .stats-header {
   margin-bottom: 2.5rem;

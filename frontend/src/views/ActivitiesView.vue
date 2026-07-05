@@ -182,7 +182,7 @@ const executeDelete = () => appStore.runAction(async () => {
                    step="1"
                    class="v-slider"
                    style="width: 100%; cursor: pointer;" />
-            <div class="text-xs" style="display:flex; justify-content: space-between; color: rgba(255,255,255,0.4); margin-top: 0.4rem;">
+            <div class="text-xs" style="display:flex; justify-content: space-between; color: var(--text-secondary); margin-top: 0.4rem;">
               <span>Min: {{ minCoins }}</span>
               <span>Suggested: {{ baseScore }}</span>
               <span>Max: {{ maxCoins }}</span>
