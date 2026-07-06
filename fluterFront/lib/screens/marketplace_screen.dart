@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
@@ -25,6 +26,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   final _description = TextEditingController();
   final _cost = TextEditingController();
   final _maxUses = TextEditingController();
+  DateTime? _validFrom;
+  DateTime? _validUntil;
 
   static const _bannerColors = [
     AppColors.primarySoft,
@@ -103,6 +106,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         'cost': int.tryParse(_cost.text) ?? 0,
         if (_maxUses.text.trim().isNotEmpty)
           'maxUses': int.tryParse(_maxUses.text),
+        if (_validFrom != null)
+          'validFrom': _validFrom!.toUtc().toIso8601String(),
+        if (_validUntil != null)
+          'validUntil': _validUntil!.toUtc().toIso8601String(),
       });
       await _load();
     }, 'Reward created!');
@@ -111,8 +118,33 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       _description.clear();
       _cost.clear();
       _maxUses.clear();
-      setState(() => _tab = 0);
+      setState(() {
+        _validFrom = null;
+        _validUntil = null;
+        _tab = 0;
+      });
     }
+  }
+
+  Future<void> _pickValidity(bool from) async {
+    final initial = (from ? _validFrom : _validUntil) ?? DateTime.now();
+    final d = await showDatePicker(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+        lastDate: DateTime.now().add(const Duration(days: 365 * 2)));
+    if (d == null || !mounted) return;
+    final t = await showTimePicker(
+        context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    final picked =
+        DateTime(d.year, d.month, d.day, t?.hour ?? 0, t?.minute ?? 0);
+    setState(() {
+      if (from) {
+        _validFrom = picked;
+      } else {
+        _validUntil = picked;
+      }
+    });
   }
 
   @override
@@ -208,20 +240,35 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text((cRow['title'] ?? 'Reward').toString(),
+                      Text((cRow['buyer_name'] ?? 'Someone').toString(),
                           style: const TextStyle(fontWeight: FontWeight.w800)),
-                      Text(
-                          (cRow['redeemed_by'] ?? cRow['user_name'] ?? '')
-                              .toString(),
+                      Text('Redeemed "${cRow['title'] ?? 'a reward'}"',
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
-                PillBadge(
-                    text: '-${cRow['cost'] ?? 0} cc',
-                    color: AppColors.danger,
-                    background: AppColors.dangerSoft),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (cRow['redeemed_at'] != null)
+                      Text(
+                          DateFormat('d MMM yyyy · HH:mm').format(
+                              DateTime.tryParse(
+                                          cRow['redeemed_at'].toString())
+                                      ?.toLocal() ??
+                                  DateTime.now()),
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary)),
+                    const SizedBox(height: 3),
+                    PillBadge(
+                        text: '-${cRow['cost'] ?? 0} cc',
+                        color: AppColors.danger,
+                        background: AppColors.dangerSoft,
+                        fontSize: 11),
+                  ],
+                ),
               ],
             ),
           ),
@@ -262,6 +309,29 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       label: 'Max uses (optional)',
                       placeholder: '∞',
                       keyboardType: TextInputType.number)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (final (label, from, value) in [
+                ('Valid From', true, _validFrom),
+                ('Valid Until', false, _validUntil),
+              ])
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: from ? 12 : 0),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickValidity(from),
+                      icon: const Icon(Icons.event_rounded, size: 16),
+                      label: Text(
+                          value == null
+                              ? '$label (optional)'
+                              : '$label: ${DateFormat('d MMM HH:mm').format(value)}',
+                          style: const TextStyle(fontSize: 12.5)),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 20),
@@ -323,15 +393,32 @@ class _RewardCard extends StatelessWidget {
                           color: AppColors.textSecondary,
                           height: 1.5)),
                 ],
-                if (maxUses != null) ...[
+                if (maxUses != null || r['valid_until'] != null) ...[
                   const SizedBox(height: 8),
-                  PillBadge(
-                      text: soldOut ? 'Sold out' : '${maxUses - uses} left',
-                      color: soldOut ? AppColors.danger : AppColors.warning,
-                      background: soldOut
-                          ? AppColors.dangerSoft
-                          : AppColors.warningSoft,
-                      fontSize: 11),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (maxUses != null)
+                        PillBadge(
+                            text: soldOut
+                                ? 'Sold out'
+                                : '${maxUses - uses} left',
+                            color:
+                                soldOut ? AppColors.danger : AppColors.warning,
+                            background: soldOut
+                                ? AppColors.dangerSoft
+                                : AppColors.warningSoft,
+                            fontSize: 11),
+                      if (r['valid_until'] != null)
+                        PillBadge(
+                            text:
+                                '⏳ Expires ${DateFormat('d MMM yyyy').format(DateTime.tryParse(r['valid_until'].toString())?.toLocal() ?? DateTime.now())}',
+                            color: AppColors.danger,
+                            background: AppColors.dangerSoft,
+                            fontSize: 11),
+                    ],
+                  ),
                 ],
                 const SizedBox(height: 14),
                 Row(

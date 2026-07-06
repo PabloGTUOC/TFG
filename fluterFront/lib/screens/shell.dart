@@ -22,6 +22,22 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int _index = 0;
   String _lastToast = '';
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Port of the Vue visibilitychange refetch: refresh /api/me on resume.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => context.read<AppState>().fetchUserData(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   static const _tabs = [
     (icon: Icons.home_rounded, label: 'Family'),

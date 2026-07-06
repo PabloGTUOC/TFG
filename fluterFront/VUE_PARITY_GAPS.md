@@ -3,6 +3,38 @@
 Audit date: 2026-07-06 (after the Daily-parity + Family Circle + charts batch).
 Method: full re-scan of `frontend/src` (views, components, composables) against `fluterFront/lib`.
 
+## ⚡ Progress update — 2026-07-06 (parity batch 2)
+
+Closed since the audit below was written (tables NOT updated in place):
+
+- **§1 Daily desktop** — hour-grid timeline, drag & drop from Task Library
+  panel, drag-out unschedule, now-line + auto-scroll, gap indicators. ✅
+- **§2 Dashboard** — week pagination + label, absences in strip, Log Time
+  Off, Recent Activity feed, full KPI row, clickable offers, Stats nav. ✅
+- **§3 Activities** — 3 tabs, budget economics (bounded slider), approve
+  flow, isRecurrent, 30-min duration select, Budget gauge tab. ✅
+- **§4 Marketplace** — validFrom/validUntil on create, expiry badge,
+  history rows fixed to real backend fields (buyer_name/redeemed_at). ✅
+- **§5 Stats** — all 10 panels + compare-caregivers toggle + KPI row +
+  Overview/Members/Economy tabs. ✅
+- **§6 Personal Area** — profile tabs, full AccountSettings (name/email/
+  alias via PATCH), delete account, deletion-requests banner, delete
+  family, notification-preference toggles, ledger reason labels +
+  un-check revert + preview/full toggle, insights card. ✅
+- **§7 Onboarding** — full create wizard (caretakers + objects of care),
+  alias prompt on invite accept, token extraction from pasted links. ✅
+- **§8 Shell** — refetch on app resume (AppLifecycleListener). ✅
+
+Still open:
+
+- Avatar images/upload everywhere (needs `image_picker` + backend
+  multipart upload; Flutter still renders initials).
+- Push notifications (blocked on `firebase login` → `flutterfire configure`).
+- `/join?token=…` deep links + URL routing (`go_router` + app links).
+- Marketing landing page (login remains the Flutter entry screen).
+- End-to-end testing against the real backend (all of batch 2 is
+  analyzer/build-verified but not yet exercised in the running app).
+
 Legend: ✅ ported · ⚠️ partial / simplified · ❌ missing
 
 ---
