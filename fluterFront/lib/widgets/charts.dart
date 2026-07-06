@@ -121,6 +121,254 @@ class _LinePainter extends CustomPainter {
       old.values != values || old.labels != labels;
 }
 
+class LineSeries {
+  final String label;
+  final Color color;
+  final List<double> values; // one per x label
+  const LineSeries(this.label, this.color, this.values);
+}
+
+/// Multi-series smooth line chart (compare-caregivers mode of the ECharts
+/// trend panel). No area fill; a legend row sits above the plot.
+class MultiLineChart extends StatelessWidget {
+  final List<String> labels;
+  final List<LineSeries> series;
+  final double height;
+
+  const MultiLineChart({
+    super.key,
+    required this.labels,
+    required this.series,
+    this.height = 220,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          children: [
+            for (final s in series)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                          color: s.color, shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                  Text(s.label,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary)),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: height,
+          width: double.infinity,
+          child: CustomPaint(painter: _MultiLinePainter(labels, series)),
+        ),
+      ],
+    );
+  }
+}
+
+class _MultiLinePainter extends CustomPainter {
+  final List<String> labels;
+  final List<LineSeries> series;
+  _MultiLinePainter(this.labels, this.series);
+
+  static const _pad = EdgeInsets.fromLTRB(36, 12, 12, 26);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (labels.isEmpty || series.isEmpty) return;
+    final plot = Rect.fromLTRB(_pad.left, _pad.top, size.width - _pad.right,
+        size.height - _pad.bottom);
+    var maxV = 0.0;
+    for (final s in series) {
+      for (final v in s.values) {
+        if (v > maxV) maxV = v;
+      }
+    }
+    final top = maxV <= 0 ? 1.0 : maxV * 1.15;
+
+    final grid = Paint()
+      ..color = AppColors.border
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 3; i++) {
+      final y = plot.bottom - plot.height * i / 3;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
+      _text(canvas, (top * i / 3).round().toString(), Offset(2, y - 6), 10,
+          AppColors.textSecondary);
+    }
+
+    for (final s in series) {
+      Offset pt(int i) {
+        final x = labels.length == 1
+            ? plot.center.dx
+            : plot.left + plot.width * i / (labels.length - 1);
+        final v = i < s.values.length ? s.values[i] : 0.0;
+        return Offset(x, plot.bottom - plot.height * (v / top));
+      }
+
+      final line = Path()..moveTo(pt(0).dx, pt(0).dy);
+      for (var i = 1; i < labels.length; i++) {
+        final p0 = pt(i - 1), p1 = pt(i);
+        final cx = (p0.dx + p1.dx) / 2;
+        line.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
+      }
+      canvas.drawPath(
+        line,
+        Paint()
+          ..color = s.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round,
+      );
+      for (var i = 0; i < labels.length; i++) {
+        canvas.drawCircle(pt(i), 3, Paint()..color = s.color);
+      }
+    }
+
+    final step = (labels.length / 6).ceil().clamp(1, 100);
+    for (var i = 0; i < labels.length; i += step) {
+      final x = labels.length == 1
+          ? plot.center.dx
+          : plot.left + plot.width * i / (labels.length - 1);
+      _text(canvas, labels[i], Offset(x - 16, plot.bottom + 6), 10,
+          AppColors.textSecondary);
+    }
+  }
+
+  void _text(Canvas canvas, String s, Offset o, double size, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+          text: s,
+          style: TextStyle(
+              fontSize: size, color: color, fontWeight: FontWeight.w600)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, o);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MultiLinePainter old) =>
+      old.labels != labels || old.series != series;
+}
+
+class DonutSegment {
+  final String label;
+  final double value;
+  final Color color;
+  const DonutSegment(this.label, this.value, this.color);
+}
+
+/// Donut chart with centred total and legend (the ECharts 40%/65% pies).
+class DonutChart extends StatelessWidget {
+  final List<DonutSegment> segments;
+  final double size;
+
+  const DonutChart({super.key, required this.segments, this.size = 180});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = segments.fold<double>(0, (acc, s) => acc + s.value);
+    return Column(
+      children: [
+        SizedBox(
+          width: size,
+          height: size,
+          child: CustomPaint(
+            painter: _DonutPainter(segments, total),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(total.round().toString(),
+                      style: const TextStyle(
+                          fontSize: 26, fontWeight: FontWeight.w800)),
+                  const Text('total',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 14,
+          runSpacing: 6,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final s in segments)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                          color: s.color, shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                  Text('${s.label} (${s.value.round()})',
+                      style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary)),
+                ],
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<DonutSegment> segments;
+  final double total;
+  _DonutPainter(this.segments, this.total);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (total <= 0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 8;
+    final stroke = radius * 0.42;
+    var start = -1.5708; // 12 o'clock
+    for (final s in segments) {
+      if (s.value <= 0) continue;
+      final sweep = 6.28318 * (s.value / total);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius - stroke / 2),
+        start,
+        sweep - 0.03,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap = StrokeCap.round
+          ..color = s.color,
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter old) =>
+      old.segments != segments || old.total != total;
+}
+
 class StackedBarSeries {
   final String label;
   final Color color;

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../utils/json.dart';
 import '../widgets/charts.dart';
 import '../widgets/ui.dart';
-import '../utils/json.dart';
 
-/// Port of views/StatsView.vue. The ECharts panels are rendered as
-/// lightweight custom bar rows in the same palette (member balances,
-/// completion rates, status distribution).
+/// Port of views/StatsView.vue — all ten ECharts panels rendered as
+/// dependency-free charts: KPI row, income trend (with the
+/// compare-caregivers toggle), category balance, task frequency,
+/// leaderboard, completion rates, bounty stats, coin flow, rewards by
+/// member, top rewards and status distribution.
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
 
@@ -20,6 +23,15 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   Map<String, dynamic>? _stats;
   bool _loading = true;
+  bool _compare = false;
+  int _tab = 0; // mobile: 0 overview, 1 members, 2 economy
+
+  static const _caregiverColors = [
+    AppColors.primary,
+    AppColors.success,
+    AppColors.warning,
+    AppColors.danger,
+  ];
 
   @override
   void initState() {
@@ -48,6 +60,15 @@ class _StatsScreenState extends State<StatsScreen> {
           .map((m) => m.cast<String, dynamic>())
           .toList();
 
+  List<String> get _caregivers =>
+      ((_stats?['activeCaregivers'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+
+  bool get _comparing => _compare && _caregivers.length > 1;
+
+  Color _cgColor(int i) => _caregiverColors[i % _caregiverColors.length];
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -57,24 +78,365 @@ class _StatsScreenState extends State<StatsScreen> {
               style: TextStyle(color: AppColors.textSecondary)));
     }
 
-    final balances = _listOf('memberBalances');
-    final completion = _listOf('completionRates');
-    final statuses = _listOf('statusDistribution');
-    final caregivers = (_stats?['activeCaregivers'] as List?) ?? [];
-    final trend = _listOf('trendByMonth');
-    final coinFlow = _listOf('coinFlowByReason');
+    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final overview = _buildOverview();
+    final members = _buildMembers();
+    final economy = _buildEconomy();
 
-    // Monthly totals for the trend line (same aggregation as StatsView.vue).
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 16, bottom: 40),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: PageHeading(
+                    title: 'Performance Analytics',
+                    subtitle:
+                        'How care work and coins flow across the family.'),
+              ),
+              if (_caregivers.length > 1)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('COMPARE CAREGIVERS',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: AppColors.textSecondary)),
+                    ),
+                    Switch(
+                      value: _compare,
+                      activeThumbColor: AppColors.primary,
+                      onChanged: (v) => setState(() => _compare = v),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (wide) ...[
+            ...overview,
+            _SectionDivider('Members'),
+            ...members,
+            _SectionDivider('Coin Economy'),
+            ...economy,
+          ] else ...[
+            SegmentedTabs(
+              tabs: const ['Overview', 'Members', 'Economy'],
+              selected: _tab,
+              onChanged: (i) => setState(() => _tab = i),
+            ),
+            const SizedBox(height: 20),
+            if (_tab == 0) ...overview,
+            if (_tab == 1) ...members,
+            if (_tab == 2) ...economy,
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Overview: KPIs, trend, category balance, task frequency ─────
+
+  List<Widget> _buildOverview() {
+    final kpis = (_stats?['kpis'] as Map?)?.cast<String, dynamic>() ?? {};
+    final trend = _listOf('trendByMonth');
     final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()
       ..sort();
-    final trendTotals = [
-      for (final m in trendMonths)
-        trend
-            .where((t) => t['month'].toString() == m)
-            .fold<double>(0, (sum, t) => sum + toNum(t['coins'])),
-    ];
+    final fmt = NumberFormat.decimalPattern();
 
-    // Stacked coin-flow series in the same order/colours as the Vue chart.
+    return [
+      LayoutBuilder(builder: (context, c) {
+        final perRow = c.maxWidth > kMobileBreakpoint ? 4 : 2;
+        final w = (c.maxWidth - (perRow - 1) * 14) / perRow;
+        return Wrap(
+          spacing: 14,
+          runSpacing: 14,
+          children: [
+            SizedBox(
+                width: w,
+                child: KpiCard(
+                    label: 'Lifetime Coins',
+                    value: fmt.format(toNum(kpis['total_lifetime_coins'])),
+                    unit: 'cc')),
+            SizedBox(
+                width: w,
+                child: KpiCard(
+                    label: 'Tasks Completed',
+                    accent: AppColors.success,
+                    value: fmt.format(toNum(kpis['total_lifetime_tasks'])))),
+            SizedBox(
+                width: w,
+                child: KpiCard(
+                    label: 'Bounties Offered',
+                    accent: AppColors.danger,
+                    value:
+                        fmt.format(toNum(kpis['total_bounties_offered'])))),
+            SizedBox(
+                width: w,
+                child: KpiCard(
+                    label: 'Rewards Claimed',
+                    accent: AppColors.warning,
+                    value: fmt.format(toNum(kpis['total_rewards_claimed'])))),
+          ],
+        );
+      }),
+      const SizedBox(height: 20),
+      if (trendMonths.isNotEmpty)
+        VCard(
+          title: 'Income Generation Trend',
+          child: _comparing
+              ? MultiLineChart(
+                  labels: trendMonths,
+                  series: [
+                    for (final (i, cg) in _caregivers.indexed)
+                      LineSeries(cg, _cgColor(i), [
+                        for (final m in trendMonths)
+                          toNum(trend.firstWhere(
+                            (t) =>
+                                t['caregiver'] == cg &&
+                                t['month'].toString() == m,
+                            orElse: () => const {'coins': 0},
+                          )['coins'])
+                              .toDouble(),
+                      ]),
+                  ],
+                )
+              : LineAreaChart(labels: trendMonths, values: [
+                  for (final m in trendMonths)
+                    trend
+                        .where((t) => t['month'].toString() == m)
+                        .fold<double>(0, (sum, t) => sum + toNum(t['coins'])),
+                ]),
+        ),
+      ..._buildCategoryBalance(),
+      ..._buildTaskFrequency(),
+    ];
+  }
+
+  List<Widget> _buildCategoryBalance() {
+    final split = _listOf('categorySplit');
+    if (split.isEmpty) return [];
+    num sumFor(String category, [String? caregiver]) => split
+        .where((x) =>
+            x['category'] == category &&
+            (caregiver == null || x['caregiver'] == caregiver))
+        .fold<num>(0, (acc, x) => acc + toNum(x['value']));
+
+    return [
+      VCard(
+        title: 'Category Balance',
+        child: _comparing
+            ? Column(
+                children: [
+                  for (final (label, category) in [
+                    ('❤️ Care', 'care'),
+                    ('🍽️ Household', 'household')
+                  ]) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8, top: 4),
+                        child: Text(label,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 14)),
+                      ),
+                    ),
+                    for (final (i, cg) in _caregivers.indexed)
+                      _BarRow(
+                        label: cg,
+                        valueLabel: '${sumFor(category, cg)}',
+                        fraction: _fractionOfMax(sumFor(category, cg), [
+                          for (final c in _caregivers) sumFor(category, c)
+                        ]),
+                        color: _cgColor(i),
+                      ),
+                  ],
+                ],
+              )
+            : DonutChart(segments: [
+                DonutSegment(
+                    'Care', sumFor('care').toDouble(), AppColors.success),
+                DonutSegment('Household', sumFor('household').toDouble(),
+                    AppColors.warning),
+              ]),
+      ),
+    ];
+  }
+
+  List<Widget> _buildTaskFrequency() {
+    final freq = _listOf('activityFrequency');
+    if (freq.isEmpty) return [];
+
+    final totals = <String, num>{};
+    for (final a in freq) {
+      final t = (a['title'] ?? '').toString();
+      totals[t] = (totals[t] ?? 0) + toNum(a['value']);
+    }
+    final topTasks = totals.keys.toList()
+      ..sort((a, b) => totals[b]!.compareTo(totals[a]!));
+    final top6 = topTasks.take(6).toList();
+
+    num countFor(String title, String caregiver) => toNum(freq.firstWhere(
+          (x) => x['caregiver'] == caregiver && x['title'] == title,
+          orElse: () => const {'value': 0},
+        )['value']);
+
+    return [
+      VCard(
+        title: 'Task Frequency',
+        child: Column(
+          children: [
+            if (_comparing)
+              for (final t in top6) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 4),
+                    child: Text(t,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ),
+                for (final (i, cg) in _caregivers.indexed)
+                  if (countFor(t, cg) > 0)
+                    _BarRow(
+                      label: cg,
+                      valueLabel: '${countFor(t, cg)}×',
+                      fraction: _fractionOfMax(countFor(t, cg),
+                          [for (final c in _caregivers) countFor(t, c)]),
+                      color: _cgColor(i),
+                    ),
+              ]
+            else
+              for (final t in top6)
+                _BarRow(
+                  label: t,
+                  valueLabel: '${totals[t]}×',
+                  fraction: _fractionOfMax(
+                      totals[t]!, [for (final x in top6) totals[x]!]),
+                  color: AppColors.primary,
+                ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  // ── Members: leaderboard, completion, bounty stats ───────────────
+
+  List<Widget> _buildMembers() {
+    final balances = _listOf('memberBalances');
+    final completion = _listOf('completionRates');
+    final bounties = _listOf('bountyStats');
+
+    return [
+      if (balances.isNotEmpty)
+        VCard(
+          title: 'Coin Balance Leaderboard',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🟡 Caregiver · 🔵 Member',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              for (final b in balances)
+                _BarRow(
+                  label: (b['name'] ?? '').toString(),
+                  valueLabel: '${b['coin_balance'] ?? 0} cc',
+                  fraction: _fractionOfMax(toNum(b['coin_balance']),
+                      [for (final x in balances) toNum(x['coin_balance'])]),
+                  color: b['role'] == 'caregiver'
+                      ? AppColors.warning
+                      : AppColors.primary,
+                ),
+            ],
+          ),
+        ),
+      if (completion.isNotEmpty)
+        VCard(
+          title: 'Completion Rate',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🟢 ≥80% · 🟡 50–79% · 🔴 <50%',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              for (final r in completion)
+                Builder(builder: (_) {
+                  final total = toNum(r['total']);
+                  final done = toNum(r['completed']);
+                  final rate = total > 0 ? (100 * done / total).round() : 0;
+                  return _BarRow(
+                    label: (r['caregiver'] ?? '').toString(),
+                    valueLabel: '$rate% ($done/$total)',
+                    fraction: rate / 100,
+                    color: rate >= 80
+                        ? AppColors.success
+                        : rate >= 50
+                            ? AppColors.warning
+                            : AppColors.danger,
+                  );
+                }),
+            ],
+          ),
+        ),
+      if (bounties.isNotEmpty)
+        VCard(
+          title: 'Bounties — Offered vs Earned vs Refunded',
+          child: Column(
+            children: [
+              for (final b in bounties) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 4),
+                    child: Text((b['name'] ?? '').toString(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ),
+                for (final (label, key, color) in [
+                  ('Offered', 'offered', AppColors.danger),
+                  ('Earned', 'earned', AppColors.success),
+                  ('Refunded', 'refunded', Color(0xFF94A3B8)),
+                ])
+                  _BarRow(
+                    label: label,
+                    valueLabel: '${toNum(b[key])} cc',
+                    fraction: _fractionOfMax(toNum(b[key]), [
+                      for (final x in bounties) ...[
+                        toNum(x['offered']),
+                        toNum(x['earned']),
+                        toNum(x['refunded'])
+                      ]
+                    ]),
+                    color: color,
+                  ),
+              ],
+            ],
+          ),
+        ),
+    ];
+  }
+
+  // ── Economy: coin flow, marketplace, status distribution ─────────
+
+  List<Widget> _buildEconomy() {
+    final coinFlow = _listOf('coinFlowByReason');
+    final rewardsByUser = _listOf('rewardsByUser');
+    final topRewards = _listOf('topRewards');
+    final statuses = _listOf('statusDistribution');
+
     const flowMeta = [
       ('activity_completed', 'Activities', AppColors.primary),
       ('bounty_earned', 'Bounties Earned', AppColors.success),
@@ -97,147 +459,92 @@ class _StatsScreenState extends State<StatsScreen> {
           ]),
     ];
 
-    final maxBalance = balances.fold<num>(1,
-        (m, b) => toNum(b['coin_balance']) > m ? toNum(b['coin_balance']) : m);
-
     const statusMeta = {
-      'approved': ('Approved', AppColors.success, AppColors.successSoft),
-      'completed': ('Completed', AppColors.primary, AppColors.primarySoft),
-      'pending': ('Pending', AppColors.warning, AppColors.warningSoft),
-      'pending_validation': (
-        'Awaiting validation',
-        AppColors.warning,
-        AppColors.warningSoft
-      ),
-      'rejected': ('Rejected', AppColors.danger, AppColors.dangerSoft),
+      'completed': ('Completed', AppColors.success),
+      'approved': ('Approved', AppColors.primary),
+      'pending': ('Pending', AppColors.warning),
+      'pending_validation': ('Pending Validation', AppColors.primary),
+      'rejected': ('Rejected', AppColors.danger),
     };
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 16, bottom: 40),
+    return [
+      if (flowSeries.isNotEmpty)
+        VCard(
+          title: 'Coin Flow by Reason',
+          child: StackedBarChart(labels: flowMonths, series: flowSeries),
+        ),
+      if (rewardsByUser.isNotEmpty)
+        VCard(
+          title: 'Rewards Claimed by Member',
+          child: Column(
+            children: [
+              for (final r in rewardsByUser)
+                _BarRow(
+                  label: (r['name'] ?? '').toString(),
+                  valueLabel: '${toNum(r['redemptions'])}',
+                  fraction: _fractionOfMax(toNum(r['redemptions']), [
+                    for (final x in rewardsByUser) toNum(x['redemptions'])
+                  ]),
+                  color: AppColors.primary,
+                ),
+            ],
+          ),
+        ),
+      if (topRewards.isNotEmpty)
+        VCard(
+          title: 'Most Popular Rewards',
+          child: Column(
+            children: [
+              for (final r in topRewards)
+                _BarRow(
+                  label: (r['title'] ?? '').toString(),
+                  valueLabel: '${toNum(r['redemptions'])}',
+                  fraction: _fractionOfMax(toNum(r['redemptions']),
+                      [for (final x in topRewards) toNum(x['redemptions'])]),
+                  color: AppColors.primary,
+                ),
+            ],
+          ),
+        ),
+      if (statuses.isNotEmpty)
+        VCard(
+          title: 'Activity Status Distribution',
+          child: DonutChart(segments: [
+            for (final s in statuses)
+              DonutSegment(
+                (statusMeta[s['status']]?.$1 ?? s['status'].toString()),
+                toNum(s['count']).toDouble(),
+                statusMeta[s['status']]?.$2 ?? const Color(0xFF94A3B8),
+              ),
+          ]),
+        ),
+    ];
+  }
+
+  static double _fractionOfMax(num value, List<num> all) {
+    final max = all.fold<num>(0, (m, v) => v > m ? v : m);
+    return max > 0 ? (value / max).toDouble() : 0;
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  final String label;
+  const _SectionDivider(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 16),
+      child: Row(
         children: [
-          const PageHeading(
-              title: 'Family Stats',
-              subtitle: 'How care work is distributed across the family.'),
-          LayoutBuilder(builder: (context, c) {
-            final perRow = c.maxWidth > kMobileBreakpoint ? 2 : 1;
-            final w = (c.maxWidth - (perRow - 1) * 16) / perRow;
-            final totalDone = completion.fold<num>(
-                0, (acc, r) => acc + toNum(r['completed']));
-            return Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                SizedBox(
-                    width: w,
-                    child: KpiCard(
-                        label: 'Active caregivers',
-                        value: '${caregivers.length}',
-                        subtitle: 'Sharing the load right now')),
-                SizedBox(
-                    width: w,
-                    child: KpiCard(
-                        label: 'Tasks completed',
-                        value: '$totalDone',
-                        accent: AppColors.success,
-                        subtitle: 'Across all caregivers')),
-              ],
-            );
-          }),
-          const SizedBox(height: 24),
-          if (trendMonths.isNotEmpty)
-            VCard(
-              title: 'Coins Earned Trend',
-              child: LineAreaChart(labels: trendMonths, values: trendTotals),
-            ),
-          if (flowSeries.isNotEmpty)
-            VCard(
-              title: 'Coin Flow by Month',
-              child: StackedBarChart(labels: flowMonths, series: flowSeries),
-            ),
-          if (balances.isNotEmpty)
-            VCard(
-              title: 'Member Balances',
-              child: Column(
-                children: [
-                  for (final b in balances)
-                    _BarRow(
-                      label: (b['name'] ?? '').toString(),
-                      valueLabel: '${b['coin_balance'] ?? 0} cc',
-                      fraction: toNum(b['coin_balance']) / maxBalance,
-                      color: b['role'] == 'caregiver'
-                          ? AppColors.warning
-                          : AppColors.primary,
-                    ),
-                ],
-              ),
-            ),
-          if (completion.isNotEmpty)
-            VCard(
-              title: 'Completion Rates',
-              child: Column(
-                children: [
-                  for (final r in completion)
-                    Builder(builder: (_) {
-                      final total = toNum(r['total']);
-                      final done = toNum(r['completed']);
-                      final rate = total > 0 ? (100 * done / total).round() : 0;
-                      return _BarRow(
-                        label: (r['caregiver'] ?? '').toString(),
-                        valueLabel: '$rate% ($done/$total)',
-                        fraction: rate / 100,
-                        color: rate >= 80
-                            ? AppColors.success
-                            : rate >= 50
-                                ? AppColors.warning
-                                : AppColors.danger,
-                      );
-                    }),
-                ],
-              ),
-            ),
-          if (statuses.isNotEmpty)
-            VCard(
-              title: 'Task Status Distribution',
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final s in statuses)
-                    Builder(builder: (_) {
-                      final meta = statusMeta[s['status']] ??
-                          (
-                            s['status'].toString(),
-                            AppColors.textSecondary,
-                            AppColors.bg
-                          );
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                            color: meta.$3,
-                            borderRadius: BorderRadius.circular(AppRadii.md)),
-                        child: Column(
-                          children: [
-                            Text('${s['count'] ?? 0}',
-                                style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: meta.$2)),
-                            Text(meta.$1,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: meta.$2)),
-                          ],
-                        ),
-                      );
-                    }),
-                ],
-              ),
-            ),
+          Text(label.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                  color: AppColors.textSecondary)),
+          const SizedBox(width: 12),
+          const Expanded(child: Divider(height: 1)),
         ],
       ),
     );
@@ -266,7 +573,12 @@ class _BarRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Expanded(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
               Text(valueLabel,
                   style: TextStyle(
                       fontWeight: FontWeight.w800, fontSize: 13, color: color)),
