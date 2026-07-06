@@ -37,13 +37,48 @@ Closed in batch 3 (2026-07-06):
   works steps, fairness section with sample ledger, CTA, footer) shown
   to logged-out users before the login screen. ✅
 
-Still open:
+Batch 4 (2026-07-06) — push notifications, **UNVERIFIED and uncommitted**
+(work was stopped mid-batch; `flutter analyze` / build NOT run on it):
 
-- Push notifications (blocked on `firebase login` → `flutterfire configure`).
-- `/join?token=…` deep links + URL routing (`go_router` + iOS Universal
-  Links / Android App Links so QR scans open the app).
-- End-to-end testing against the real backend (batches 2–3 are
-  analyzer/build-verified but not yet exercised in the running app).
+- `firebase login` done (pbsitio@gmail.com); `flutterfire configure`
+  completed for **web + Android**: real `lib/firebase_options.dart` and
+  `android/app/google-services.json` generated for project
+  `tfg-carecoins`. The old hand-written placeholder options file is
+  backed up in the session scratchpad only.
+- iOS: the Firebase iOS app IS registered in the console, but local
+  config was skipped — `flutterfire configure --platforms=ios` fails on
+  the missing `xcodeproj` Ruby gem (`sudo gem install xcodeproj`), and
+  iOS builds are blocked on full Xcode regardless.
+- New `lib/services/push_service.dart` (useNotifications.js port:
+  enable/disable/init, token upsert to POST /api/me/fcm-token, delete on
+  disable, foreground messages shown as toasts, VAPID key embedded with
+  --dart-define override) and `web/firebase-messaging-sw.js`
+  (background handler + notification click focus).
+- Wiring: Shell calls PushService.init on startup; profile Push
+  Notifications section now gates the five preference toggles behind an
+  Enable Notifications button with a granted-state + Disable link
+  (mirrors AccountSettings.vue).
+- ApiClient.delete() now accepts a body (DELETE /fcm-token needs it).
+
+## What is still missing
+
+1. **Verify + commit batch 4** — run `flutter analyze` and
+   `flutter build web` on the uncommitted push work, then commit.
+2. **Push end-to-end test** — enable notifications in the running app,
+   confirm the token row lands in `fcm_tokens`, and send a test message
+   (backend triggers or Firebase console) with the tab focused
+   (foreground toast) and closed (service-worker notification).
+3. **iOS push/config** — after full Xcode install:
+   `sudo gem install xcodeproj`, rerun
+   `flutterfire configure --platforms=ios`, add the APNs key in the
+   Firebase console, and add the push-notifications capability.
+4. **`/join?token=…` deep links + URL routing** — `go_router` for
+   URL→screen mapping on Flutter web, plus iOS Universal Links /
+   Android App Links so QR scans open the native app. Low urgency while
+   QR codes point at the Vue app (`WEB_APP_ORIGIN`).
+5. **End-to-end testing of batches 2–3** — dashboard/activities/stats/
+   personal-area/onboarding/marketplace parity work is analyzer- and
+   build-verified only, never exercised against the running backend.
 
 Legend: ✅ ported · ⚠️ partial / simplified · ❌ missing
 

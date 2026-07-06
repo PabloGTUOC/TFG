@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../services/push_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/avatar_upload.dart';
@@ -40,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ('family_events', 'Family management events'),
   ];
   Map<String, bool> _notifPrefs = {};
+  bool _notifGranted = false;
 
   @override
   void initState() {
@@ -50,7 +52,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _alias.text = app.family?['alias']?.toString() ?? '';
     _loadLedger();
     _loadDeletionRequests();
-    _loadNotifPrefs();
+    _checkNotifPermission();
+  }
+
+  Future<void> _checkNotifPermission() async {
+    final granted = await PushService.granted;
+    if (mounted) setState(() => _notifGranted = granted);
+    if (granted) await _loadNotifPrefs();
+  }
+
+  Future<void> _enableNotifications() async {
+    final app = context.read<AppState>();
+    final ok = await PushService.enable(app);
+    if (!mounted) return;
+    setState(() => _notifGranted = ok);
+    if (ok) {
+      app.setSuccess('Notifications enabled!');
+      await _loadNotifPrefs();
+    }
+  }
+
+  Future<void> _disableNotifications() async {
+    await PushService.disable(context.read<AppState>());
+    if (mounted) setState(() => _notifGranted = false);
   }
 
   @override
@@ -542,38 +566,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary)),
-          const SizedBox(height: 4),
-          const Text(
-              'Delivery to this device activates once push setup is complete.',
-              style:
-                  TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.bg,
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
+          if (!_notifGranted)
+            VButton(
+                type: VButtonType.secondary,
+                onPressed: _enableNotifications,
+                child: const Text('Enable Notifications'))
+          else ...[
+            Row(
               children: [
-                for (final (key, label) in _notifPrefDefs)
-                  SwitchListTile(
-                    dense: true,
-                    activeThumbColor: AppColors.primary,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14),
-                    title: Text(label,
-                        style: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w600)),
-                    value: _notifPrefs[key] ?? true,
-                    onChanged: (v) {
-                      setState(() => _notifPrefs[key] = v);
-                      _saveNotifPrefs();
-                    },
-                  ),
+                const Expanded(
+                  child: Text('✓ Notifications enabled',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.success)),
+                ),
+                TextButton(
+                    onPressed: _disableNotifications,
+                    child: const Text('Disable',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                            decoration: TextDecoration.underline))),
               ],
             ),
-          ),
+            const SizedBox(height: 4),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  for (final (key, label) in _notifPrefDefs)
+                    SwitchListTile(
+                      dense: true,
+                      activeThumbColor: AppColors.primary,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14),
+                      title: Text(label,
+                          style: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      value: _notifPrefs[key] ?? true,
+                      onChanged: (v) {
+                        setState(() => _notifPrefs[key] = v);
+                        _saveNotifPrefs();
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           VButton(
             type: VButtonType.danger,

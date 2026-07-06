@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1088534743968",
+    "project_id": "tfg-carecoins",
+    "storage_bucket": "tfg-carecoins.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1088534743968:android:efa4954af2f43fe2d7f2c5",
+        "android_client_info": {
+          "package_name": "com.carecoins.carecoins_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1088534743968-ivtn21njps9n3fke01m3jup15gjh6tht.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDe1lyStEZtgWx70kiy7yoePmiMvtCyVQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1088534743968-ivtn21njps9n3fke01m3jup15gjh6tht.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1088534743968-kldnrth77ts11q77o2r0pt4d7ems39c7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.carecoins.carecoinsFlutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

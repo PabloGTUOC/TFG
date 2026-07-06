@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/push_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
@@ -31,6 +32,10 @@ class _ShellState extends State<Shell> {
     _lifecycle = AppLifecycleListener(
       onResume: () => context.read<AppState>().fetchUserData(),
     );
+    // Silent FCM re-registration when permission was already granted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) PushService.init(context.read<AppState>());
+    });
   }
 
   @override
