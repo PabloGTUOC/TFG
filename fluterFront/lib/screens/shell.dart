@@ -57,12 +57,12 @@ class _ShellState extends State<Shell> {
     final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
     _showToasts(app);
 
-    final screens = const [
-      DashboardScreen(),
-      ActivitiesScreen(),
-      MarketplaceScreen(),
-      StatsScreen(),
-      ProfileScreen(),
+    final screens = [
+      DashboardScreen(onOpenStats: () => setState(() => _index = 3)),
+      const ActivitiesScreen(),
+      const MarketplaceScreen(),
+      const StatsScreen(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
