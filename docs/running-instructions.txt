@@ -1,0 +1,69 @@
+The following steps describe how to run CareCoins in both development and production (Docker) modes.
+
+System requirements
+
+- Node.js v20.x or higher
+- PostgreSQL 16 (development mode only; Docker mode includes its own PostgreSQL container)
+- npm (bundled with Node.js)
+- Docker and Docker Compose (for containerised deployment)
+
+Running in development mode
+
+Open two terminal windows:
+
+Terminal 1 – Backend:
+  cd backend && npm install && npm run dev
+
+Terminal 2 – Frontend:
+  cd frontend && npm install && npm run dev
+
+The frontend will be accessible at http://localhost:5173. The frontend calls the
+backend API directly at http://localhost:3000 (configured via VITE_API_BASE in
+frontend/.env.local).
+
+Running with Docker Compose (recommended for testing)
+
+  docker compose up --build -d
+
+This starts four services: the PostgreSQL database, a one-shot db-init container
+that applies the schema, the Node.js backend API, and the Nginx-served Vue
+frontend. The application will be accessible at http://localhost.
+
+Before running, copy .env.example (at the project root) to .env in the same root
+directory and fill in the Firebase and Resend credentials. Docker Compose reads
+this file for the ${VAR} substitutions in docker-compose.yml.
+
+
+Running the automated test suite
+
+- Backend unit tests:       cd backend && npm test
+- Frontend unit tests:      cd frontend && npm test
+- E2E integration tests:    cd frontend && npm run test:e2e
+  (Playwright starts all required services automatically, including the Firebase
+  Auth Emulator. No manual setup is needed.)
+
+
+Creating a test account
+
+No pre-existing credentials are required for manual testing. Navigate to
+http://localhost:5173 (development) or http://localhost (Docker) and either:
+
+  - Register with any email address and password.
+  - Sign in with a Google account via the Google OAuth button.
+
+After authentication, the onboarding wizard will guide through family creation.
+To test multi-user flows, register a second account in a separate browser session
+and join the same family using the invite link generated in the first account's
+Profile view.
+
+
+Environment variables
+
+Development mode:
+  backend/.env and frontend/.env.local hold the local configuration. These files
+  are already present in the repository and are not committed to version control.
+
+Docker mode:
+  Copy .env.example (project root) to .env in the same directory and fill in the
+  Firebase project credentials. Docker Compose substitutes these values into the
+  frontend build args and backend environment at compose time.

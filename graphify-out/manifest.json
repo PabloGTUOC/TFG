@@ -1,0 +1,497 @@
+{
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/.impeccable/design.json": {
+    "mtime": 1780345541.0,
+    "ast_hash": "07c913af61727d3b3920b88b883a8738",
+    "semantic_hash": "07c913af61727d3b3920b88b883a8738"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/package.json": {
+    "mtime": 1780495301.0,
+    "ast_hash": "8a3e97b47debf80ee723451c4c0777a9",
+    "semantic_hash": "8a3e97b47debf80ee723451c4c0777a9"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/scripts/init-db.js": {
+    "mtime": 1780408360.0,
+    "ast_hash": "6cc527503f0503af34433ecc5104f7d5",
+    "semantic_hash": "6cc527503f0503af34433ecc5104f7d5"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/scripts/migrate-deletion.sql": {
+    "mtime": 1778065589.0,
+    "ast_hash": "dcfc6d16875b7af5c0d82efd7b861133",
+    "semantic_hash": "dcfc6d16875b7af5c0d82efd7b861133"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/scripts/migrate-fcm-index.sql": {
+    "mtime": 1780407444.0,
+    "ast_hash": "6c4b82101135defc07754a62ad0dcdb3",
+    "semantic_hash": "6c4b82101135defc07754a62ad0dcdb3"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/scripts/migrate-fcm.sql": {
+    "mtime": 1778956386.1069129,
+    "ast_hash": "ab02fa4e22e766bc7ff2321fd9d5c3b6",
+    "semantic_hash": "ab02fa4e22e766bc7ff2321fd9d5c3b6"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/scripts/migrate-notif-prefs.sql": {
+    "mtime": 1780408350.0,
+    "ast_hash": "25e0255af5a238fe00c3b99b22f9a54b",
+    "semantic_hash": "25e0255af5a238fe00c3b99b22f9a54b"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/app.js": {
+    "mtime": 1780410715.0,
+    "ast_hash": "465447449406b66e649a80a29374431b",
+    "semantic_hash": "465447449406b66e649a80a29374431b"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/db/autoComplete.js": {
+    "mtime": 1777320644.442984,
+    "ast_hash": "b5b43084a71f0c170eeabf046ac5d0cf",
+    "semantic_hash": "b5b43084a71f0c170eeabf046ac5d0cf"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/db/defaultActivities.js": {
+    "mtime": 1778183020.0,
+    "ast_hash": "7d44b5e4d3d4092727208c470426c0a9",
+    "semantic_hash": "7d44b5e4d3d4092727208c470426c0a9"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/db/pool.js": {
+    "mtime": 1774551689.899959,
+    "ast_hash": "d40d2bc0f3bebb8251aa08508bc62b31",
+    "semantic_hash": "d40d2bc0f3bebb8251aa08508bc62b31"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/db/schema.sql": {
+    "mtime": 1780599518.0,
+    "ast_hash": "2f132978315fbb35e2f055e9abd9538f",
+    "semantic_hash": "2f132978315fbb35e2f055e9abd9538f"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/db/users.js": {
+    "mtime": 1777315175.4390123,
+    "ast_hash": "693b716d8cd1fa5ce05190876d43d85a",
+    "semantic_hash": "693b716d8cd1fa5ce05190876d43d85a"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/env.js": {
+    "mtime": 1776890556.179476,
+    "ast_hash": "f76f1b9a445091106026630c719e85b3",
+    "semantic_hash": "f76f1b9a445091106026630c719e85b3"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/middleware/audit.js": {
+    "mtime": 1773344114.368233,
+    "ast_hash": "07c40e3257e459c22bd79fe943e20836",
+    "semantic_hash": "07c40e3257e459c22bd79fe943e20836"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/middleware/auth.js": {
+    "mtime": 1780495290.0,
+    "ast_hash": "21c43d3a6d18e8e2acf713a4b586e3ea",
+    "semantic_hash": "21c43d3a6d18e8e2acf713a4b586e3ea"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/middleware/rbac.js": {
+    "mtime": 1777317197.917644,
+    "ast_hash": "e7dc83d99acc004cde2b580ae8906c48",
+    "semantic_hash": "e7dc83d99acc004cde2b580ae8906c48"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/middleware/validate.js": {
+    "mtime": 1775222368.997317,
+    "ast_hash": "bb6f35992d9148820cce769dba7dd8cb",
+    "semantic_hash": "bb6f35992d9148820cce769dba7dd8cb"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/absences.js": {
+    "mtime": 1780412697.0,
+    "ast_hash": "d0fa0af646a3cf252d19d47364901229",
+    "semantic_hash": "d0fa0af646a3cf252d19d47364901229"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/activities.js": {
+    "mtime": 1780488498.0,
+    "ast_hash": "7f2f266b2d351f677538d62e35cb0a62",
+    "semantic_hash": "7f2f266b2d351f677538d62e35cb0a62"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/dashboard.js": {
+    "mtime": 1780411120.0,
+    "ast_hash": "1820790efef943a92ba1dafda896d2a2",
+    "semantic_hash": "1820790efef943a92ba1dafda896d2a2"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/families.js": {
+    "mtime": 1780488659.0,
+    "ast_hash": "5ea127f71e7736406771590352b88c17",
+    "semantic_hash": "5ea127f71e7736406771590352b88c17"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/inviteLinks.js": {
+    "mtime": 1777317238.7463298,
+    "ast_hash": "b82c4cadcd7f047a13f2400a60f08ccd",
+    "semantic_hash": "b82c4cadcd7f047a13f2400a60f08ccd"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/marketplace.js": {
+    "mtime": 1780410982.0,
+    "ast_hash": "5efbcca7a0d69af0b9df9e7b0381ac2f",
+    "semantic_hash": "5efbcca7a0d69af0b9df9e7b0381ac2f"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/me.js": {
+    "mtime": 1780410745.0,
+    "ast_hash": "cc01d1adb2c9e57ce4933bc817a8e205",
+    "semantic_hash": "cc01d1adb2c9e57ce4933bc817a8e205"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/routes/stats.js": {
+    "mtime": 1780411086.0,
+    "ast_hash": "6db293a0eab1c001c8085597ad8e0eab",
+    "semantic_hash": "6db293a0eab1c001c8085597ad8e0eab"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/server.js": {
+    "mtime": 1777314439.5812674,
+    "ast_hash": "26eea2a244372af682c77fcd28975a49",
+    "semantic_hash": "26eea2a244372af682c77fcd28975a49"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/services/activityService.js": {
+    "mtime": 1780488457.0,
+    "ast_hash": "90af0a00c90bdd4aab759f200f966573",
+    "semantic_hash": "90af0a00c90bdd4aab759f200f966573"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/services/familyService.js": {
+    "mtime": 1780488571.0,
+    "ast_hash": "fa0c20c95e8eee3d36843f231975e599",
+    "semantic_hash": "fa0c20c95e8eee3d36843f231975e599"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/services/memberService.js": {
+    "mtime": 1780488603.0,
+    "ast_hash": "c21b262569eba88959cf8ee3601e3edd",
+    "semantic_hash": "c21b262569eba88959cf8ee3601e3edd"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/utils/mailer.js": {
+    "mtime": 1779016028.8248453,
+    "ast_hash": "e90ac8a287b0f1baba19ce5d9fb05334",
+    "semantic_hash": "e90ac8a287b0f1baba19ce5d9fb05334"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/src/utils/notify.js": {
+    "mtime": 1780408382.0,
+    "ast_hash": "969e09ce8906869749b079b7f5d1222a",
+    "semantic_hash": "969e09ce8906869749b079b7f5d1222a"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/tests/activityService.test.js": {
+    "mtime": 1780488538.0,
+    "ast_hash": "06ac76d6388ff7d0c87b22e0ee558718",
+    "semantic_hash": "06ac76d6388ff7d0c87b22e0ee558718"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/backend/tests/familyService.test.js": {
+    "mtime": 1780491744.0,
+    "ast_hash": "d55988723f6b7b145d99e8283d7bd139",
+    "semantic_hash": "d55988723f6b7b145d99e8283d7bd139"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/firebase.json": {
+    "mtime": 1780495255.0,
+    "ast_hash": "df5399ebd7ab9e8bc8db92fd5dd812dd",
+    "semantic_hash": "df5399ebd7ab9e8bc8db92fd5dd812dd"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/auth.setup.js": {
+    "mtime": 1780493635.0,
+    "ast_hash": "60bd4e8004f05019d3c4769d991ea3ef",
+    "semantic_hash": "60bd4e8004f05019d3c4769d991ea3ef"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/dashboard.spec.js": {
+    "mtime": 1780503424.0,
+    "ast_hash": "6edf3b5a9b5371107203b67cc662a83c",
+    "semantic_hash": "6edf3b5a9b5371107203b67cc662a83c"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/global.setup.js": {
+    "mtime": 1780505382.0,
+    "ast_hash": "3d00be26554531b61c77d246bcf922d8",
+    "semantic_hash": "3d00be26554531b61c77d246bcf922d8"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/happy-paths.spec.js": {
+    "mtime": 1780506103.0,
+    "ast_hash": "ce0e007f9b201fee186d424c224484a8",
+    "semantic_hash": "ce0e007f9b201fee186d424c224484a8"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/landing.spec.js": {
+    "mtime": 1780502944.0,
+    "ast_hash": "8757893268a6404cdbec77f1a300228a",
+    "semantic_hash": "8757893268a6404cdbec77f1a300228a"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/marketplace.spec.js": {
+    "mtime": 1780506292.0,
+    "ast_hash": "7e07553a4b53a0c0a5b82e34151bf3f0",
+    "semantic_hash": "7e07553a4b53a0c0a5b82e34151bf3f0"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/notifications.spec.js": {
+    "mtime": 1780505700.0,
+    "ast_hash": "2aeeb366c5f09b1ae2139b7951e72ba3",
+    "semantic_hash": "2aeeb366c5f09b1ae2139b7951e72ba3"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/onboarding.spec.js": {
+    "mtime": 1780506155.0,
+    "ast_hash": "cf5a0264a5774274f51b6c56e9e6ef84",
+    "semantic_hash": "cf5a0264a5774274f51b6c56e9e6ef84"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/e2e/two-users.spec.js": {
+    "mtime": 1780506140.0,
+    "ast_hash": "59bbcb8b894e3e11e4adc04d0d4b67cd",
+    "semantic_hash": "59bbcb8b894e3e11e4adc04d0d4b67cd"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/package.json": {
+    "mtime": 1780508028.0,
+    "ast_hash": "2e33fc08eeb7beb9b62d1f4b47f429f7",
+    "semantic_hash": "2e33fc08eeb7beb9b62d1f4b47f429f7"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/playwright.config.js": {
+    "mtime": 1780504574.0,
+    "ast_hash": "1168bd9e3f9ce7d677f71d579172d1d0",
+    "semantic_hash": "1168bd9e3f9ce7d677f71d579172d1d0"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/firebase-messaging-sw.js": {
+    "mtime": 1780594955.0,
+    "ast_hash": "64555dea8a8c18d413b052bc19dbc29e",
+    "semantic_hash": "64555dea8a8c18d413b052bc19dbc29e"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/App.vue": {
+    "mtime": 1780412922.0,
+    "ast_hash": "d39975d4d6d72c934cbbc406aac3abc8",
+    "semantic_hash": "d39975d4d6d72c934cbbc406aac3abc8"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/KpiCard.vue": {
+    "mtime": 1778179525.0,
+    "ast_hash": "85c0c14251878d879849793480a1ccc4",
+    "semantic_hash": "85c0c14251878d879849793480a1ccc4"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/VButton.vue": {
+    "mtime": 1780400596.0,
+    "ast_hash": "00aed05c45a49ed99c359c14f5e3be85",
+    "semantic_hash": "00aed05c45a49ed99c359c14f5e3be85"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/VCard.vue": {
+    "mtime": 1780400535.0,
+    "ast_hash": "9cbc9d357df7be219bf3c19e7afd9490",
+    "semantic_hash": "9cbc9d357df7be219bf3c19e7afd9490"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/VInput.vue": {
+    "mtime": 1777747225.0908294,
+    "ast_hash": "6a18dd7a6f9655b550d78b0f2ddd9418",
+    "semantic_hash": "6a18dd7a6f9655b550d78b0f2ddd9418"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/VSelect.vue": {
+    "mtime": 1777747227.1198232,
+    "ast_hash": "6a6f626c002129b25a6e30c73a46d3c8",
+    "semantic_hash": "6a6f626c002129b25a6e30c73a46d3c8"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/daily/DailyModals.vue": {
+    "mtime": 1780491877.0,
+    "ast_hash": "0622b0d004c633352cd98111e927bd66",
+    "semantic_hash": "0622b0d004c633352cd98111e927bd66"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/daily/TaskLibrary.vue": {
+    "mtime": 1780491823.0,
+    "ast_hash": "043ac3727c09329359df38affa36e91a",
+    "semantic_hash": "043ac3727c09329359df38affa36e91a"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/profile/AccountSettings.vue": {
+    "mtime": 1780492309.0,
+    "ast_hash": "c95bcb79b602990ba7ccc9b7288ab90a",
+    "semantic_hash": "c95bcb79b602990ba7ccc9b7288ab90a"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/profile/FamilyCircle.vue": {
+    "mtime": 1780492382.0,
+    "ast_hash": "5285c90650597380b24e4487f49da456",
+    "semantic_hash": "5285c90650597380b24e4487f49da456"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/components/profile/WalletPanel.vue": {
+    "mtime": 1780492423.0,
+    "ast_hash": "6c51024ac10d06bb2907151804360c58",
+    "semantic_hash": "6c51024ac10d06bb2907151804360c58"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/__tests__/useTimeline.test.js": {
+    "mtime": 1780493575.0,
+    "ast_hash": "b3c9b2537ba635a8923733f59bbe9fac",
+    "semantic_hash": "b3c9b2537ba635a8923733f59bbe9fac"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/useCardSwipe.js": {
+    "mtime": 1780491765.0,
+    "ast_hash": "84b81bb50b83e8215bf32f9ef2a7eadb",
+    "semantic_hash": "84b81bb50b83e8215bf32f9ef2a7eadb"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/useCurrentFamily.js": {
+    "mtime": 1775222700.241962,
+    "ast_hash": "0d945ad775d2898acdf5f0a3c1dc3650",
+    "semantic_hash": "0d945ad775d2898acdf5f0a3c1dc3650"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/useDaySwipe.js": {
+    "mtime": 1780491775.0,
+    "ast_hash": "294d565a3f12f10b3d380e0865af6053",
+    "semantic_hash": "294d565a3f12f10b3d380e0865af6053"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/useNotifications.js": {
+    "mtime": 1780411184.0,
+    "ast_hash": "d3ca3ff241c5c82d731d907a301918f1",
+    "semantic_hash": "d3ca3ff241c5c82d731d907a301918f1"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/composables/useTimeline.js": {
+    "mtime": 1780491798.0,
+    "ast_hash": "1f4c9f481f1487eea204bf83dc459163",
+    "semantic_hash": "1f4c9f481f1487eea204bf83dc459163"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/constants/status.js": {
+    "mtime": 1777317767.3743777,
+    "ast_hash": "eed363bb99d4c1ae74bb817d476ae53e",
+    "semantic_hash": "eed363bb99d4c1ae74bb817d476ae53e"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/firebase.js": {
+    "mtime": 1780496426.0,
+    "ast_hash": "1909de7374ae60e85b17df42ab9804e1",
+    "semantic_hash": "1909de7374ae60e85b17df42ab9804e1"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/main.js": {
+    "mtime": 1780411129.0,
+    "ast_hash": "6e78d2f2193f14ad093c2c44465f1b3b",
+    "semantic_hash": "6e78d2f2193f14ad093c2c44465f1b3b"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/router/index.js": {
+    "mtime": 1780411156.0,
+    "ast_hash": "035ed76c5344d4e4f0294089010602df",
+    "semantic_hash": "035ed76c5344d4e4f0294089010602df"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/stores/__tests__/auth.test.js": {
+    "mtime": 1777313629.759274,
+    "ast_hash": "4882763bc37b5ae7c160ffcd0b35359d",
+    "semantic_hash": "4882763bc37b5ae7c160ffcd0b35359d"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/stores/__tests__/family.test.js": {
+    "mtime": 1777313745.38259,
+    "ast_hash": "f40d9690e04918e1ea8048addfa321f7",
+    "semantic_hash": "f40d9690e04918e1ea8048addfa321f7"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/stores/auth.js": {
+    "mtime": 1780411175.0,
+    "ast_hash": "01b4dbaca840b961abf375af2f00bf8b",
+    "semantic_hash": "01b4dbaca840b961abf375af2f00bf8b"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/stores/family.js": {
+    "mtime": 1775222369.002184,
+    "ast_hash": "e9a8af1ec05b451a708c1c384aa518eb",
+    "semantic_hash": "e9a8af1ec05b451a708c1c384aa518eb"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/utils/avatarStyle.js": {
+    "mtime": 1778867568.876349,
+    "ast_hash": "885147251e4beeedcd0dd352f1c8f9dc",
+    "semantic_hash": "885147251e4beeedcd0dd352f1c8f9dc"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/ActivitiesView.vue": {
+    "mtime": 1780412543.0,
+    "ast_hash": "9b9d36302b722765ffc8489f762e4ebd",
+    "semantic_hash": "9b9d36302b722765ffc8489f762e4ebd"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DailyView.vue": {
+    "mtime": 1780492259.0,
+    "ast_hash": "21a68081d868ee686ffbefc7b31e1836",
+    "semantic_hash": "21a68081d868ee686ffbefc7b31e1836"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/DashboardView.vue": {
+    "mtime": 1780485865.0,
+    "ast_hash": "77a0bd2cd4b4a12d04cbcbe489c88810",
+    "semantic_hash": "77a0bd2cd4b4a12d04cbcbe489c88810"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/JoinView.vue": {
+    "mtime": 1780412006.0,
+    "ast_hash": "ddb5bf1fbdc2b04db58ea994ee0f4a7c",
+    "semantic_hash": "ddb5bf1fbdc2b04db58ea994ee0f4a7c"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/LandingView.vue": {
+    "mtime": 1780413024.0,
+    "ast_hash": "cb810be64a68d9f071458b42ab877217",
+    "semantic_hash": "cb810be64a68d9f071458b42ab877217"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/LoginView.vue": {
+    "mtime": 1780412036.0,
+    "ast_hash": "eb25754f76a3886db33a5e8e88e9e57d",
+    "semantic_hash": "eb25754f76a3886db33a5e8e88e9e57d"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/MarketplaceView.vue": {
+    "mtime": 1780412271.0,
+    "ast_hash": "7f23a617568e9032fa9f2b28fa81d6fb",
+    "semantic_hash": "7f23a617568e9032fa9f2b28fa81d6fb"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/OnboardingView.vue": {
+    "mtime": 1780412016.0,
+    "ast_hash": "28e12084f05f2e937282cc97eba25301",
+    "semantic_hash": "28e12084f05f2e937282cc97eba25301"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/ProfileView.vue": {
+    "mtime": 1780492518.0,
+    "ast_hash": "f4e87f1c8d9d648732a0221d60e349ab",
+    "semantic_hash": "f4e87f1c8d9d648732a0221d60e349ab"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/src/views/StatsView.vue": {
+    "mtime": 1780413128.0,
+    "ast_hash": "87905cdfd211f563a70628c0951f3831",
+    "semantic_hash": "87905cdfd211f563a70628c0951f3831"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/vite.config.js": {
+    "mtime": 1780493704.0,
+    "ast_hash": "f7b479547c773aa0abf954ae2af9a771",
+    "semantic_hash": "f7b479547c773aa0abf954ae2af9a771"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/README.md": {
+    "mtime": 1780600799.0,
+    "ast_hash": "1e268b5968482157397eb870624d4dab",
+    "semantic_hash": "1e268b5968482157397eb870624d4dab"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docker-compose.yml": {
+    "mtime": 1778956728.9715466,
+    "ast_hash": "14dd6e0893d13a3329e04f44ed687dba",
+    "semantic_hash": "14dd6e0893d13a3329e04f44ed687dba"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/DESIGN.md": {
+    "mtime": 1780600756.0,
+    "ast_hash": "2370c3de74d5522d3f678fc6142f8397",
+    "semantic_hash": "2370c3de74d5522d3f678fc6142f8397"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/PRODUCT.md": {
+    "mtime": 1780561320.0,
+    "ast_hash": "fbcc2dd89754fb62c42894e5e2833b83",
+    "semantic_hash": "fbcc2dd89754fb62c42894e5e2833b83"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/automatic-testing-E2E.md": {
+    "mtime": 1780600771.0,
+    "ast_hash": "b501a2d66dea0232ccbcafb21674c65e",
+    "semantic_hash": "b501a2d66dea0232ccbcafb21674c65e"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/backend.md": {
+    "mtime": 1780600735.0,
+    "ast_hash": "56b131c301ad8ae5637650db605b288f",
+    "semantic_hash": "56b131c301ad8ae5637650db605b288f"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/database-schema.md": {
+    "mtime": 1780601029.0,
+    "ast_hash": "3ebcb6be3ffc5fbf969ffb228902d662",
+    "semantic_hash": "3ebcb6be3ffc5fbf969ffb228902d662"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/frontend.md": {
+    "mtime": 1780600160.0,
+    "ast_hash": "7a08b003fb3d58a3d9be99a86b361241",
+    "semantic_hash": "7a08b003fb3d58a3d9be99a86b361241"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/docs/running-instructions.txt": {
+    "mtime": 1780648806.0,
+    "ast_hash": "0827e16da1d8b9ae1095b5cc4f597881",
+    "semantic_hash": "0827e16da1d8b9ae1095b5cc4f597881"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/index.html": {
+    "mtime": 1780430183.0,
+    "ast_hash": "69aa21c28684f88dc78020ac5ff649ea",
+    "semantic_hash": "69aa21c28684f88dc78020ac5ff649ea"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/apple-touch-icon.png": {
+    "mtime": 1778183537.0,
+    "ast_hash": "c82595f42d6e0694a9bf4fcbcaa0fdc6",
+    "semantic_hash": "c82595f42d6e0694a9bf4fcbcaa0fdc6"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/favicon.svg": {
+    "mtime": 1778183563.0,
+    "ast_hash": "90f34bd3127c6e372918a1ef35250dd0",
+    "semantic_hash": "90f34bd3127c6e372918a1ef35250dd0"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/icon-192.png": {
+    "mtime": 1778183548.0,
+    "ast_hash": "e066d1facc30ca73377c8035e1f469ee",
+    "semantic_hash": "e066d1facc30ca73377c8035e1f469ee"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/icon-512.png": {
+    "mtime": 1778183500.0,
+    "ast_hash": "64f6cf4adbacd4bd794a466442f1824b",
+    "semantic_hash": "64f6cf4adbacd4bd794a466442f1824b"
+  },
+  "/Users/pablogtorres/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG/frontend/public/icon-mark.svg": {
+    "mtime": 1778183590.0,
+    "ast_hash": "de248449ad097e7913670aab7450ad19",
+    "semantic_hash": "de248449ad097e7913670aab7450ad19"
+  }
+}
