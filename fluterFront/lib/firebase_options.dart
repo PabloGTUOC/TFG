@@ -7,7 +7,8 @@
 // which regenerates this file with per-platform apps (and drops the
 // google-services.json / GoogleService-Info.plist files for Android/iOS).
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -27,13 +28,14 @@ class DefaultFirebaseOptions {
         defaultValue: 'AIzaSy_mock_api_key_for_dev_change_me'),
     authDomain: String.fromEnvironment('FIREBASE_AUTH_DOMAIN',
         defaultValue: 'carecoins-dev.firebaseapp.com'),
-    projectId:
-        String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'carecoins-dev'),
+    projectId: String.fromEnvironment('FIREBASE_PROJECT_ID',
+        defaultValue: 'carecoins-dev'),
     storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET',
         defaultValue: 'carecoins-dev.appspot.com'),
-    messagingSenderId:
-        String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID', defaultValue: '123456789'),
-    appId: String.fromEnvironment('FIREBASE_APP_ID', defaultValue: '1:123456789:web:abcdef'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID',
+        defaultValue: '123456789'),
+    appId: String.fromEnvironment('FIREBASE_APP_ID',
+        defaultValue: '1:123456789:web:abcdef'),
   );
 
   // Placeholders until `flutterfire configure` is run for the native apps.

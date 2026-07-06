@@ -26,7 +26,8 @@ class VCard extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(AppRadii.lg),
         boxShadow: const [
-          BoxShadow(color: Color(0x0D000000), blurRadius: 25, offset: Offset(0, 10)),
+          BoxShadow(
+              color: Color(0x0D000000), blurRadius: 25, offset: Offset(0, 10)),
         ],
       ),
       child: Column(
@@ -78,7 +79,10 @@ class VButton extends StatelessWidget {
           AppColors.primary,
           Colors.white,
           BorderSide.none,
-          const [BoxShadow(color: Color(0x4D2563EB), blurRadius: 14, offset: Offset(0, 4))],
+          const [
+            BoxShadow(
+                color: Color(0x4D2563EB), blurRadius: 14, offset: Offset(0, 4))
+          ],
         ),
       VButtonType.secondary => (
           const Color(0x0D0F172A),
@@ -153,14 +157,17 @@ class VInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(pill && maxLines == 1 ? AppRadii.pill : AppRadii.md);
+    final radius = BorderRadius.circular(
+        pill && maxLines == 1 ? AppRadii.pill : AppRadii.md);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
           Text(label!,
               style: const TextStyle(
-                  fontSize: 13.6, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                  fontSize: 13.6,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 6),
         ],
         TextField(
@@ -176,14 +183,18 @@ class VInput extends StatelessWidget {
             filled: true,
             fillColor: AppColors.inputBg,
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             enabledBorder: OutlineInputBorder(
-                borderRadius: radius, borderSide: const BorderSide(color: AppColors.inputBorder)),
+                borderRadius: radius,
+                borderSide: const BorderSide(color: AppColors.inputBorder)),
             focusedBorder: OutlineInputBorder(
                 borderRadius: radius,
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.5)),
             disabledBorder: OutlineInputBorder(
-                borderRadius: radius, borderSide: const BorderSide(color: AppColors.inputBorder)),
+                borderRadius: radius,
+                borderSide: const BorderSide(color: AppColors.inputBorder)),
           ),
         ),
       ],
@@ -224,9 +235,11 @@ class KpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(compact ? AppRadii.md : AppRadii.lg),
+        borderRadius:
+            BorderRadius.circular(compact ? AppRadii.md : AppRadii.lg),
         boxShadow: const [
-          BoxShadow(color: Color(0x0A0E1726), blurRadius: 2, offset: Offset(0, 1)),
+          BoxShadow(
+              color: Color(0x0A0E1726), blurRadius: 2, offset: Offset(0, 1)),
         ],
       ),
       child: Column(
@@ -247,12 +260,16 @@ class KpiCard extends StatelessWidget {
               ),
               if (delta != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                      color: deltaBg, borderRadius: BorderRadius.circular(AppRadii.pill)),
+                      color: deltaBg,
+                      borderRadius: BorderRadius.circular(AppRadii.pill)),
                   child: Text(delta!,
                       style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w800, color: deltaColor)),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: deltaColor)),
                 ),
             ],
           ),
@@ -282,7 +299,8 @@ class KpiCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(subtitle!,
                 style: TextStyle(
-                    fontSize: compact ? 10 : 12, color: AppColors.textSecondary)),
+                    fontSize: compact ? 10 : 12,
+                    color: AppColors.textSecondary)),
           ],
           if (progress != null) ...[
             const SizedBox(height: 14),
@@ -357,10 +375,12 @@ class PillBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration:
-          BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadii.pill)),
+      decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(AppRadii.pill)),
       child: Text(text,
-          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800, color: color)),
+          style: TextStyle(
+              fontSize: fontSize, fontWeight: FontWeight.w800, color: color)),
     );
   }
 }
@@ -372,7 +392,10 @@ class SegmentedTabs extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   const SegmentedTabs(
-      {super.key, required this.tabs, required this.selected, required this.onChanged});
+      {super.key,
+      required this.tabs,
+      required this.selected,
+      required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +414,8 @@ class SegmentedTabs extends StatelessWidget {
               onTap: () => onChanged(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                 decoration: BoxDecoration(
                   color: i == selected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -400,7 +424,9 @@ class SegmentedTabs extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: i == selected ? Colors.white : AppColors.textSecondary)),
+                        color: i == selected
+                            ? Colors.white
+                            : AppColors.textSecondary)),
               ),
             ),
         ],
@@ -431,7 +457,8 @@ class PageHeading extends StatelessWidget {
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           Text(subtitle!,
-              style: const TextStyle(fontSize: 16, color: AppColors.textSecondary, height: 1.6)),
+              style: const TextStyle(
+                  fontSize: 16, color: AppColors.textSecondary, height: 1.6)),
         ],
         const SizedBox(height: 28),
       ],

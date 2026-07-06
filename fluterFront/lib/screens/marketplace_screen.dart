@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
+import '../utils/json.dart';
 
 /// Port of views/MarketplaceView.vue: Store / History / Create tabs,
 /// reward cards with rotating banner colours, redeem flow.
@@ -284,8 +285,8 @@ class _RewardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uses = (r['uses'] as num?) ?? 0;
-    final maxUses = r['max_uses'] as num?;
+    final uses = toNum(r['uses']);
+    final maxUses = toNumOrNull(r['max_uses']);
     final soldOut = maxUses != null && uses >= maxUses;
 
     return Container(

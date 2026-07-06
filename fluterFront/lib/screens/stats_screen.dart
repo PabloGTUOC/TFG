@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/charts.dart';
 import '../widgets/ui.dart';
+import '../utils/json.dart';
 
 /// Port of views/StatsView.vue. The ECharts panels are rendered as
 /// lightweight custom bar rows in the same palette (member balances,
@@ -42,7 +43,10 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   List<Map<String, dynamic>> _listOf(String key) =>
-      ((_stats?[key] as List?) ?? []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+      ((_stats?[key] as List?) ?? [])
+          .cast<Map>()
+          .map((m) => m.cast<String, dynamic>())
+          .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -61,12 +65,13 @@ class _StatsScreenState extends State<StatsScreen> {
     final coinFlow = _listOf('coinFlowByReason');
 
     // Monthly totals for the trend line (same aggregation as StatsView.vue).
-    final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()..sort();
+    final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()
+      ..sort();
     final trendTotals = [
       for (final m in trendMonths)
         trend
             .where((t) => t['month'].toString() == m)
-            .fold<double>(0, (sum, t) => sum + ((t['coins'] as num?) ?? 0)),
+            .fold<double>(0, (sum, t) => sum + toNum(t['coins'])),
     ];
 
     // Stacked coin-flow series in the same order/colours as the Vue chart.
@@ -77,29 +82,33 @@ class _StatsScreenState extends State<StatsScreen> {
       ('redeemed', 'Rewards Redeemed', AppColors.warning),
       ('bounty_refunded', 'Bounties Refunded', Color(0xFF94A3B8)),
     ];
-    final flowMonths = coinFlow.map((d) => d['month'].toString()).toSet().toList()..sort();
+    final flowMonths =
+        coinFlow.map((d) => d['month'].toString()).toSet().toList()..sort();
     final flowSeries = [
       for (final (reason, label, color) in flowMeta)
         if (coinFlow.any((d) => d['reason'] == reason))
           StackedBarSeries(label, color, [
             for (final m in flowMonths)
-              (coinFlow.firstWhere(
-                        (d) => d['month'].toString() == m && d['reason'] == reason,
-                        orElse: () => const {'total': 0},
-                      )['total'] as num? ??
-                      0)
+              toNum(coinFlow.firstWhere(
+                (d) => d['month'].toString() == m && d['reason'] == reason,
+                orElse: () => const {'total': 0},
+              )['total'])
                   .toDouble(),
           ]),
     ];
 
-    final maxBalance = balances.fold<num>(
-        1, (m, b) => ((b['coin_balance'] as num?) ?? 0) > m ? (b['coin_balance'] as num) : m);
+    final maxBalance = balances.fold<num>(1,
+        (m, b) => toNum(b['coin_balance']) > m ? toNum(b['coin_balance']) : m);
 
     const statusMeta = {
       'approved': ('Approved', AppColors.success, AppColors.successSoft),
       'completed': ('Completed', AppColors.primary, AppColors.primarySoft),
       'pending': ('Pending', AppColors.warning, AppColors.warningSoft),
-      'pending_validation': ('Awaiting validation', AppColors.warning, AppColors.warningSoft),
+      'pending_validation': (
+        'Awaiting validation',
+        AppColors.warning,
+        AppColors.warningSoft
+      ),
       'rejected': ('Rejected', AppColors.danger, AppColors.dangerSoft),
     };
 
@@ -112,12 +121,11 @@ class _StatsScreenState extends State<StatsScreen> {
           const PageHeading(
               title: 'Family Stats',
               subtitle: 'How care work is distributed across the family.'),
-
           LayoutBuilder(builder: (context, c) {
             final perRow = c.maxWidth > kMobileBreakpoint ? 2 : 1;
             final w = (c.maxWidth - (perRow - 1) * 16) / perRow;
             final totalDone = completion.fold<num>(
-                0, (acc, r) => acc + ((r['completed'] as num?) ?? 0));
+                0, (acc, r) => acc + toNum(r['completed']));
             return Wrap(
               spacing: 16,
               runSpacing: 16,
@@ -138,21 +146,17 @@ class _StatsScreenState extends State<StatsScreen> {
               ],
             );
           }),
-
           const SizedBox(height: 24),
-
           if (trendMonths.isNotEmpty)
             VCard(
               title: 'Coins Earned Trend',
               child: LineAreaChart(labels: trendMonths, values: trendTotals),
             ),
-
           if (flowSeries.isNotEmpty)
             VCard(
               title: 'Coin Flow by Month',
               child: StackedBarChart(labels: flowMonths, series: flowSeries),
             ),
-
           if (balances.isNotEmpty)
             VCard(
               title: 'Member Balances',
@@ -162,7 +166,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     _BarRow(
                       label: (b['name'] ?? '').toString(),
                       valueLabel: '${b['coin_balance'] ?? 0} cc',
-                      fraction: ((b['coin_balance'] as num?) ?? 0) / maxBalance,
+                      fraction: toNum(b['coin_balance']) / maxBalance,
                       color: b['role'] == 'caregiver'
                           ? AppColors.warning
                           : AppColors.primary,
@@ -170,7 +174,6 @@ class _StatsScreenState extends State<StatsScreen> {
                 ],
               ),
             ),
-
           if (completion.isNotEmpty)
             VCard(
               title: 'Completion Rates',
@@ -178,8 +181,8 @@ class _StatsScreenState extends State<StatsScreen> {
                 children: [
                   for (final r in completion)
                     Builder(builder: (_) {
-                      final total = (r['total'] as num?) ?? 0;
-                      final done = (r['completed'] as num?) ?? 0;
+                      final total = toNum(r['total']);
+                      final done = toNum(r['completed']);
                       final rate = total > 0 ? (100 * done / total).round() : 0;
                       return _BarRow(
                         label: (r['caregiver'] ?? '').toString(),
@@ -195,7 +198,6 @@ class _StatsScreenState extends State<StatsScreen> {
                 ],
               ),
             ),
-
           if (statuses.isNotEmpty)
             VCard(
               title: 'Task Status Distribution',
@@ -206,7 +208,11 @@ class _StatsScreenState extends State<StatsScreen> {
                   for (final s in statuses)
                     Builder(builder: (_) {
                       final meta = statusMeta[s['status']] ??
-                          (s['status'].toString(), AppColors.textSecondary, AppColors.bg);
+                          (
+                            s['status'].toString(),
+                            AppColors.textSecondary,
+                            AppColors.bg
+                          );
                       return Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),

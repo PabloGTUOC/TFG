@@ -25,14 +25,16 @@ class ApiClient {
         if (token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-  Future<dynamic> request(String path, {String method = 'GET', Object? body}) async {
+  Future<dynamic> request(String path,
+      {String method = 'GET', Object? body}) async {
     final uri = Uri.parse('$apiBase$path');
     final client = http.Client();
     http.Response res;
     try {
       final req = http.Request(method, uri)..headers.addAll(_headers);
       if (body != null) req.body = jsonEncode(body);
-      final streamed = await client.send(req).timeout(const Duration(seconds: 10));
+      final streamed =
+          await client.send(req).timeout(const Duration(seconds: 10));
       res = await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw ApiException('Request timed out');
@@ -58,6 +60,7 @@ class ApiClient {
   Future<dynamic> get(String path) => request(path);
   Future<dynamic> post(String path, [Object? body]) =>
       request(path, method: 'POST', body: body ?? {});
-  Future<dynamic> put(String path, Object? body) => request(path, method: 'PUT', body: body);
+  Future<dynamic> put(String path, Object? body) =>
+      request(path, method: 'PUT', body: body);
   Future<dynamic> delete(String path) => request(path, method: 'DELETE');
 }

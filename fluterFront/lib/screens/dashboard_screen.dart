@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
+import '../utils/json.dart';
 import 'daily_screen.dart';
 
 /// Port of views/DashboardView.vue: Family Hub — member cards, week strip,
@@ -17,7 +18,11 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic> _dashboard = {'members': [], 'calendar': [], 'objectsOfCare': []};
+  Map<String, dynamic> _dashboard = {
+    'members': [],
+    'calendar': [],
+    'objectsOfCare': []
+  };
   bool _loading = true;
 
   @override
@@ -46,22 +51,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<Map<String, dynamic>> get _members =>
-      ((_dashboard['members'] as List?) ?? []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+      ((_dashboard['members'] as List?) ?? [])
+          .cast<Map>()
+          .map((m) => m.cast<String, dynamic>())
+          .toList();
 
   List<Map<String, dynamic>> get _calendar =>
-      ((_dashboard['calendar'] as List?) ?? []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+      ((_dashboard['calendar'] as List?) ?? [])
+          .cast<Map>()
+          .map((m) => m.cast<String, dynamic>())
+          .toList();
 
   Future<void> _approveMember(dynamic userId) async {
     final app = context.read<AppState>();
     await app.runAction(() async {
-      await app.api.post('/api/families/${app.familyId}/members/$userId/approve');
+      await app.api
+          .post('/api/families/${app.familyId}/members/$userId/approve');
       await _load();
     }, 'Member approved!');
   }
 
   void _openDaily(DateTime day) {
     Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => DailyScreen(date: DateFormat('yyyy-MM-dd').format(day))));
+        builder: (_) =>
+            DailyScreen(date: DateFormat('yyyy-MM-dd').format(day))));
   }
 
   @override
@@ -75,7 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .map((m) => m.cast<String, dynamic>())
         .toList();
     final totalCoins =
-        _members.fold<num>(0, (acc, m) => acc + ((m['coin_balance'] as num?) ?? 0));
+        _members.fold<num>(0, (acc, m) => acc + toNum(m['coin_balance']));
 
     final now = DateTime.now();
     final monday = now.subtract(Duration(days: now.weekday - 1));
@@ -85,8 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return ts != null && DateTime(ts.year, ts.month, ts.day) == today;
     }).toList();
     final offers = _calendar
-        .where((a) =>
-            ((a['bounty_amount'] as num?) ?? 0) > 0 && a['status'] != 'completed')
+        .where(
+            (a) => toNum(a['bounty_amount']) > 0 && a['status'] != 'completed')
         .toList();
 
     return RefreshIndicator(
@@ -97,7 +110,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           const PageHeading(
               title: 'Family Hub',
-              subtitle: 'Everyone\'s balances, this week\'s care plan and open offers.'),
+              subtitle:
+                  'Everyone\'s balances, this week\'s care plan and open offers.'),
 
           // ── Active members ──
           const _SectionTitle('Active Family Members'),
@@ -107,8 +121,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               for (var i = 0; i < active.length; i++)
                 _MemberCard(
-                  name: (active[i]['name'] ?? 'User ${active[i]['user_id']}').toString(),
-                  balance: (active[i]['coin_balance'] as num?) ?? 0,
+                  name: (active[i]['name'] ?? 'User ${active[i]['user_id']}')
+                      .toString(),
+                  balance: toNum(active[i]['coin_balance']),
                   colorIndex: i,
                 ),
               for (var i = 0; i < objects.length; i++)
@@ -141,8 +156,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         foreground: AppColors.textSecondary),
                     const SizedBox(width: 12),
                     Expanded(
-                        child: Text((pm['name'] ?? 'User ${pm['user_id']}').toString(),
-                            style: const TextStyle(fontWeight: FontWeight.w700))),
+                        child: Text(
+                            (pm['name'] ?? 'User ${pm['user_id']}').toString(),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700))),
                     VButton(
                         type: VButtonType.outline,
                         onPressed: () => _approveMember(pm['user_id']),
@@ -162,7 +179,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               border: Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(20),
               boxShadow: const [
-                BoxShadow(color: Color(0x08000000), blurRadius: 20, offset: Offset(0, 4)),
+                BoxShadow(
+                    color: Color(0x08000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 4)),
               ],
             ),
             child: Column(
@@ -175,7 +195,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text('This week',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
                 const SizedBox(height: 16),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -186,15 +207,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _DayColumn(
                           day: monday.add(Duration(days: d)),
                           acts: _calendar.where((a) {
-                            final ts =
-                                DateTime.tryParse(a['starts_at']?.toString() ?? '');
+                            final ts = DateTime.tryParse(
+                                a['starts_at']?.toString() ?? '');
                             if (ts == null) return false;
                             final dd = monday.add(Duration(days: d));
                             return ts.year == dd.year &&
                                 ts.month == dd.month &&
                                 ts.day == dd.day;
                           }).toList(),
-                          onTap: () => _openDaily(monday.add(Duration(days: d))),
+                          onTap: () =>
+                              _openDaily(monday.add(Duration(days: d))),
                         ),
                     ],
                   ),
@@ -234,13 +256,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text((offer['title'] ?? '').toString(),
-                              style: const TextStyle(fontWeight: FontWeight.w800)),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800)),
                           if (offer['starts_at'] != null)
                             Text(
                                 DateFormat('EEE d MMM · HH:mm').format(
-                                    DateTime.parse(offer['starts_at'].toString())),
+                                    DateTime.parse(
+                                        offer['starts_at'].toString())),
                                 style: const TextStyle(
-                                    fontSize: 12, color: AppColors.textSecondary)),
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -270,7 +295,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: w,
                     child: KpiCard(
                         label: 'Tasks today',
-                        value: '${todayActs.where((a) => a['status'] == 'completed').length}/${todayActs.length}',
+                        value:
+                            '${todayActs.where((a) => a['status'] == 'completed').length}/${todayActs.length}',
                         accent: AppColors.success,
                         subtitle: 'Completed vs scheduled',
                         progress: todayActs.isEmpty
@@ -317,7 +343,8 @@ class _MemberCard extends StatelessWidget {
   final num? balance;
   final int colorIndex;
 
-  const _MemberCard({required this.name, required this.balance, required this.colorIndex});
+  const _MemberCard(
+      {required this.name, required this.balance, required this.colorIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +360,8 @@ class _MemberCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          AvatarCircle(name: name, size: 56, background: soft, foreground: accent),
+          AvatarCircle(
+              name: name, size: 56, background: soft, foreground: accent),
           const SizedBox(height: 10),
           Text(name,
               maxLines: 1,
@@ -358,12 +386,14 @@ class _DayColumn extends StatelessWidget {
   final List<Map<String, dynamic>> acts;
   final VoidCallback onTap;
 
-  const _DayColumn({required this.day, required this.acts, required this.onTap});
+  const _DayColumn(
+      {required this.day, required this.acts, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
 
     return GestureDetector(
       onTap: onTap,
@@ -374,7 +404,8 @@ class _DayColumn extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 220),
         decoration: BoxDecoration(
           color: isToday ? AppColors.primarySoft : AppColors.bg,
-          border: Border.all(color: isToday ? AppColors.primary : AppColors.border),
+          border:
+              Border.all(color: isToday ? AppColors.primary : AppColors.border),
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
         child: Column(
@@ -384,12 +415,14 @@ class _DayColumn extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
-                    color: isToday ? AppColors.primary : AppColors.textSecondary)),
+                    color:
+                        isToday ? AppColors.primary : AppColors.textSecondary)),
             Text('${day.day}',
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: isToday ? AppColors.primary : AppColors.textPrimary)),
+                    color:
+                        isToday ? AppColors.primary : AppColors.textPrimary)),
             const SizedBox(height: 8),
             for (final a in acts) _ActChip(a: a),
           ],
@@ -428,7 +461,9 @@ class _ActChip extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 5),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-          color: bg, border: border, borderRadius: BorderRadius.circular(AppRadii.sm)),
+          color: bg,
+          border: border,
+          borderRadius: BorderRadius.circular(AppRadii.sm)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -439,10 +474,11 @@ class _ActChip extends StatelessWidget {
                   '${status == 'rejected' ? '⚠️ ' : ''}${a['title'] ?? ''}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
+                  style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600, color: fg),
                 ),
               ),
-              if (((a['bounty_amount'] as num?) ?? 0) > 0)
+              if (toNum(a['bounty_amount']) > 0)
                 Text('+${a['bounty_amount']}cc',
                     style: const TextStyle(
                         fontSize: 9,
@@ -452,7 +488,8 @@ class _ActChip extends StatelessWidget {
           ),
           if (ts != null)
             Text(DateFormat('HH:mm').format(ts),
-                style: TextStyle(fontSize: 9, color: fg.withValues(alpha: 0.8))),
+                style:
+                    TextStyle(fontSize: 9, color: fg.withValues(alpha: 0.8))),
         ],
       ),
     );

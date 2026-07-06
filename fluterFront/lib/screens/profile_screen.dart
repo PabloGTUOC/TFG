@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/family_circle.dart';
 import '../widgets/ui.dart';
+import '../utils/json.dart';
 
 /// Port of views/ProfileView.vue: family banner, wallet panel with ledger,
 /// account settings and logout.
@@ -71,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
 
     final wallet = _WalletPanel(
-      balance: (family?['coin_balance'] as num?) ?? 0,
+      balance: toNum(family?['coin_balance']),
       month: _month,
       ledger: _ledger,
       onPrevMonth: () => _changeMonth(-1),
@@ -340,7 +341,7 @@ class _WalletPanel extends StatelessWidget {
                       ),
                     ),
                     Builder(builder: (_) {
-                      final amount = (row['amount'] as num?) ?? 0;
+                      final amount = toNum(row['amount']);
                       final positive = amount >= 0;
                       return Text('${positive ? '+' : ''}$amount',
                           style: TextStyle(

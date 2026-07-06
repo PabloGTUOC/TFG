@@ -62,7 +62,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 450),
             child: VCard(
-              title: _isRegistering ? 'Create CareCoins Account' : 'Welcome to CareCoins',
+              title: _isRegistering
+                  ? 'Create CareCoins Account'
+                  : 'Welcome to CareCoins',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -71,7 +73,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? 'Sign up to start sharing responsibly.'
                         : 'Sign in to access your dashboard.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSecondary, height: 1.6),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, height: 1.6),
                   ),
                   const SizedBox(height: 32),
                   VInput(
@@ -138,7 +141,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () =>
                             setState(() => _isRegistering = !_isRegistering),
                         child: Text(
-                            _isRegistering ? 'Sign In instead' : 'Create an account',
+                            _isRegistering
+                                ? 'Sign In instead'
+                                : 'Create an account',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primary)),

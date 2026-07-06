@@ -39,7 +39,12 @@ abstract class AppColors {
   );
 
   /// Rotating pastel accents used by dashboard member cards / reward banners.
-  static const softAccents = [primarySoft, successSoft, warningSoft, dangerSoft];
+  static const softAccents = [
+    primarySoft,
+    successSoft,
+    warningSoft,
+    dangerSoft
+  ];
   static const accents = [primary, success, warning, danger];
 }
 
@@ -76,9 +81,12 @@ ThemeData buildAppTheme() {
     dividerColor: AppColors.border,
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.md)),
-      contentTextStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: Colors.white),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md)),
+      contentTextStyle: GoogleFonts.plusJakartaSans(
+          fontWeight: FontWeight.w700, color: Colors.white),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primary),
+    progressIndicatorTheme:
+        const ProgressIndicatorThemeData(color: AppColors.primary),
   );
 }

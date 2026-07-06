@@ -147,13 +147,15 @@ class _PillHeader extends StatelessWidget {
   final int index;
   final ValueChanged<int> onNavigate;
 
-  const _PillHeader({required this.wide, required this.index, required this.onNavigate});
+  const _PillHeader(
+      {required this.wide, required this.index, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final family = app.family;
-    final alias = (family?['alias'] ?? app.profile?['display_name'] ?? 'C').toString();
+    final alias =
+        (family?['alias'] ?? app.profile?['display_name'] ?? 'C').toString();
     final balance = family?['coin_balance']?.toString() ?? '0';
 
     return Container(
@@ -165,7 +167,8 @@ class _PillHeader extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(AppRadii.pill),
         boxShadow: const [
-          BoxShadow(color: Color(0x0A0E1726), blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+              color: Color(0x0A0E1726), blurRadius: 12, offset: Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -181,23 +184,43 @@ class _PillHeader extends StatelessWidget {
                   height: 30,
                   alignment: Alignment.center,
                   decoration: const BoxDecoration(
-                      gradient: AppColors.accentGradient, shape: BoxShape.circle),
+                      gradient: AppColors.accentGradient,
+                      shape: BoxShape.circle),
                   child: const Text('¢',
                       style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16)),
                 ),
                 const SizedBox(width: 8),
                 const Text('CareCoins',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ],
             ),
           ),
           const Spacer(),
           if (wide && app.hasFamilies) ...[
-            _NavLink(label: 'Family', icon: Icons.home_rounded, active: index == 0, onTap: () => onNavigate(0)),
-            _NavLink(label: 'Activities', icon: Icons.calendar_today_rounded, active: index == 1, onTap: () => onNavigate(1)),
-            _NavLink(label: 'Marketplace', icon: Icons.shopping_bag_rounded, active: index == 2, onTap: () => onNavigate(2)),
-            _NavLink(label: 'Personal', icon: Icons.person_rounded, active: index == 4, onTap: () => onNavigate(4)),
+            _NavLink(
+                label: 'Family',
+                icon: Icons.home_rounded,
+                active: index == 0,
+                onTap: () => onNavigate(0)),
+            _NavLink(
+                label: 'Activities',
+                icon: Icons.calendar_today_rounded,
+                active: index == 1,
+                onTap: () => onNavigate(1)),
+            _NavLink(
+                label: 'Marketplace',
+                icon: Icons.shopping_bag_rounded,
+                active: index == 2,
+                onTap: () => onNavigate(2)),
+            _NavLink(
+                label: 'Personal',
+                icon: Icons.person_rounded,
+                active: index == 4,
+                onTap: () => onNavigate(4)),
             const Spacer(),
           ],
           // Coin counter
@@ -221,7 +244,8 @@ class _PillHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(balance,
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800, color: AppColors.warning)),
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.warning)),
                     const SizedBox(width: 3),
                     const Text('cc',
                         style: TextStyle(
@@ -237,7 +261,8 @@ class _PillHeader extends StatelessWidget {
             PopupMenuButton<String>(
               tooltip: 'User Menu',
               offset: const Offset(0, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.md)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.md)),
               onSelected: (v) {
                 if (v == 'logout') app.logout();
               },
@@ -245,7 +270,8 @@ class _PillHeader extends StatelessWidget {
                 PopupMenuItem(value: 'logout', child: Text('Logout')),
               ],
               child: AvatarCircle(
-                  name: (app.profile?['display_name'] ?? app.user?.email ?? '?').toString(),
+                  name: (app.profile?['display_name'] ?? app.user?.email ?? '?')
+                      .toString(),
                   size: 34),
             ),
           ],
@@ -262,7 +288,10 @@ class _NavLink extends StatelessWidget {
   final VoidCallback onTap;
 
   const _NavLink(
-      {required this.label, required this.icon, required this.active, required this.onTap});
+      {required this.label,
+      required this.icon,
+      required this.active,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -279,13 +308,17 @@ class _NavLink extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: active ? AppColors.primary : AppColors.textSecondary),
+              Icon(icon,
+                  size: 18,
+                  color: active ? AppColors.primary : AppColors.textSecondary),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: active ? AppColors.primary : AppColors.textSecondary)),
+                      color: active
+                          ? AppColors.primary
+                          : AppColors.textSecondary)),
             ],
           ),
         ),

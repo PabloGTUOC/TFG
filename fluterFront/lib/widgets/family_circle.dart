@@ -9,8 +9,8 @@ import 'ui.dart';
 
 /// Where invite links land — the web app serves the /join route.
 /// Override per environment: --dart-define=WEB_APP_ORIGIN=https://carecoins.example
-const String kWebAppOrigin =
-    String.fromEnvironment('WEB_APP_ORIGIN', defaultValue: 'http://localhost:5173');
+const String kWebAppOrigin = String.fromEnvironment('WEB_APP_ORIGIN',
+    defaultValue: 'http://localhost:5173');
 
 /// Port of components/profile/FamilyCircle.vue: the family roster
 /// (members + dependents), add/remove dependents, e-mail invitations and
@@ -58,7 +58,8 @@ class _FamilyCircleState extends State<FamilyCircle> {
     } catch (_) {}
     if (app.isCaregiver) {
       try {
-        final inv = await app.api.get('/api/families/${app.familyId}/invitations');
+        final inv =
+            await app.api.get('/api/families/${app.familyId}/invitations');
         if (mounted) {
           setState(() => _invitations = ((inv['invitations'] as List?) ?? [])
               .cast<Map>()
@@ -99,18 +100,24 @@ class _FamilyCircleState extends State<FamilyCircle> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Add Dependent', style: TextStyle(fontWeight: FontWeight.w800)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.lg)),
+          title: const Text('Add Dependent',
+              style: TextStyle(fontWeight: FontWeight.w800)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              VInput(controller: name, label: 'Name', placeholder: 'e.g. Luna, Grandpa…'),
+              VInput(
+                  controller: name,
+                  label: 'Name',
+                  placeholder: 'e.g. Luna, Grandpa…'),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: actorType,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: const [
-                  DropdownMenuItem(value: 'child', child: Text('👶 Child / Baby')),
+                  DropdownMenuItem(
+                      value: 'child', child: Text('👶 Child / Baby')),
                   DropdownMenuItem(value: 'pet', child: Text('🐾 Pet')),
                   DropdownMenuItem(value: 'elderly', child: Text('👴 Elderly')),
                 ],
@@ -121,16 +128,22 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 initialValue: careTime,
                 decoration: const InputDecoration(labelText: 'Care time'),
                 items: const [
-                  DropdownMenuItem(value: 'full_time', child: Text('Full Time')),
-                  DropdownMenuItem(value: 'part_time', child: Text('Part Time')),
+                  DropdownMenuItem(
+                      value: 'full_time', child: Text('Full Time')),
+                  DropdownMenuItem(
+                      value: 'part_time', child: Text('Part Time')),
                 ],
                 onChanged: (v) => setLocal(() => careTime = v ?? 'full_time'),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Add')),
           ],
         ),
       ),
@@ -156,14 +169,19 @@ class _FamilyCircleState extends State<FamilyCircle> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Remove dependent?', style: TextStyle(fontWeight: FontWeight.w800)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
+        title: const Text('Remove dependent?',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         content: Text('Remove "$name" from the family circle?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remove', style: TextStyle(color: AppColors.danger))),
+              child: const Text('Remove',
+                  style: TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -182,8 +200,10 @@ class _FamilyCircleState extends State<FamilyCircle> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Invite a Caregiver', style: TextStyle(fontWeight: FontWeight.w800)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
+        title: const Text('Invite a Caregiver',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -193,12 +213,19 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 placeholder: 'caregiver@email.com',
                 keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 12),
-            VInput(controller: name, label: 'Their Name (optional)', placeholder: 'e.g. Maria'),
+            VInput(
+                controller: name,
+                label: 'Their Name (optional)',
+                placeholder: 'e.g. Maria'),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send invite')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send invite')),
         ],
       ),
     );
@@ -222,7 +249,8 @@ class _FamilyCircleState extends State<FamilyCircle> {
     final app = context.read<AppState>();
     setState(() => _generatingLink = true);
     try {
-      final data = await app.api.post('/api/families/${app.familyId}/invite-links', {});
+      final data =
+          await app.api.post('/api/families/${app.familyId}/invite-links', {});
       final id = (data['link'] as Map?)?['id'];
       setState(() => _inviteLink = '$kWebAppOrigin/join?token=$id');
     } catch (e) {
@@ -257,7 +285,10 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 _CircleCard(
                   name: item['name'].toString(),
                   badge: _badges[item['type']] ??
-                      (item['type'].toString().replaceAll('_', ' '), const Color(0xFF94A3B8)),
+                      (
+                        item['type'].toString().replaceAll('_', ' '),
+                        const Color(0xFF94A3B8)
+                      ),
                   onRemove: item['isActor'] == true && app.isCaregiver
                       ? () => _removeActor(item['id'], item['name'].toString())
                       : null,
@@ -271,12 +302,14 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 VButton(
                     type: VButtonType.outline,
                     onPressed: _addActor,
-                    child: const Text('＋ Add Dependent', style: TextStyle(fontSize: 14))),
+                    child: const Text('＋ Add Dependent',
+                        style: TextStyle(fontSize: 14))),
                 const SizedBox(width: 10),
                 VButton(
                     type: VButtonType.secondary,
                     onPressed: _inviteByEmail,
-                    child: const Text('✉️ Invite Caregiver', style: TextStyle(fontSize: 14))),
+                    child: const Text('✉️ Invite Caregiver',
+                        style: TextStyle(fontSize: 14))),
               ],
             ),
             if (_invitations.isNotEmpty) ...[
@@ -299,7 +332,8 @@ class _FamilyCircleState extends State<FamilyCircle> {
                       Expanded(
                         child: Text(
                           '${inv['email'] ?? inv['name'] ?? 'Invitee'}',
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ),
                       const PillBadge(
@@ -318,7 +352,8 @@ class _FamilyCircleState extends State<FamilyCircle> {
               children: [
                 const Expanded(
                   child: Text('Invite Link',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 ),
                 VButton(
                   type: VButtonType.outline,
@@ -431,7 +466,8 @@ class _CircleCard extends StatelessWidget {
           Text(name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
           const SizedBox(height: 5),
           PillBadge(
               text: badge.$1,

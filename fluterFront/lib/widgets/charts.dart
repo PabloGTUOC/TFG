@@ -40,8 +40,8 @@ class _LinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
-    final plot = Rect.fromLTRB(
-        _pad.left, _pad.top, size.width - _pad.right, size.height - _pad.bottom);
+    final plot = Rect.fromLTRB(_pad.left, _pad.top, size.width - _pad.right,
+        size.height - _pad.bottom);
     final maxV = values.reduce((a, b) => a > b ? a : b);
     final top = maxV <= 0 ? 1.0 : maxV * 1.15;
 
@@ -52,8 +52,8 @@ class _LinePainter extends CustomPainter {
     for (var i = 0; i <= 3; i++) {
       final y = plot.bottom - plot.height * i / 3;
       canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
-      _text(canvas, (top * i / 3).round().toString(),
-          Offset(2, y - 6), 10, AppColors.textSecondary);
+      _text(canvas, (top * i / 3).round().toString(), Offset(2, y - 6), 10,
+          AppColors.textSecondary);
     }
 
     Offset pt(int i) {
@@ -109,7 +109,8 @@ class _LinePainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
           text: s,
-          style: TextStyle(fontSize: size, color: color, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              fontSize: size, color: color, fontWeight: FontWeight.w600)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, o);
@@ -155,8 +156,8 @@ class StackedBarChart extends StatelessWidget {
                   Container(
                       width: 10,
                       height: 10,
-                      decoration:
-                          BoxDecoration(color: s.color, shape: BoxShape.circle)),
+                      decoration: BoxDecoration(
+                          color: s.color, shape: BoxShape.circle)),
                   const SizedBox(width: 5),
                   Text(s.label,
                       style: const TextStyle(
@@ -188,8 +189,8 @@ class _StackedBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (labels.isEmpty) return;
-    final plot = Rect.fromLTRB(
-        _pad.left, _pad.top, size.width - _pad.right, size.height - _pad.bottom);
+    final plot = Rect.fromLTRB(_pad.left, _pad.top, size.width - _pad.right,
+        size.height - _pad.bottom);
 
     double maxPos = 0, maxNeg = 0;
     for (var i = 0; i < labels.length; i++) {
@@ -234,12 +235,12 @@ class _StackedBarPainter extends CustomPainter {
         if (v == 0) continue;
         late Rect r;
         if (v > 0) {
-          r = Rect.fromLTRB(
-              cx - barW / 2, yFor(posCursor + v), cx + barW / 2, yFor(posCursor));
+          r = Rect.fromLTRB(cx - barW / 2, yFor(posCursor + v), cx + barW / 2,
+              yFor(posCursor));
           posCursor += v;
         } else {
-          r = Rect.fromLTRB(
-              cx - barW / 2, yFor(negCursor), cx + barW / 2, yFor(negCursor + v));
+          r = Rect.fromLTRB(cx - barW / 2, yFor(negCursor), cx + barW / 2,
+              yFor(negCursor + v));
           negCursor += v;
         }
         canvas.drawRRect(
@@ -259,7 +260,8 @@ class _StackedBarPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
           text: s,
-          style: TextStyle(fontSize: size, color: color, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              fontSize: size, color: color, fontWeight: FontWeight.w600)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, o);

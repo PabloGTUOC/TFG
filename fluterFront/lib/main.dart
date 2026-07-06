@@ -14,7 +14,8 @@ Future<void> main() async {
 
   var firebaseAvailable = true;
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
     // Keep the app bootable before `flutterfire configure` has been run.
     firebaseAvailable = false;

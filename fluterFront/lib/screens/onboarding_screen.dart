@@ -39,7 +39,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       final data = await context.read<AppState>().api.get('/api/me/invites');
       if (mounted) {
-        setState(() => _invites = data is List ? data : (data['invites'] as List? ?? []));
+        setState(() =>
+            _invites = data is List ? data : (data['invites'] as List? ?? []));
       }
     } catch (_) {}
   }
@@ -71,7 +72,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await app.runAction(() async {
       await app.api.post('/api/families/join-by-token', {
         'token': _token.text.trim(),
-        if (_tokenAlias.text.trim().isNotEmpty) 'alias': _tokenAlias.text.trim(),
+        if (_tokenAlias.text.trim().isNotEmpty)
+          'alias': _tokenAlias.text.trim(),
       });
       await app.fetchUserData();
     }, 'Joined family!');
@@ -80,7 +82,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _acceptInvite(Map invite) async {
     final app = context.read<AppState>();
     await app.runAction(() async {
-      await app.api.post('/api/families/join-request', {'familyId': invite['family_id']});
+      await app.api.post(
+          '/api/families/join-request', {'familyId': invite['family_id']});
       await app.fetchUserData();
     }, 'Join request sent!');
   }
@@ -98,11 +101,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text('Start a new care circle and invite the rest later.',
               style: TextStyle(color: AppColors.textSecondary, height: 1.6)),
           const SizedBox(height: 20),
-          VInput(controller: _familyName, label: 'Family Name', placeholder: 'e.g. The Torres Family'),
+          VInput(
+              controller: _familyName,
+              label: 'Family Name',
+              placeholder: 'e.g. The Torres Family'),
           const SizedBox(height: 14),
-          VInput(controller: _alias, label: 'Your Alias (optional)', placeholder: 'e.g. Mom, Pablo…'),
+          VInput(
+              controller: _alias,
+              label: 'Your Alias (optional)',
+              placeholder: 'e.g. Mom, Pablo…'),
           const SizedBox(height: 20),
-          VButton(onPressed: _createFamily, block: true, child: const Text('Create Family')),
+          VButton(
+              onPressed: _createFamily,
+              block: true,
+              child: const Text('Create Family')),
         ],
       ),
     );
@@ -112,12 +124,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Got an invite code? Enter it here to join an existing family.',
+          const Text(
+              'Got an invite code? Enter it here to join an existing family.',
               style: TextStyle(color: AppColors.textSecondary, height: 1.6)),
           const SizedBox(height: 20),
-          VInput(controller: _token, label: 'Invite Code', placeholder: 'Paste your code'),
+          VInput(
+              controller: _token,
+              label: 'Invite Code',
+              placeholder: 'Paste your code'),
           const SizedBox(height: 14),
-          VInput(controller: _tokenAlias, label: 'Your Alias (optional)', placeholder: 'e.g. Grandma'),
+          VInput(
+              controller: _tokenAlias,
+              label: 'Your Alias (optional)',
+              placeholder: 'e.g. Grandma'),
           const SizedBox(height: 20),
           VButton(
               type: VButtonType.outline,
@@ -142,7 +161,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 24),
                   const PageHeading(
                       title: 'Welcome to CareCoins',
-                      subtitle: 'Set up your family to start sharing care responsibly.'),
+                      subtitle:
+                          'Set up your family to start sharing care responsibly.'),
                   if (app.pendingRequests.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -155,7 +175,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: Text(
                         'Your request to join "${(app.pendingRequests.first as Map)['name'] ?? 'a family'}" is pending approval.',
                         style: const TextStyle(
-                            color: AppColors.warning, fontWeight: FontWeight.w700),
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.w700),
                       ),
                     ),
                   if (_invites.isNotEmpty)
@@ -170,15 +191,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('${(inv as Map)['family_name'] ?? 'Family'}',
+                                        Text(
+                                            '${(inv as Map)['family_name'] ?? 'Family'}',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w800)),
-                                        Text('Invited by ${inv['inviter_name'] ?? 'a member'}',
+                                        Text(
+                                            'Invited by ${inv['inviter_name'] ?? 'a member'}',
                                             style: const TextStyle(
                                                 fontSize: 12,
-                                                color: AppColors.textSecondary)),
+                                                color:
+                                                    AppColors.textSecondary)),
                                       ],
                                     ),
                                   ),

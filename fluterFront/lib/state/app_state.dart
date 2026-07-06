@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/api_client.dart';
+import '../utils/json.dart';
 
 /// App-wide state: Firebase auth session + `/api/me` payload + toast messages.
 /// Mirrors stores/auth.js + stores/family.js from the Vue frontend.
@@ -25,14 +26,16 @@ class AppState extends ChangeNotifier {
   String error = '';
   Timer? _dismissTimer;
 
-  Map<String, dynamic>? get family =>
-      families.isNotEmpty ? Map<String, dynamic>.from(families.first as Map) : null;
+  Map<String, dynamic>? get family => families.isNotEmpty
+      ? Map<String, dynamic>.from(families.first as Map)
+      : null;
 
-  int get familyId => (family?['family_id'] as num?)?.toInt() ?? 0;
+  int get familyId => toNum(family?['family_id']).toInt();
   bool get hasFamilies => families.isNotEmpty;
 
   bool get isCaregiver {
-    final role = family?['role']?.toString() ?? profile?['role']?.toString() ?? '';
+    final role =
+        family?['role']?.toString() ?? profile?['role']?.toString() ?? '';
     return role.isEmpty || role == 'caregiver';
   }
 
@@ -73,7 +76,7 @@ class AppState extends ChangeNotifier {
 
       if (loginEventId == null) {
         final loginData = await api.post('/api/me/login-event');
-        loginEventId = (loginData['eventId'] as num?)?.toInt();
+        loginEventId = toNumOrNull(loginData['eventId'])?.toInt();
       }
     } catch (e) {
       debugPrint('Backend auth sync failed: $e');
@@ -114,7 +117,8 @@ class AppState extends ChangeNotifier {
     try {
       fb.UserCredential cred;
       if (kIsWeb) {
-        cred = await fb.FirebaseAuth.instance.signInWithPopup(fb.GoogleAuthProvider());
+        cred = await fb.FirebaseAuth.instance
+            .signInWithPopup(fb.GoogleAuthProvider());
       } else {
         final googleUser = await GoogleSignIn().signIn();
         if (googleUser == null) return; // user cancelled
@@ -159,7 +163,8 @@ class AppState extends ChangeNotifier {
 
   // ── Toast messages (mirrors setSuccess / setError / runAction) ──
 
-  Future<bool> runAction(Future<void> Function() fn, [String? okMessage]) async {
+  Future<bool> runAction(Future<void> Function() fn,
+      [String? okMessage]) async {
     clearMessages();
     try {
       await fn();
