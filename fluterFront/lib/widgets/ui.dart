@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 
 /// ── VCard (components/VCard.vue) ──────────────────────────────────
@@ -327,31 +328,52 @@ class AvatarCircle extends StatelessWidget {
   final Color? background;
   final Color? foreground;
 
+  /// Backend-relative (`/uploads/...`) or absolute avatar image URL.
+  /// Falls back to the initial when null or when loading fails.
+  final String? imageUrl;
+
   const AvatarCircle({
     super.key,
     required this.name,
     this.size = 40,
     this.background,
     this.foreground,
+    this.imageUrl,
   });
+
+  /// Resolves relative avatar paths against the API origin (avatarStyle.js).
+  static String? resolve(dynamic url) {
+    final s = url?.toString() ?? '';
+    if (s.isEmpty) return null;
+    return s.startsWith('http') ? s : '${ApiClient.apiBase}$s';
+  }
 
   @override
   Widget build(BuildContext context) {
     final initial = name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+    final resolved = resolve(imageUrl);
+    final fallback = Text(initial,
+        style: TextStyle(
+            fontSize: size * 0.42,
+            fontWeight: FontWeight.w800,
+            color: foreground ?? Colors.white));
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: background,
         gradient: background == null ? AppColors.accentGradient : null,
         shape: BoxShape.circle,
       ),
-      child: Text(initial,
-          style: TextStyle(
-              fontSize: size * 0.42,
-              fontWeight: FontWeight.w800,
-              color: foreground ?? Colors.white)),
+      child: resolved == null
+          ? fallback
+          : Image.network(resolved,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback),
     );
   }
 }

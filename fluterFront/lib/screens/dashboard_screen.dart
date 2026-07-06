@@ -246,12 +246,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _MemberCard(
                   name: (active[i]['name'] ?? 'User ${active[i]['user_id']}')
                       .toString(),
+                  imageUrl: active[i]['avatar_url']?.toString(),
                   balance: toNum(active[i]['coin_balance']),
                   colorIndex: i,
                 ),
               for (var i = 0; i < objects.length; i++)
                 _MemberCard(
                   name: (objects[i]['name'] ?? 'Dependent').toString(),
+                  imageUrl: objects[i]['avatar_url']?.toString(),
                   balance: null,
                   colorIndex: active.length + i,
                 ),
@@ -669,9 +671,13 @@ class _MemberCard extends StatelessWidget {
   final String name;
   final num? balance;
   final int colorIndex;
+  final String? imageUrl;
 
   const _MemberCard(
-      {required this.name, required this.balance, required this.colorIndex});
+      {required this.name,
+      required this.balance,
+      required this.colorIndex,
+      this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -688,7 +694,11 @@ class _MemberCard extends StatelessWidget {
       child: Column(
         children: [
           AvatarCircle(
-              name: name, size: 56, background: soft, foreground: accent),
+              name: name,
+              size: 56,
+              imageUrl: imageUrl,
+              background: soft,
+              foreground: accent),
           const SizedBox(height: 10),
           Text(name,
               maxLines: 1,

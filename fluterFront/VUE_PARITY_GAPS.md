@@ -25,14 +25,24 @@ Closed since the audit below was written (tables NOT updated in place):
   alias prompt on invite accept, token extraction from pasted links. ✅
 - **§8 Shell** — refetch on app resume (AppLifecycleListener). ✅
 
+Closed in batch 3 (2026-07-06):
+
+- **Avatars** — `AvatarCircle` renders backend `avatar_url` images with
+  initials fallback everywhere (dashboard cards, shell header, family
+  circle, marketplace history, profile header); user avatar upload via
+  `image_picker` → multipart POST /api/me/avatar; actor avatar upload on
+  the Family Circle cards (caregiver only). iOS
+  NSPhotoLibraryUsageDescription added. ✅
+- **Marketing landing page** — LandingView.vue port (dark hero, How it
+  works steps, fairness section with sample ledger, CTA, footer) shown
+  to logged-out users before the login screen. ✅
+
 Still open:
 
-- Avatar images/upload everywhere (needs `image_picker` + backend
-  multipart upload; Flutter still renders initials).
 - Push notifications (blocked on `firebase login` → `flutterfire configure`).
-- `/join?token=…` deep links + URL routing (`go_router` + app links).
-- Marketing landing page (login remains the Flutter entry screen).
-- End-to-end testing against the real backend (all of batch 2 is
+- `/join?token=…` deep links + URL routing (`go_router` + iOS Universal
+  Links / Android App Links so QR scans open the app).
+- End-to-end testing against the real backend (batches 2–3 are
   analyzer/build-verified but not yet exercised in the running app).
 
 Legend: ✅ ported · ⚠️ partial / simplified · ❌ missing

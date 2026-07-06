@@ -227,14 +227,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 45,
-                  height: 45,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                      color: AppColors.primary, shape: BoxShape.circle),
-                  child: const Text('🎁', style: TextStyle(fontSize: 20)),
-                ),
+                AvatarCircle(
+                    name: (cRow['buyer_name'] ?? '?').toString(),
+                    imageUrl: cRow['buyer_avatar']?.toString(),
+                    size: 45),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(

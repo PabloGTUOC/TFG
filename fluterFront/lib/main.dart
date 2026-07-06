@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/shell.dart';
@@ -46,9 +47,17 @@ class CareCoinsApp extends StatelessWidget {
 }
 
 /// Mirrors the Vue router guards: loading screen until auth is ready,
-/// login for guests, onboarding when the user has no family, else the shell.
-class _AuthGate extends StatelessWidget {
+/// landing → login for guests, onboarding when the user has no family,
+/// else the shell.
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  bool _showLogin = false;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +75,27 @@ class _AuthGate extends StatelessWidget {
         ),
       );
     }
-    if (app.user == null) return const LoginScreen();
+    if (app.user == null) {
+      if (!_showLogin) {
+        return LandingScreen(
+            onSignIn: () => setState(() => _showLogin = true));
+      }
+      return Stack(
+        children: [
+          const LoginScreen(),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showLogin = false),
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                label: const Text('Back'),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (!app.hasFamilies) return const OnboardingScreen();
     return const Shell();
   }

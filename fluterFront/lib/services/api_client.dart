@@ -57,6 +57,38 @@ class ApiClient {
     return data;
   }
 
+  /// Multipart upload (avatar endpoints). Mirrors the Vue FormData calls:
+  /// auth header only, no JSON content type.
+  Future<dynamic> uploadFile(String path,
+      {required String field,
+      required List<int> bytes,
+      required String filename}) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$apiBase$path'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(http.MultipartFile.fromBytes(field, bytes,
+          filename: filename.isEmpty ? 'avatar.jpg' : filename));
+    http.Response res;
+    try {
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      res = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw ApiException('Upload timed out');
+    }
+    dynamic data;
+    try {
+      data = jsonDecode(utf8.decode(res.bodyBytes));
+    } catch (_) {
+      data = <String, dynamic>{};
+    }
+    if (res.statusCode >= 400) {
+      final msg = (data is Map && data['error'] != null)
+          ? data['error'].toString()
+          : 'Upload failed (${res.statusCode})';
+      throw ApiException(msg);
+    }
+    return data;
+  }
+
   Future<dynamic> get(String path) => request(path);
   Future<dynamic> post(String path, [Object? body]) =>
       request(path, method: 'POST', body: body ?? {});

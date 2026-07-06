@@ -288,6 +288,7 @@ class _PillHeader extends StatelessWidget {
               child: AvatarCircle(
                   name: (app.profile?['display_name'] ?? app.user?.email ?? '?')
                       .toString(),
+                  imageUrl: app.profile?['avatar_url']?.toString(),
                   size: 34),
             ),
           ],

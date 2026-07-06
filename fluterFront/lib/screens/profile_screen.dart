@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../utils/avatar_upload.dart';
 import '../utils/json.dart';
 import '../widgets/family_circle.dart';
 import '../widgets/ui.dart';
@@ -431,12 +432,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              AvatarCircle(
-                  name: (app.profile?['display_name'] ??
-                          app.user?.email ??
-                          '?')
-                      .toString(),
-                  size: 56),
+              Tooltip(
+                message: 'Tap to change photo',
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () async {
+                    final ok = await pickAndUploadAvatar(
+                        context, '/api/me/avatar',
+                        successMessage: 'Your avatar updated successfully!');
+                    if (ok && context.mounted) {
+                      await context.read<AppState>().fetchUserData();
+                    }
+                  },
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AvatarCircle(
+                          name: (app.profile?['display_name'] ??
+                                  app.user?.email ??
+                                  '?')
+                              .toString(),
+                          imageUrl: app.profile?['avatar_url']?.toString(),
+                          size: 56),
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                              color: AppColors.indigo,
+                              shape: BoxShape.circle),
+                          child: const Text('📷',
+                              style: TextStyle(fontSize: 10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

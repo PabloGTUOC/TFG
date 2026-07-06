@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../utils/avatar_upload.dart';
 import 'ui.dart';
 
 /// Where invite links land — the web app serves the /join route.
@@ -79,6 +80,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
           'key': 'user_${m['id']}',
           'name': m['name'] ?? 'Member',
           'type': (m['role'] ?? 'member').toString(),
+          'avatarUrl': m['avatar_url'],
           'isActor': false,
         },
       for (final a in app.actors.cast<Map>())
@@ -87,9 +89,21 @@ class _FamilyCircleState extends State<FamilyCircle> {
           'id': a['id'],
           'name': a['name'] ?? 'Dependent',
           'type': (a['actor_type'] ?? 'person').toString(),
+          'avatarUrl': a['avatar_url'],
           'isActor': true,
         },
     ];
+  }
+
+  Future<void> _uploadActorAvatar(dynamic actorId) async {
+    final app = context.read<AppState>();
+    final ok = await pickAndUploadAvatar(
+        context, '/api/families/${app.familyId}/actors/$actorId/avatar',
+        successMessage: 'Avatar updated!');
+    if (ok && mounted) {
+      await app.fetchUserData();
+      await _load();
+    }
   }
 
   Future<void> _addActor() async {
@@ -284,6 +298,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
               for (final item in _circle)
                 _CircleCard(
                   name: item['name'].toString(),
+                  imageUrl: item['avatarUrl']?.toString(),
                   badge: _badges[item['type']] ??
                       (
                         item['type'].toString().replaceAll('_', ' '),
@@ -291,6 +306,9 @@ class _FamilyCircleState extends State<FamilyCircle> {
                       ),
                   onRemove: item['isActor'] == true && app.isCaregiver
                       ? () => _removeActor(item['id'], item['name'].toString())
+                      : null,
+                  onAvatarTap: item['isActor'] == true && app.isCaregiver
+                      ? () => _uploadActorAvatar(item['id'])
                       : null,
                 ),
             ],
@@ -419,9 +437,16 @@ class _FamilyCircleState extends State<FamilyCircle> {
 class _CircleCard extends StatelessWidget {
   final String name;
   final (String, Color) badge;
+  final String? imageUrl;
   final VoidCallback? onRemove;
+  final VoidCallback? onAvatarTap;
 
-  const _CircleCard({required this.name, required this.badge, this.onRemove});
+  const _CircleCard(
+      {required this.name,
+      required this.badge,
+      this.imageUrl,
+      this.onRemove,
+      this.onAvatarTap});
 
   @override
   Widget build(BuildContext context) {
@@ -438,11 +463,29 @@ class _CircleCard extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              AvatarCircle(
-                  name: name,
-                  size: 48,
-                  background: badge.$2.withValues(alpha: 0.15),
-                  foreground: badge.$2),
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onAvatarTap,
+                child: AvatarCircle(
+                    name: name,
+                    size: 48,
+                    imageUrl: imageUrl,
+                    background: badge.$2.withValues(alpha: 0.15),
+                    foreground: badge.$2),
+              ),
+              if (onAvatarTap != null)
+                Positioned(
+                  bottom: -4,
+                  left: -4,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: badge.$2, shape: BoxShape.circle),
+                    child: const Text('📷', style: TextStyle(fontSize: 9)),
+                  ),
+                ),
               if (onRemove != null)
                 Positioned(
                   top: -6,
