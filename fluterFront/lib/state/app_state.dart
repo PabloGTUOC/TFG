@@ -36,6 +36,9 @@ class AppState extends ChangeNotifier {
     return role.isEmpty || role == 'caregiver';
   }
 
+  /// Backend user id (from /api/me), used to tell "my" tasks from others'.
+  dynamic get userId => profile?['id'];
+
   void init() {
     if (!firebaseAvailable) {
       authReady = true;

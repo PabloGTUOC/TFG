@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/charts.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/StatsView.vue. The ECharts panels are rendered as
@@ -56,6 +57,40 @@ class _StatsScreenState extends State<StatsScreen> {
     final completion = _listOf('completionRates');
     final statuses = _listOf('statusDistribution');
     final caregivers = (_stats?['activeCaregivers'] as List?) ?? [];
+    final trend = _listOf('trendByMonth');
+    final coinFlow = _listOf('coinFlowByReason');
+
+    // Monthly totals for the trend line (same aggregation as StatsView.vue).
+    final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()..sort();
+    final trendTotals = [
+      for (final m in trendMonths)
+        trend
+            .where((t) => t['month'].toString() == m)
+            .fold<double>(0, (sum, t) => sum + ((t['coins'] as num?) ?? 0)),
+    ];
+
+    // Stacked coin-flow series in the same order/colours as the Vue chart.
+    const flowMeta = [
+      ('activity_completed', 'Activities', AppColors.primary),
+      ('bounty_earned', 'Bounties Earned', AppColors.success),
+      ('bounty_escrow', 'Bounties Paid', AppColors.danger),
+      ('redeemed', 'Rewards Redeemed', AppColors.warning),
+      ('bounty_refunded', 'Bounties Refunded', Color(0xFF94A3B8)),
+    ];
+    final flowMonths = coinFlow.map((d) => d['month'].toString()).toSet().toList()..sort();
+    final flowSeries = [
+      for (final (reason, label, color) in flowMeta)
+        if (coinFlow.any((d) => d['reason'] == reason))
+          StackedBarSeries(label, color, [
+            for (final m in flowMonths)
+              (coinFlow.firstWhere(
+                        (d) => d['month'].toString() == m && d['reason'] == reason,
+                        orElse: () => const {'total': 0},
+                      )['total'] as num? ??
+                      0)
+                  .toDouble(),
+          ]),
+    ];
 
     final maxBalance = balances.fold<num>(
         1, (m, b) => ((b['coin_balance'] as num?) ?? 0) > m ? (b['coin_balance'] as num) : m);
@@ -105,6 +140,18 @@ class _StatsScreenState extends State<StatsScreen> {
           }),
 
           const SizedBox(height: 24),
+
+          if (trendMonths.isNotEmpty)
+            VCard(
+              title: 'Coins Earned Trend',
+              child: LineAreaChart(labels: trendMonths, values: trendTotals),
+            ),
+
+          if (flowSeries.isNotEmpty)
+            VCard(
+              title: 'Coin Flow by Month',
+              child: StackedBarChart(labels: flowMonths, series: flowSeries),
+            ),
 
           if (balances.isNotEmpty)
             VCard(

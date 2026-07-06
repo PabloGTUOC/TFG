@@ -39,7 +39,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   Future<void> _load() async {
     final app = context.read<AppState>();
     try {
-      final data = await app.api.get('/api/activities?familyId=${app.familyId}');
+      final data =
+          await app.api.get('/api/activities?familyId=${app.familyId}');
       final list = data is List ? data : (data['activities'] as List? ?? []);
       if (mounted) {
         setState(() {
@@ -79,16 +80,20 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.lg)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
         title: const Text('Delete activity?',
             style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text('This removes the task template from your family library.'),
+        content: const Text(
+            'This removes the task template from your family library.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+              child: const Text('Delete',
+                  style: TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -110,162 +115,177 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       return true;
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.only(top: 16, bottom: 40),
-      children: [
-        const PageHeading(
-            title: 'Activities',
-            subtitle: 'Your family\'s task library — schedule these from the Daily view.'),
-        SegmentedTabs(
-          tabs: const ['All', 'Care', 'Household'],
-          selected: _filter,
-          onChanged: (i) => setState(() => _filter = i),
-        ),
-        const SizedBox(height: 20),
-        if (filtered.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Text('No activities yet — create the first one below.',
-                style: TextStyle(color: AppColors.textSecondary)),
-          )
-        else
-          for (final a in filtered)
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border.all(color: AppColors.border),
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        color: a['category'] == 'care'
-                            ? AppColors.successSoft
-                            : AppColors.warningSoft,
-                        shape: BoxShape.circle),
-                    child: Text(a['category'] == 'care' ? '❤️' : '🍽️',
-                        style: const TextStyle(fontSize: 17)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text((a['title'] ?? '').toString(),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w800)),
-                        Text(
-                            '${a['duration_minutes'] ?? a['durationMinutes'] ?? '—'} min · ${(a['category'] ?? '').toString()}',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textSecondary)),
-                      ],
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 16, bottom: 40),
+        children: [
+          const PageHeading(
+              title: 'Activities',
+              subtitle:
+                  'Your family\'s task library — schedule these from the Daily view.'),
+          SegmentedTabs(
+            tabs: const ['All', 'Care', 'Household'],
+            selected: _filter,
+            onChanged: (i) => setState(() => _filter = i),
+          ),
+          const SizedBox(height: 20),
+          if (filtered.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Text('No activities yet — create the first one below.',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            )
+          else
+            for (final a in filtered)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: a['category'] == 'care'
+                              ? AppColors.successSoft
+                              : AppColors.warningSoft,
+                          shape: BoxShape.circle),
+                      child: Text(a['category'] == 'care' ? '❤️' : '🍽️',
+                          style: const TextStyle(fontSize: 17)),
                     ),
-                  ),
-                  PillBadge(text: '${a['coin_value'] ?? a['coinValue'] ?? 0} cc'),
-                  IconButton(
-                    onPressed: () => _delete(a['id']),
-                    tooltip: 'Delete',
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 20, color: AppColors.danger),
-                  ),
-                ],
-              ),
-            ),
-        const SizedBox(height: 24),
-        VCard(
-          title: 'New Activity',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              VInput(
-                  controller: _title,
-                  label: 'Title',
-                  placeholder: 'e.g. Prepare dinner'),
-              const SizedBox(height: 16),
-              const Text('Category',
-                  style: TextStyle(
-                      fontSize: 13.6,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (final (value, label) in [('care', '❤️ Care'), ('household', '🍽️ Household')])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(label),
-                        selected: _category == value,
-                        selectedColor: AppColors.primarySoft,
-                        labelStyle: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: _category == value
-                                ? AppColors.primary
-                                : AppColors.textSecondary),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadii.pill),
-                            side: BorderSide(
-                                color: _category == value
-                                    ? AppColors.primary
-                                    : AppColors.border)),
-                        onSelected: (_) => setState(() => _category = value),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text((a['title'] ?? '').toString(),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w800)),
+                          Text(
+                              '${a['duration_minutes'] ?? a['durationMinutes'] ?? '—'} min · ${(a['category'] ?? '').toString()}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary)),
+                        ],
                       ),
                     ),
-                ],
+                    PillBadge(
+                        text: '${a['coin_value'] ?? a['coinValue'] ?? 0} cc'),
+                    IconButton(
+                      onPressed: () => _delete(a['id']),
+                      tooltip: 'Delete',
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          size: 20, color: AppColors.danger),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 20),
-              Text('Duration: ${_duration.round()} min',
-                  style: const TextStyle(
-                      fontSize: 13.6,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500)),
-              Slider(
-                value: _duration,
-                min: 15,
-                max: 180,
-                divisions: 11,
-                activeColor: AppColors.primary,
-                onChanged: (v) => setState(() => _duration = v),
-              ),
-              const SizedBox(height: 8),
-              Text('Coin value: ${_coins.round()} cc',
-                  style: const TextStyle(
-                      fontSize: 13.6,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500)),
-              Slider(
-                value: _coins,
-                min: 1,
-                max: 100,
-                divisions: 99,
-                activeColor: AppColors.warning,
-                onChanged: (v) => setState(() => _coins = v),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Min: 1',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
-                  Text('Suggested: $_baseScore',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
-                  const Text('Max: 100',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              VButton(onPressed: _create, block: true, child: const Text('Create Activity')),
-            ],
+          const SizedBox(height: 24),
+          VCard(
+            title: 'New Activity',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                VInput(
+                    controller: _title,
+                    label: 'Title',
+                    placeholder: 'e.g. Prepare dinner'),
+                const SizedBox(height: 16),
+                const Text('Category',
+                    style: TextStyle(
+                        fontSize: 13.6,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    for (final (value, label) in [
+                      ('care', '❤️ Care'),
+                      ('household', '🍽️ Household')
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(label),
+                          selected: _category == value,
+                          selectedColor: AppColors.primarySoft,
+                          labelStyle: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: _category == value
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary),
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadii.pill),
+                              side: BorderSide(
+                                  color: _category == value
+                                      ? AppColors.primary
+                                      : AppColors.border)),
+                          onSelected: (_) => setState(() => _category = value),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text('Duration: ${_duration.round()} min',
+                    style: const TextStyle(
+                        fontSize: 13.6,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500)),
+                Slider(
+                  value: _duration,
+                  min: 15,
+                  max: 180,
+                  divisions: 11,
+                  activeColor: AppColors.primary,
+                  onChanged: (v) => setState(() => _duration = v),
+                ),
+                const SizedBox(height: 8),
+                Text('Coin value: ${_coins.round()} cc',
+                    style: const TextStyle(
+                        fontSize: 13.6,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500)),
+                Slider(
+                  value: _coins,
+                  min: 1,
+                  max: 100,
+                  divisions: 99,
+                  activeColor: AppColors.warning,
+                  onChanged: (v) => setState(() => _coins = v),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Min: 1',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                    Text('Suggested: $_baseScore',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                    const Text('Max: 100',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                VButton(
+                    onPressed: _create,
+                    block: true,
+                    child: const Text('Create Activity')),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

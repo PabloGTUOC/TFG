@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/family_circle.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/ProfileView.vue: family banner, wallet panel with ledger,
@@ -39,12 +40,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (app.familyId == 0) return;
     try {
       final month = DateFormat('yyyy-MM').format(_month);
-      final data =
-          await app.api.get('/api/me/ledger?familyId=${app.familyId}&month=$month');
+      final data = await app.api
+          .get('/api/me/ledger?familyId=${app.familyId}&month=$month');
       final list = data is List ? data : (data['ledger'] as List? ?? []);
       if (mounted) {
-        setState(() =>
-            _ledger = list.cast<Map>().map((m) => m.cast<String, dynamic>()).toList());
+        setState(() => _ledger =
+            list.cast<Map>().map((m) => m.cast<String, dynamic>()).toList());
       }
     } catch (_) {}
   }
@@ -82,12 +83,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          VInput(controller: _displayName, label: 'Display Name', placeholder: 'Your name'),
+          VInput(
+              controller: _displayName,
+              label: 'Display Name',
+              placeholder: 'Your name'),
           const SizedBox(height: 8),
           Text(app.user?.email ?? '',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: 16),
-          VButton(onPressed: _updateProfile, child: const Text('Update Profile')),
+          VButton(
+              onPressed: _updateProfile, child: const Text('Update Profile')),
           const SizedBox(height: 12),
           VButton(
             type: VButtonType.danger,
@@ -98,94 +104,117 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    return ListView(
-      padding: const EdgeInsets.only(top: 16, bottom: 40),
-      children: [
-        const PageHeading(
-            title: 'Personal Area',
-            subtitle: 'Your wallet, your family and your account.'),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await app.fetchUserData();
+        await _loadLedger();
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 16, bottom: 40),
+        children: [
+          const PageHeading(
+              title: 'Personal Area',
+              subtitle: 'Your wallet, your family and your account.'),
 
-        // Family banner (gradient indigo → violet)
-        if (family != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 24),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.indigo, AppColors.violet]),
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              boxShadow: const [
-                BoxShadow(
-                    color: Color(0x4D6366F1), blurRadius: 20, offset: Offset(0, 6)),
-              ],
+          // Family banner (gradient indigo → violet)
+          if (family != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.indigo, AppColors.violet]),
+                borderRadius: BorderRadius.circular(AppRadii.md),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x4D6366F1),
+                      blurRadius: 20,
+                      offset: Offset(0, 6)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Text('🏡', style: TextStyle(fontSize: 28)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            (family['name'] ??
+                                    family['family_name'] ??
+                                    'My Family')
+                                .toString(),
+                            style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                color: Colors.white)),
+                        Text(
+                            'as ${family['alias'] ?? app.profile?['display_name'] ?? 'member'}',
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xA6FFFFFF))),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0x26FFFFFF),
+                      border: Border.all(color: const Color(0x40FFFFFF)),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('FAMILY ID',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: Color(0xA6FFFFFF))),
+                        Text('${family['family_id'] ?? '—'}',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
+
+          if (wide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('🏡', style: TextStyle(fontSize: 28)),
-                const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text((family['name'] ?? family['family_name'] ?? 'My Family').toString(),
-                          style: const TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                              color: Colors.white)),
-                      Text('as ${family['alias'] ?? app.profile?['display_name'] ?? 'member'}',
-                          style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xA6FFFFFF))),
-                    ],
-                  ),
+                  flex: 2,
+                  child: Column(children: [
+                    wallet,
+                    const SizedBox(height: 24),
+                    const FamilyCircle()
+                  ]),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0x26FFFFFF),
-                    border: Border.all(color: const Color(0x40FFFFFF)),
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('FAMILY ID',
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              color: Color(0xA6FFFFFF))),
-                      Text('${family['family_id'] ?? '—'}',
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              color: Colors.white)),
-                    ],
-                  ),
-                ),
+                const SizedBox(width: 24),
+                Expanded(child: account),
               ],
-            ),
-          ),
-
-        if (wide)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: wallet),
-              const SizedBox(width: 24),
-              Expanded(child: account),
-            ],
-          )
-        else ...[
-          wallet,
-          const SizedBox(height: 24),
-          account,
+            )
+          else ...[
+            wallet,
+            const SizedBox(height: 24),
+            const FamilyCircle(),
+            account,
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -292,7 +321,9 @@ class _WalletPanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text((row['title'] ?? row['reason'] ?? 'Movement').toString(),
+                          Text(
+                              (row['title'] ?? row['reason'] ?? 'Movement')
+                                  .toString(),
                               style: const TextStyle(
                                   fontSize: 14.4,
                                   fontWeight: FontWeight.w700,
@@ -300,7 +331,8 @@ class _WalletPanel extends StatelessWidget {
                           if (row['created_at'] != null)
                             Text(
                                 DateFormat('d MMM · HH:mm').format(
-                                    DateTime.tryParse(row['created_at'].toString()) ??
+                                    DateTime.tryParse(
+                                            row['created_at'].toString()) ??
                                         DateTime.now()),
                                 style: const TextStyle(
                                     fontSize: 12, color: Color(0xFF64748B))),

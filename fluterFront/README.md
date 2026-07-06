@@ -15,16 +15,20 @@ It talks to the same backend (`../backend`, port 3000) with the same Firebase-ID
   sync, login/logout events, success/error toasts with the same timings.
 - **Screens**: Login, Onboarding (create family / join by code / invitations), Family Hub
   dashboard (member cards, week strip, offers, KPIs), Daily timeline (schedule from library,
-  validate, remove), Activities (filters + New Activity with coin slider), Marketplace
-  (Store / History / Create), Stats (balances, completion rates, status distribution),
-  Personal Area (family banner, dark wallet + monthly ledger, account settings, logout).
+  validate, remove, bounties/delegate/take-over, recurrence, absences, day-swipe and
+  swipe-to-remove with affordance), Activities (filters + New Activity with coin slider),
+  Marketplace (Store / History / Create), Stats (balances, completion rates, status
+  distribution, coins-earned trend line, stacked coin-flow chart), Personal Area (family
+  banner, dark wallet + monthly ledger, Family Circle with dependents + email invites +
+  invite links with QR, account settings, logout). Pull-to-refresh on all main screens.
 
 ## Not ported yet (first-pass simplifications)
 
-- Recurrence editing, bounties/bribes actions, absences, delegation/take-over,
-  invite links + QR, avatar upload, push notifications (FCM), the marketing landing page.
-- Stats trend-by-month and coin-flow charts (needs a chart package or custom painters).
-- Swipe gestures from the Daily view (swipe day change, swipe-to-delete).
+- Avatar upload (needs `image_picker` + multipart; sensible to add once native builds exist).
+- Push notifications (FCM) — blocked on `flutterfire configure`.
+- The marketing landing page (Login is the entry screen).
+- Stats per-caregiver trend comparison toggle (total-only line is rendered).
+- Deletion requests / budget management from the Vue Personal Area.
 
 ## Running it
 

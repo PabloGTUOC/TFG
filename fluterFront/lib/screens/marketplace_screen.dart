@@ -51,19 +51,27 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Future<void> _load() async {
     final app = context.read<AppState>();
     try {
-      final data = await app.api.get('/api/marketplace/rewards/${app.familyId}');
+      final data =
+          await app.api.get('/api/marketplace/rewards/${app.familyId}');
       List rewards = [];
       List claimed = [];
       if (data is List) {
         rewards = data;
       } else if (data is Map) {
         rewards = (data['rewards'] as List?) ?? [];
-        claimed = (data['claimed'] as List?) ?? (data['redemptions'] as List?) ?? [];
+        claimed =
+            (data['claimed'] as List?) ?? (data['redemptions'] as List?) ?? [];
       }
       if (mounted) {
         setState(() {
-          _rewards = rewards.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
-          _claimed = claimed.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+          _rewards = rewards
+              .cast<Map>()
+              .map((m) => m.cast<String, dynamic>())
+              .toList();
+          _claimed = claimed
+              .cast<Map>()
+              .map((m) => m.cast<String, dynamic>())
+              .toList();
           _loading = false;
         });
       }
@@ -92,7 +100,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         'cost': int.tryParse(_cost.text) ?? 0,
-        if (_maxUses.text.trim().isNotEmpty) 'maxUses': int.tryParse(_maxUses.text),
+        if (_maxUses.text.trim().isNotEmpty)
+          'maxUses': int.tryParse(_maxUses.text),
       });
       await _load();
     }, 'Reward created!');
@@ -110,22 +119,29 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     final app = context.watch<AppState>();
     if (_loading) return const Center(child: CircularProgressIndicator());
 
-    return ListView(
-      padding: const EdgeInsets.only(top: 16, bottom: 40),
-      children: [
-        const PageHeading(
-            title: 'Marketplace',
-            subtitle: 'Spend earned CareCoins on rewards the family agreed on.'),
-        SegmentedTabs(
-          tabs: app.isCaregiver ? const ['Store', 'History', 'Create'] : const ['Store', 'History'],
-          selected: _tab,
-          onChanged: (i) => setState(() => _tab = i),
-        ),
-        const SizedBox(height: 24),
-        if (_tab == 0) _buildStore(),
-        if (_tab == 1) _buildHistory(),
-        if (_tab == 2) _buildCreate(),
-      ],
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 16, bottom: 40),
+        children: [
+          const PageHeading(
+              title: 'Marketplace',
+              subtitle:
+                  'Spend earned CareCoins on rewards the family agreed on.'),
+          SegmentedTabs(
+            tabs: app.isCaregiver
+                ? const ['Store', 'History', 'Create']
+                : const ['Store', 'History'],
+            selected: _tab,
+            onChanged: (i) => setState(() => _tab = i),
+          ),
+          const SizedBox(height: 24),
+          if (_tab == 0) _buildStore(),
+          if (_tab == 1) _buildHistory(),
+          if (_tab == 2) _buildCreate(),
+        ],
+      ),
     );
   }
 
@@ -133,7 +149,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     if (_rewards.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
-        child: Text('The reward store is empty — a caregiver can add rewards in Create.',
+        child: Text(
+            'The reward store is empty — a caregiver can add rewards in Create.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
     }
@@ -145,7 +162,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         runSpacing: 16,
         children: [
           for (var i = 0; i < _rewards.length; i++)
-            SizedBox(width: w, child: _RewardCard(r: _rewards[i], banner: _bannerColors[(_rewards[i]['id'].hashCode) % 5], onRedeem: () => _redeem(_rewards[i]))),
+            SizedBox(
+                width: w,
+                child: _RewardCard(
+                    r: _rewards[i],
+                    banner: _bannerColors[(_rewards[i]['id'].hashCode) % 5],
+                    onRedeem: () => _redeem(_rewards[i]))),
         ],
       );
     });
@@ -188,13 +210,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       Text((cRow['title'] ?? 'Reward').toString(),
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text(
-                          (cRow['redeemed_by'] ?? cRow['user_name'] ?? '').toString(),
+                          (cRow['redeemed_by'] ?? cRow['user_name'] ?? '')
+                              .toString(),
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
-                PillBadge(text: '-${cRow['cost'] ?? 0} cc', color: AppColors.danger, background: AppColors.dangerSoft),
+                PillBadge(
+                    text: '-${cRow['cost'] ?? 0} cc',
+                    color: AppColors.danger,
+                    background: AppColors.dangerSoft),
               ],
             ),
           ),
@@ -208,7 +234,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          VInput(controller: _title, label: 'Title', placeholder: 'e.g. Movie night pick'),
+          VInput(
+              controller: _title,
+              label: 'Title',
+              placeholder: 'e.g. Movie night pick'),
           const SizedBox(height: 14),
           VInput(
               controller: _description,
@@ -235,7 +264,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          VButton(onPressed: _create, block: true, child: const Text('Create Reward')),
+          VButton(
+              onPressed: _create,
+              block: true,
+              child: const Text('Create Reward')),
         ],
       ),
     );
@@ -247,7 +279,8 @@ class _RewardCard extends StatelessWidget {
   final Color banner;
   final VoidCallback onRedeem;
 
-  const _RewardCard({required this.r, required this.banner, required this.onRedeem});
+  const _RewardCard(
+      {required this.r, required this.banner, required this.onRedeem});
 
   @override
   Widget build(BuildContext context) {
@@ -277,21 +310,26 @@ class _RewardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text((r['title'] ?? '').toString(),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w800)),
                 if ((r['description'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(r['description'].toString(),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          height: 1.5)),
                 ],
                 if (maxUses != null) ...[
                   const SizedBox(height: 8),
                   PillBadge(
                       text: soldOut ? 'Sold out' : '${maxUses - uses} left',
                       color: soldOut ? AppColors.danger : AppColors.warning,
-                      background: soldOut ? AppColors.dangerSoft : AppColors.warningSoft,
+                      background: soldOut
+                          ? AppColors.dangerSoft
+                          : AppColors.warningSoft,
                       fontSize: 11),
                 ],
                 const SizedBox(height: 14),
@@ -318,7 +356,8 @@ class _RewardCard extends StatelessWidget {
                     VButton(
                         disabled: soldOut,
                         onPressed: onRedeem,
-                        child: const Text('Buy', style: TextStyle(fontSize: 14))),
+                        child:
+                            const Text('Buy', style: TextStyle(fontSize: 14))),
                   ],
                 ),
               ],
