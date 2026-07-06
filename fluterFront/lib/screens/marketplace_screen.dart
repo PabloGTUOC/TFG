@@ -1,0 +1,331 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../state/app_state.dart';
+import '../theme/app_theme.dart';
+import '../widgets/ui.dart';
+
+/// Port of views/MarketplaceView.vue: Store / History / Create tabs,
+/// reward cards with rotating banner colours, redeem flow.
+class MarketplaceScreen extends StatefulWidget {
+  const MarketplaceScreen({super.key});
+
+  @override
+  State<MarketplaceScreen> createState() => _MarketplaceScreenState();
+}
+
+class _MarketplaceScreenState extends State<MarketplaceScreen> {
+  int _tab = 0;
+  bool _loading = true;
+  List<Map<String, dynamic>> _rewards = [];
+  List<Map<String, dynamic>> _claimed = [];
+
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _cost = TextEditingController();
+  final _maxUses = TextEditingController();
+
+  static const _bannerColors = [
+    AppColors.primarySoft,
+    AppColors.successSoft,
+    AppColors.warningSoft,
+    AppColors.dangerSoft,
+    Color(0xFFEDE9FE), // violet-soft, 5th banner variant
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _cost.dispose();
+    _maxUses.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final app = context.read<AppState>();
+    try {
+      final data = await app.api.get('/api/marketplace/rewards/${app.familyId}');
+      List rewards = [];
+      List claimed = [];
+      if (data is List) {
+        rewards = data;
+      } else if (data is Map) {
+        rewards = (data['rewards'] as List?) ?? [];
+        claimed = (data['claimed'] as List?) ?? (data['redemptions'] as List?) ?? [];
+      }
+      if (mounted) {
+        setState(() {
+          _rewards = rewards.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+          _claimed = claimed.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _redeem(Map<String, dynamic> r) async {
+    final app = context.read<AppState>();
+    await app.runAction(() async {
+      await app.api.post('/api/marketplace/rewards/${r['id']}/redeem');
+      await Future.wait([_load(), app.fetchUserData()]);
+    }, 'Reward redeemed! Enjoy 🎉');
+  }
+
+  Future<void> _create() async {
+    final app = context.read<AppState>();
+    if (_title.text.trim().isEmpty || _cost.text.trim().isEmpty) {
+      app.setError('Title and cost are required.');
+      return;
+    }
+    final ok = await app.runAction(() async {
+      await app.api.post('/api/marketplace/rewards', {
+        'familyId': app.familyId,
+        'title': _title.text.trim(),
+        'description': _description.text.trim(),
+        'cost': int.tryParse(_cost.text) ?? 0,
+        if (_maxUses.text.trim().isNotEmpty) 'maxUses': int.tryParse(_maxUses.text),
+      });
+      await _load();
+    }, 'Reward created!');
+    if (ok) {
+      _title.clear();
+      _description.clear();
+      _cost.clear();
+      _maxUses.clear();
+      setState(() => _tab = 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    return ListView(
+      padding: const EdgeInsets.only(top: 16, bottom: 40),
+      children: [
+        const PageHeading(
+            title: 'Marketplace',
+            subtitle: 'Spend earned CareCoins on rewards the family agreed on.'),
+        SegmentedTabs(
+          tabs: app.isCaregiver ? const ['Store', 'History', 'Create'] : const ['Store', 'History'],
+          selected: _tab,
+          onChanged: (i) => setState(() => _tab = i),
+        ),
+        const SizedBox(height: 24),
+        if (_tab == 0) _buildStore(),
+        if (_tab == 1) _buildHistory(),
+        if (_tab == 2) _buildCreate(),
+      ],
+    );
+  }
+
+  Widget _buildStore() {
+    if (_rewards.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Text('The reward store is empty — a caregiver can add rewards in Create.',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+    return LayoutBuilder(builder: (context, c) {
+      final perRow = c.maxWidth > kMobileBreakpoint ? 3 : 1;
+      final w = (c.maxWidth - (perRow - 1) * 16) / perRow;
+      return Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: [
+          for (var i = 0; i < _rewards.length; i++)
+            SizedBox(width: w, child: _RewardCard(r: _rewards[i], banner: _bannerColors[(_rewards[i]['id'].hashCode) % 5], onRedeem: () => _redeem(_rewards[i]))),
+        ],
+      );
+    });
+  }
+
+  Widget _buildHistory() {
+    if (_claimed.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Text('No rewards claimed yet.',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+    return Column(
+      children: [
+        for (final cRow in _claimed)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.inputBorder),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 45,
+                  height: 45,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                      color: AppColors.primary, shape: BoxShape.circle),
+                  child: const Text('🎁', style: TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text((cRow['title'] ?? 'Reward').toString(),
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text(
+                          (cRow['redeemed_by'] ?? cRow['user_name'] ?? '').toString(),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                PillBadge(text: '-${cRow['cost'] ?? 0} cc', color: AppColors.danger, background: AppColors.dangerSoft),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCreate() {
+    return VCard(
+      title: 'Create a Reward',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          VInput(controller: _title, label: 'Title', placeholder: 'e.g. Movie night pick'),
+          const SizedBox(height: 14),
+          VInput(
+              controller: _description,
+              label: 'Description',
+              placeholder: 'What does the winner get?',
+              pill: false,
+              maxLines: 3),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                  child: VInput(
+                      controller: _cost,
+                      label: 'Cost (cc)',
+                      placeholder: '50',
+                      keyboardType: TextInputType.number)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: VInput(
+                      controller: _maxUses,
+                      label: 'Max uses (optional)',
+                      placeholder: '∞',
+                      keyboardType: TextInputType.number)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          VButton(onPressed: _create, block: true, child: const Text('Create Reward')),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardCard extends StatelessWidget {
+  final Map<String, dynamic> r;
+  final Color banner;
+  final VoidCallback onRedeem;
+
+  const _RewardCard({required this.r, required this.banner, required this.onRedeem});
+
+  @override
+  Widget build(BuildContext context) {
+    final uses = (r['uses'] as num?) ?? 0;
+    final maxUses = r['max_uses'] as num?;
+    final soldOut = maxUses != null && uses >= maxUses;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 84,
+            color: banner,
+            alignment: Alignment.center,
+            child: const Text('🎁', style: TextStyle(fontSize: 34)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text((r['title'] ?? '').toString(),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                if ((r['description'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(r['description'].toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
+                ],
+                if (maxUses != null) ...[
+                  const SizedBox(height: 8),
+                  PillBadge(
+                      text: soldOut ? 'Sold out' : '${maxUses - uses} left',
+                      color: soldOut ? AppColors.danger : AppColors.warning,
+                      background: soldOut ? AppColors.dangerSoft : AppColors.warningSoft,
+                      fontSize: 11),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('${r['cost'] ?? 0}',
+                            style: const TextStyle(
+                                fontSize: 17.6,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.warning)),
+                        const SizedBox(width: 3),
+                        const Text('cc',
+                            style: TextStyle(
+                                fontSize: 12.8,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.warning)),
+                      ],
+                    ),
+                    VButton(
+                        disabled: soldOut,
+                        onPressed: onRedeem,
+                        child: const Text('Buy', style: TextStyle(fontSize: 14))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
