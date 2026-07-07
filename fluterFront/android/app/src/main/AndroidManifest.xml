@@ -1,8 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET must live in the *main* manifest: debug/profile declare it
+         for tooling only, so without it here a release build cannot reach
+         the backend or Firebase at all. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+ requires this declared (in addition to the runtime
+         prompt from FirebaseMessaging.requestPermission) or FCM
+         notifications are silently dropped. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- usesCleartextTraffic: the backend is plain HTTP (API_BASE defaults
+         to http://…:3000) and Android 9+ blocks cleartext by default.
+         Remove this once the backend is served over HTTPS. -->
     <application
-        android:label="carecoins_flutter"
+        android:label="CareCoins"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

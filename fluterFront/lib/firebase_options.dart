@@ -23,10 +23,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -65,5 +62,19 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1088534743968',
     projectId: 'tfg-carecoins',
     storageBucket: 'tfg-carecoins.firebasestorage.app',
+  );
+
+  // Hand-written from ios/Runner/GoogleService-Info.plist because
+  // `flutterfire configure --platforms=ios` needs the xcodeproj gem;
+  // the values are identical to what the CLI would generate.
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyATjRy1vJZIpiuky37m3UM-BSKrpBuwOn0',
+    appId: '1:1088534743968:ios:643a6a4871ffe3c7d7f2c5',
+    messagingSenderId: '1088534743968',
+    projectId: 'tfg-carecoins',
+    storageBucket: 'tfg-carecoins.firebasestorage.app',
+    iosClientId:
+        '1088534743968-kldnrth77ts11q77o2r0pt4d7ems39c7.apps.googleusercontent.com',
+    iosBundleId: 'com.carecoins.carecoinsFlutter',
   );
 }

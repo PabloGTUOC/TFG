@@ -1,11 +1,11 @@
 {
-    "name": "carecoins_flutter",
-    "short_name": "carecoins_flutter",
+    "name": "CareCoins",
+    "short_name": "CareCoins",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7F8FA",
+    "theme_color": "#2563EB",
+    "description": "Share care work fairly: track family tasks, earn CareCoins and spend them on rewards.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

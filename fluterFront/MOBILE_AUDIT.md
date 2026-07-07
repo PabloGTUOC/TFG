@@ -31,6 +31,35 @@ Priorities: **P0** = release blocker · **P1** = high-impact mobile UX/robustnes
 
 ## 2. P0 — Release blockers (app does not work on a device without these)
 
+> **Status update (2026-07-07, same day):** everything that can live in the
+> repo is done; three steps remain that require external consoles/hardware.
+>
+> - §2.1 ✅ `INTERNET` declared in the main manifest.
+> - §2.2 ✅ cleartext HTTP enabled for the dev backend on both platforms
+>   (`usesCleartextTraffic` / ATS `NSAllowsArbitraryLoads`, each commented as
+>   dev-only). ⚠️ Remaining decision: serve the backend over HTTPS for any
+>   real release, then remove both opt-outs. `API_BASE` still defaults to
+>   `http://localhost:3000` — override per device via `--dart-define`.
+> - §2.3 ✅ iOS `FirebaseOptions` hand-written from `GoogleService-Info.plist`
+>   (identical to flutterfire output), reversed-client-ID URL scheme and
+>   `remote-notification` background mode added to `Info.plist`. Firebase
+>   init and Google Sign-In are now unblocked on iOS. ⚠️ Remaining, needs a
+>   Mac + console: first `pod install`/Xcode build, Push Notifications
+>   capability, APNs key upload.
+> - §2.4 ⚠️ external only: Google Sign-In SHA-1 is confirmed unregistered
+>   (`google-services.json` has no cert-hash OAuth client). Steps documented
+>   in the README ("Android Google Sign-In" section).
+> - §2.5 ✅ `POST_NOTIFICATIONS` declared in the main manifest.
+> - §2.6 ✅ `flutter analyze` (no issues), `flutter test` (pass) and
+>   `flutter build web` (success) run on Flutter 3.44.5 stable for this and
+>   the P1 commit. ⚠️ `flutter build apk` still unverified — no Android SDK
+>   in this environment. Push end-to-end test still open.
+> - §2.7 ✅ app renamed to "CareCoins" (Android label, iOS display name, web
+>   title/manifest/description) and branded launcher icons (accent-gradient
+>   ¢, matching the in-app logo) generated for Android mipmaps, the full iOS
+>   AppIcon set (no alpha) and web icons + favicon. Splash stays default
+>   white — acceptable against the app's near-white background.
+
 ### 2.1 Android release builds have no network access
 `android/app/src/main/AndroidManifest.xml` does not declare
 `android.permission.INTERNET`. Only the `debug/` and `profile/` manifests do (Flutter
