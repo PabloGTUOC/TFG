@@ -143,6 +143,9 @@ class VInput extends StatelessWidget {
   final bool pill;
   final int maxLines;
   final TextInputType? keyboardType;
+  final Iterable<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   const VInput({
     super.key,
@@ -154,6 +157,9 @@ class VInput extends StatelessWidget {
     this.pill = true,
     this.maxLines = 1,
     this.keyboardType,
+    this.autofillHints,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   @override
@@ -177,6 +183,9 @@ class VInput extends StatelessWidget {
           enabled: enabled,
           maxLines: maxLines,
           keyboardType: keyboardType,
+          autofillHints: autofillHints,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
           style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: placeholder,
@@ -230,7 +239,7 @@ class KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width <= kMobileBreakpoint;
+    final compact = !isWideLayout(context);
     return Container(
       padding: EdgeInsets.all(compact ? 12 : 20),
       decoration: BoxDecoration(
@@ -373,6 +382,11 @@ class AvatarCircle extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
+              // Decode at display resolution so the image cache holds small
+              // bitmaps, and keep the old frame while a URL re-resolves.
+              cacheWidth:
+                  (size * MediaQuery.devicePixelRatioOf(context)).round(),
+              gaplessPlayback: true,
               errorBuilder: (_, __, ___) => fallback),
     );
   }
@@ -421,37 +435,87 @@ class SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < tabs.length; i++)
-            GestureDetector(
-              onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                decoration: BoxDecoration(
-                  color: i == selected ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadii.pill),
+    // scaleDown keeps all three labels visible on 320dp-wide phones instead
+    // of overflowing ("Catalogue / New Activity / Budget").
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < tabs.length; i++)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                  decoration: BoxDecoration(
+                    color:
+                        i == selected ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                  ),
+                  child: Text(tabs[i],
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: i == selected
+                              ? Colors.white
+                              : AppColors.textSecondary)),
                 ),
-                child: Text(tabs[i],
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: i == selected
-                            ? Colors.white
-                            : AppColors.textSecondary)),
               ),
-            ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Error placeholder with a retry button. Shown when a screen's load fails
+/// and there is no data to fall back on, so failures stop masquerading as
+/// empty states on flaky connections.
+class LoadErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+  final String message;
+
+  const LoadErrorState({
+    super.key,
+    required this.onRetry,
+    this.message = 'Couldn\'t load data.\nCheck your connection and try again.',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded,
+                size: 36, color: AppColors.textSecondary),
+            const SizedBox(height: 14),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5)),
+            const SizedBox(height: 18),
+            VButton(
+                type: VButtonType.outline,
+                onPressed: onRetry,
+                child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }
@@ -466,7 +530,7 @@ class PageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mobile = MediaQuery.sizeOf(context).width <= kMobileBreakpoint;
+    final mobile = !isWideLayout(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

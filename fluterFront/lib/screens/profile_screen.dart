@@ -16,7 +16,10 @@ import '../widgets/ui.dart';
 /// ledger, un-check revert and insights. Mobile shows Profile/Family/Wallet
 /// tabs like the Vue tab bar.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  /// Whether this is the visible tab; becoming active triggers a refetch.
+  final bool active;
+
+  const ProfileScreen({super.key, this.active = true});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -53,6 +56,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadLedger();
     _loadDeletionRequests();
     _checkNotifPermission();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) {
+      _loadLedger();
+      _loadDeletionRequests();
+    }
   }
 
   Future<void> _checkNotifPermission() async {
@@ -241,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final family = app.family;
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final wide = isWideLayout(context);
 
     final wallet = _WalletPanel(
       balance: toNum(family?['coin_balance']),
@@ -535,7 +547,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           VInput(
               controller: _email,
               label: 'Email Address',
-              placeholder: 'your@email.com'),
+              placeholder: 'your@email.com',
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email]),
           if (family != null) ...[
             const SizedBox(height: 12),
             VInput(

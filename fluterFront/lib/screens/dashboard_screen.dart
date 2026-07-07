@@ -14,7 +14,11 @@ import 'daily_screen.dart';
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenStats;
 
-  const DashboardScreen({super.key, this.onOpenStats});
+  /// Whether this is the visible tab; becoming active triggers a silent
+  /// refetch so the dashboard doesn't go stale between tab switches.
+  final bool active;
+
+  const DashboardScreen({super.key, this.onOpenStats, this.active = true});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -31,11 +35,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _absences = [];
   int _weekOffset = 0;
   bool _loading = true;
+  bool _error = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _load();
   }
 
   List<Map<String, dynamic>> _asMaps(dynamic list) => ((list as List?) ?? [])
@@ -66,14 +77,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _dashboard = Map<String, dynamic>.from(data as Map);
-          _activities = _asMaps(acts['activities']);
+          _activities =
+              acts is List ? _asMaps(acts) : _asMaps(acts['activities']);
           _claimed = claimed;
           _absences = absences;
           _loading = false;
+          _error = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
     }
   }
 
@@ -93,10 +111,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }, 'Member approved!');
   }
 
-  void _openDaily(DateTime day) {
-    Navigator.of(context).push(MaterialPageRoute(
+  Future<void> _openDaily(DateTime day) async {
+    await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) =>
             DailyScreen(date: DateFormat('yyyy-MM-dd').format(day))));
+    // Anything scheduled/validated in Daily should be visible on return.
+    if (mounted) await _load();
   }
 
   Future<void> _logTimeOff() async {
@@ -135,7 +155,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<Map<String, dynamic>> _actsOn(DateTime day) {
     final acts = _scheduled.where((a) {
-      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '');
+      // toLocal() matters: bucketing by the UTC date puts late-evening
+      // tasks on the wrong day column (Daily already converts).
+      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '')?.toLocal();
       return ts != null &&
           ts.year == day.year &&
           ts.month == day.month &&
@@ -190,6 +212,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error && _members.isEmpty && _activities.isEmpty) {
+      return LoadErrorState(onRetry: () {
+        setState(() => _loading = true);
+        _load();
+      });
+    }
 
     final app = context.watch<AppState>();
     final active = _members.where((m) => m['status'] != 'pending').toList();
@@ -202,11 +230,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final completedToday = _scheduled.where((a) {
       if (a['status'] != 'completed') return false;
-      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '');
+      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '')?.toLocal();
       return ts != null && DateTime(ts.year, ts.month, ts.day) == today;
     }).length;
     final todayActs = _scheduled.where((a) {
-      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '');
+      final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '')?.toLocal();
       return ts != null && DateTime(ts.year, ts.month, ts.day) == today;
     }).length;
     final pendingTasks = _activities
@@ -426,7 +454,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                   DateFormat('EEE d MMM · HH:mm').format(
                                       DateTime.parse(
-                                          offer['starts_at'].toString())),
+                                              offer['starts_at'].toString())
+                                          .toLocal()),
                                   style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.textSecondary)),
@@ -445,53 +474,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
           LayoutBuilder(builder: (context, c) {
             final perRow = c.maxWidth > kMobileBreakpoint ? 4 : 2;
             final w = (c.maxWidth - (perRow - 1) * 14) / perRow;
-            return InkWell(
-              onTap: widget.onOpenStats,
-              child: Wrap(
-                spacing: 14,
-                runSpacing: 14,
-                children: [
-                  SizedBox(
-                      width: w,
-                      child: KpiCard(
-                          label: 'Family Balance',
-                          value:
-                              NumberFormat.decimalPattern().format(totalCoins),
-                          unit: 'cc',
-                          subtitle:
-                              'across ${_members.length} ${_members.length == 1 ? 'member' : 'members'}')),
-                  SizedBox(
-                      width: w,
-                      child: KpiCard(
-                          label: 'Tasks Today',
-                          value: '$completedToday/$todayActs',
-                          accent: AppColors.success,
-                          subtitle: pendingTasks > 0
-                              ? '$pendingTasks awaiting validation'
-                              : 'on track',
-                          progress: todayActs == 0
-                              ? 0
-                              : 100 * completedToday / todayActs)),
-                  SizedBox(
-                      width: w,
-                      child: KpiCard(
-                          label: 'Open Bounties',
-                          value: '${offers.length}',
-                          accent: AppColors.warning,
-                          subtitle: offers.isEmpty
-                              ? 'No bounties open'
-                              : '$bountyTotal cc up for grabs')),
-                  SizedBox(
-                      width: w,
-                      child: KpiCard(
-                          label: 'Recent Activity',
-                          value: '${recent.length}',
-                          accent: AppColors.textPrimary,
-                          subtitle: recent.isEmpty
-                              ? 'no recent activity'
-                              : 'completed recently')),
-                ],
-              ),
+            return Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              children: [
+                SizedBox(
+                    width: w,
+                    child: InkWell(
+                        onTap: widget.onOpenStats,
+                        child: KpiCard(
+                            label: 'Family Balance',
+                            value: NumberFormat.decimalPattern()
+                                .format(totalCoins),
+                            unit: 'cc',
+                            subtitle:
+                                'across ${_members.length} ${_members.length == 1 ? 'member' : 'members'}'))),
+                SizedBox(
+                    width: w,
+                    // The most-used destination gets a direct entry point:
+                    // tapping "Tasks Today" opens today's Daily view.
+                    child: InkWell(
+                        onTap: () => _openDaily(DateTime.now()),
+                        child: KpiCard(
+                            label: 'Tasks Today',
+                            value: '$completedToday/$todayActs',
+                            accent: AppColors.success,
+                            subtitle: pendingTasks > 0
+                                ? '$pendingTasks awaiting validation'
+                                : 'on track',
+                            progress: todayActs == 0
+                                ? 0
+                                : 100 * completedToday / todayActs))),
+                SizedBox(
+                    width: w,
+                    child: InkWell(
+                        onTap: widget.onOpenStats,
+                        child: KpiCard(
+                            label: 'Open Bounties',
+                            value: '${offers.length}',
+                            accent: AppColors.warning,
+                            subtitle: offers.isEmpty
+                                ? 'No bounties open'
+                                : '$bountyTotal cc up for grabs'))),
+                SizedBox(
+                    width: w,
+                    child: InkWell(
+                        onTap: widget.onOpenStats,
+                        child: KpiCard(
+                            label: 'Recent Activity',
+                            value: '${recent.length}',
+                            accent: AppColors.textPrimary,
+                            subtitle: recent.isEmpty
+                                ? 'no recent activity'
+                                : 'completed recently'))),
+              ],
             );
           }),
 
@@ -633,10 +669,10 @@ class _PaginationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.bg,
@@ -859,7 +895,7 @@ class _ActChip extends StatelessWidget {
       border = Border.all(color: AppColors.border);
     }
 
-    final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '');
+    final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '')?.toLocal();
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 5),

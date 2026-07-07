@@ -22,7 +22,9 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int _index = 0;
-  String _lastToast = '';
+  // Lazy tab construction: a tab's screen (and its API calls) is only built
+  // on first visit instead of firing ~10 requests at startup.
+  final Set<int> _visited = {0};
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -30,7 +32,9 @@ class _ShellState extends State<Shell> {
     super.initState();
     // Port of the Vue visibilitychange refetch: refresh /api/me on resume.
     _lifecycle = AppLifecycleListener(
-      onResume: () => context.read<AppState>().fetchUserData(),
+      onResume: () {
+        if (mounted) context.read<AppState>().fetchUserData();
+      },
     );
     // Silent FCM re-registration when permission was already granted.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -52,38 +56,25 @@ class _ShellState extends State<Shell> {
     (icon: Icons.person_rounded, label: 'Me'),
   ];
 
-  void _showToasts(AppState app) {
-    final msg = app.error.isNotEmpty ? app.error : app.success;
-    if (msg.isEmpty || msg == _lastToast) {
-      if (msg.isEmpty) _lastToast = '';
-      return;
-    }
-    _lastToast = msg;
-    final isError = app.error.isNotEmpty;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          content: Text(msg),
-          backgroundColor: isError ? AppColors.danger : AppColors.success,
-          duration: Duration(milliseconds: isError ? 5000 : 3500),
-        ));
-    });
-  }
+  /// Navigate to a tab, marking it visited so it gets built.
+  void _go(int i) => setState(() {
+        _index = i;
+        _visited.add(i);
+      });
 
   @override
   Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
-    _showToasts(app);
+    final wide = isWideLayout(context);
 
+    // `active` tells a screen it just became the visible tab so it can
+    // silently refetch — without it, tabs go stale (IndexedStack keeps
+    // them alive but initState never runs again).
     final screens = [
-      DashboardScreen(onOpenStats: () => setState(() => _index = 3)),
-      const ActivitiesScreen(),
-      const MarketplaceScreen(),
-      const StatsScreen(),
-      const ProfileScreen(),
+      DashboardScreen(active: _index == 0, onOpenStats: () => _go(3)),
+      ActivitiesScreen(active: _index == 1),
+      MarketplaceScreen(active: _index == 2),
+      StatsScreen(active: _index == 3),
+      ProfileScreen(active: _index == 4),
     ];
 
     return Scaffold(
@@ -95,7 +86,7 @@ class _ShellState extends State<Shell> {
             _PillHeader(
               wide: wide,
               index: _index,
-              onNavigate: (i) => setState(() => _index = i),
+              onNavigate: _go,
             ),
             Expanded(
               child: Center(
@@ -104,11 +95,14 @@ class _ShellState extends State<Shell> {
                   child: IndexedStack(
                     index: _index,
                     children: [
-                      for (final s in screens)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: s,
-                        ),
+                      for (var i = 0; i < screens.length; i++)
+                        if (_visited.contains(i))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: screens[i],
+                          )
+                        else
+                          const SizedBox.shrink(),
                     ],
                   ),
                 ),
@@ -133,7 +127,7 @@ class _ShellState extends State<Shell> {
                       for (var i = 0; i < _tabs.length; i++)
                         Expanded(
                           child: InkWell(
-                            onTap: () => setState(() => _index = i),
+                            onTap: () => _go(i),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [

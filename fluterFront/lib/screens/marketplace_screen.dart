@@ -10,7 +10,10 @@ import '../utils/json.dart';
 /// Port of views/MarketplaceView.vue: Store / History / Create tabs,
 /// reward cards with rotating banner colours, redeem flow.
 class MarketplaceScreen extends StatefulWidget {
-  const MarketplaceScreen({super.key});
+  /// Whether this is the visible tab; becoming active triggers a refetch.
+  final bool active;
+
+  const MarketplaceScreen({super.key, this.active = true});
 
   @override
   State<MarketplaceScreen> createState() => _MarketplaceScreenState();
@@ -19,6 +22,7 @@ class MarketplaceScreen extends StatefulWidget {
 class _MarketplaceScreenState extends State<MarketplaceScreen> {
   int _tab = 0;
   bool _loading = true;
+  bool _error = false;
   List<Map<String, dynamic>> _rewards = [];
   List<Map<String, dynamic>> _claimed = [];
 
@@ -41,6 +45,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant MarketplaceScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _load();
   }
 
   @override
@@ -77,10 +87,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               .map((m) => m.cast<String, dynamic>())
               .toList();
           _loading = false;
+          _error = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
     }
   }
 
@@ -151,6 +167,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error && _rewards.isEmpty && _claimed.isEmpty) {
+      return LoadErrorState(onRetry: () {
+        setState(() => _loading = true);
+        _load();
+      });
+    }
 
     return RefreshIndicator(
       onRefresh: _load,

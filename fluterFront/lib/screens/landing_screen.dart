@@ -53,7 +53,7 @@ class LandingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final wide = isWideLayout(context);
 
     return Scaffold(
       backgroundColor: AppColors.surface,

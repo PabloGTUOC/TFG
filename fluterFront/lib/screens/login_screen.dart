@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
@@ -39,11 +40,45 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await app.login(_email.text.trim(), _password.text);
       }
+      // Let the OS password manager offer to save the credentials.
+      TextInput.finishAutofillContext();
     } catch (_) {
       // errors are surfaced via the state toasts
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _forgotPassword() async {
+    final app = context.read<AppState>();
+    final ctl = TextEditingController(text: _email.text.trim());
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
+        title: const Text('Reset password',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: VInput(
+            controller: ctl,
+            label: 'Email Address',
+            placeholder: 'hello@carecoins.app',
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send reset email')),
+        ],
+      ),
+    );
+    if (ok == true && ctl.text.trim().isNotEmpty) {
+      await app.resetPassword(ctl.text);
+    }
+    ctl.dispose();
   }
 
   Future<void> _google() async {
@@ -77,19 +112,50 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.textSecondary, height: 1.6),
                   ),
                   const SizedBox(height: 32),
-                  VInput(
-                      controller: _email,
-                      label: 'Email Address',
-                      placeholder: 'hello@carecoins.app',
-                      enabled: !_loading,
-                      keyboardType: TextInputType.emailAddress),
-                  const SizedBox(height: 16),
-                  VInput(
-                      controller: _password,
-                      label: 'Password',
-                      placeholder: '••••••••',
-                      obscure: true,
-                      enabled: !_loading),
+                  AutofillGroup(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        VInput(
+                            controller: _email,
+                            label: 'Email Address',
+                            placeholder: 'hello@carecoins.app',
+                            enabled: !_loading,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [
+                              AutofillHints.username,
+                              AutofillHints.email
+                            ],
+                            textInputAction: TextInputAction.next),
+                        const SizedBox(height: 16),
+                        VInput(
+                            controller: _password,
+                            label: 'Password',
+                            placeholder: '••••••••',
+                            obscure: true,
+                            enabled: !_loading,
+                            autofillHints: [
+                              _isRegistering
+                                  ? AutofillHints.newPassword
+                                  : AutofillHints.password
+                            ],
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit()),
+                      ],
+                    ),
+                  ),
+                  if (!_isRegistering)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _loading ? null : _forgotPassword,
+                        child: const Text('Forgot password?',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.underline)),
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   VButton(
                     block: true,

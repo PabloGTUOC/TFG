@@ -13,7 +13,10 @@ import '../widgets/ui.dart';
 /// slider is bounded to 0.5×–1.5× of the suggestion, and pending templates
 /// carry an Approve action.
 class ActivitiesScreen extends StatefulWidget {
-  const ActivitiesScreen({super.key});
+  /// Whether this is the visible tab; becoming active triggers a refetch.
+  final bool active;
+
+  const ActivitiesScreen({super.key, this.active = true});
 
   @override
   State<ActivitiesScreen> createState() => _ActivitiesScreenState();
@@ -23,6 +26,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   List<Map<String, dynamic>> _activities = [];
   Map<String, dynamic>? _budget;
   bool _loading = true;
+  bool _error = false;
   int _tab = 0; // 0 catalogue, 1 new, 2 budget
   int _filter = 0; // 0 all, 1 care, 2 household
 
@@ -36,6 +40,12 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant ActivitiesScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _load();
   }
 
   @override
@@ -62,10 +72,16 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           _budget = budget;
           _coins = _baseScore.toDouble().clamp(1, double.infinity);
           _loading = false;
+          _error = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
     }
   }
 
@@ -156,6 +172,12 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error && _activities.isEmpty) {
+      return LoadErrorState(onRetry: () {
+        setState(() => _loading = true);
+        _load();
+      });
+    }
 
     return RefreshIndicator(
       onRefresh: _load,

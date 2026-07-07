@@ -40,9 +40,56 @@ class CareCoinsApp extends StatelessWidget {
         title: 'CareCoins',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const _AuthGate(),
+        // Fixed-height chrome (bottom tabs, timeline chips) breaks beyond
+        // ~130% OS font scale; clamp until those containers are flexible.
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(
+                textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
+            child: child!,
+          );
+        },
+        home: const _ToastListener(child: _AuthGate()),
       ),
     );
+  }
+}
+
+/// Shows AppState success/error messages as snackbars app-wide, so toasts
+/// also reach logged-out screens (login errors, password-reset feedback).
+class _ToastListener extends StatefulWidget {
+  final Widget child;
+  const _ToastListener({required this.child});
+
+  @override
+  State<_ToastListener> createState() => _ToastListenerState();
+}
+
+class _ToastListenerState extends State<_ToastListener> {
+  String _lastToast = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final msg = app.error.isNotEmpty ? app.error : app.success;
+    if (msg.isEmpty) {
+      _lastToast = '';
+    } else if (msg != _lastToast) {
+      _lastToast = msg;
+      final isError = app.error.isNotEmpty;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(
+            content: Text(msg),
+            backgroundColor: isError ? AppColors.danger : AppColors.success,
+            duration: Duration(milliseconds: isError ? 5000 : 3500),
+          ));
+      });
+    }
+    return widget.child;
   }
 }
 

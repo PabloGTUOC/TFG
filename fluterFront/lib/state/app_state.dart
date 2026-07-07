@@ -138,6 +138,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> resetPassword(String email) async {
+    clearMessages();
+    try {
+      await fb.FirebaseAuth.instance
+          .sendPasswordResetEmail(email: email.trim());
+      setSuccess('Password reset email sent to ${email.trim()}.');
+    } catch (e) {
+      setError(_authMessage(e));
+    }
+  }
+
   Future<void> _afterSignIn(fb.User u) async {
     user = u;
     api.token = await u.getIdToken() ?? '';

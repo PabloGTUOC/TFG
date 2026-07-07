@@ -14,7 +14,10 @@ import '../widgets/ui.dart';
 /// leaderboard, completion rates, bounty stats, coin flow, rewards by
 /// member, top rewards and status distribution.
 class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key});
+  /// Whether this is the visible tab; becoming active triggers a refetch.
+  final bool active;
+
+  const StatsScreen({super.key, this.active = true});
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
@@ -23,6 +26,7 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   Map<String, dynamic>? _stats;
   bool _loading = true;
+  bool _error = false;
   bool _compare = false;
   int _tab = 0; // mobile: 0 overview, 1 members, 2 economy
 
@@ -39,6 +43,12 @@ class _StatsScreenState extends State<StatsScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant StatsScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _load();
+  }
+
   Future<void> _load() async {
     final app = context.read<AppState>();
     try {
@@ -47,10 +57,16 @@ class _StatsScreenState extends State<StatsScreen> {
         setState(() {
           _stats = Map<String, dynamic>.from(data as Map);
           _loading = false;
+          _error = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
     }
   }
 
@@ -73,12 +89,18 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_stats == null) {
+      if (_error) {
+        return LoadErrorState(onRetry: () {
+          setState(() => _loading = true);
+          _load();
+        });
+      }
       return const Center(
           child: Text('No stats available yet.',
               style: TextStyle(color: AppColors.textSecondary)));
     }
 
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final wide = isWideLayout(context);
     final overview = _buildOverview();
     final members = _buildMembers();
     final economy = _buildEconomy();

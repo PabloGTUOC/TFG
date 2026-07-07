@@ -488,18 +488,25 @@ class _CircleCard extends StatelessWidget {
                 ),
               if (onRemove != null)
                 Positioned(
-                  top: -6,
-                  right: -6,
+                  // Padding enlarges the tap area (22px visual → ~38px hit)
+                  // while keeping the ✕ in the same visual spot.
+                  top: -14,
+                  right: -14,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: onRemove,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                          color: AppColors.dangerSoft, shape: BoxShape.circle),
-                      child: const Icon(Icons.close_rounded,
-                          size: 14, color: AppColors.danger),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                            color: AppColors.dangerSoft,
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.close_rounded,
+                            size: 14, color: AppColors.danger),
+                      ),
                     ),
                   ),
                 ),

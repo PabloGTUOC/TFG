@@ -59,6 +59,14 @@ abstract class AppRadii {
 /// (mirrors the Vue `@media (max-width: 768px)` breakpoint).
 const kMobileBreakpoint = 768.0;
 
+/// Whether to use the wide (desktop/tablet) presentation. Width alone is not
+/// enough on mobile: a phone in landscape is >768px wide but must keep the
+/// mobile navigation, so a tablet-class shortest side is also required.
+bool isWideLayout(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  return size.width > kMobileBreakpoint && size.shortestSide >= 600;
+}
+
 ThemeData buildAppTheme() {
   final base = ThemeData(
     useMaterial3: true,

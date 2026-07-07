@@ -180,7 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final wide = isWideLayout(context);
 
     final createCard = _buildCreateWizard(app);
 
@@ -354,7 +354,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Expanded(
                       child: VInput(
                           controller: c.email,
-                          placeholder: 'caregiver@example.com')),
+                          placeholder: 'caregiver@example.com',
+                          keyboardType: TextInputType.emailAddress)),
                   IconButton(
                     onPressed: () => setState(() {
                       _caretakers.removeAt(i).dispose();

@@ -102,6 +102,22 @@ Low effort, but it is what a tribunal/user sees first on a home screen.
 
 ## 3. P1 — High-impact mobile UX and robustness
 
+> **Status update (2026-07-07, same day):** all ten P1 items below were
+> implemented in the follow-up commit on this branch. Per-item notes:
+> §3.1 ✅ `touchAwareDraggable` (long-press on touch) · §3.2 ✅ `isWideLayout()`
+> (width + shortestSide ≥ 600) · §3.3 ✅ lazy tab build + refetch-on-activation
+> (`active` prop) + dashboard reload when Daily pops · §3.4 ✅ pull-to-refresh on
+> both Daily layouts, "Tasks Today" KPI opens today's Daily · §3.5 ✅ `.toLocal()`
+> on dashboard bucketing/formatting, hour labels now 24h · §3.6 ✅ `LoadErrorState`
+> + retry on the five load screens, human-readable network errors, 20s timeout
+> · §3.7 ✅ larger hit areas (timeline pills, week pagination 44px, dependent-remove ✕);
+> the *compact* grid-chip pills keep their size (pointer-first surface)
+> · §3.8 ✅ autofill/keyboard actions/submit-on-enter + forgot-password + app-wide
+> toasts (previously login errors were invisible — Shell owned the only listener)
+> · §3.9 ✅ textScaler clamped at 1.3 (containers not yet flexible), SegmentedTabs
+> FittedBox · §3.10 ✅ `cacheWidth` + `gaplessPlayback` (disk cache via
+> `cached_network_image` deferred — new dependency needs a `pub get`).
+
 ### 3.1 Drag & drop uses `Draggable`, which breaks touch scrolling
 `daily_screen.dart:1371` (Task Library rows) and `daily_screen.dart:999` (scheduled
 chips) use `Draggable`, which grabs the pointer **immediately**. On a touchscreen,

@@ -34,10 +34,14 @@ class ApiClient {
       final req = http.Request(method, uri)..headers.addAll(_headers);
       if (body != null) req.body = jsonEncode(body);
       final streamed =
-          await client.send(req).timeout(const Duration(seconds: 10));
+          await client.send(req).timeout(const Duration(seconds: 20));
       res = await http.Response.fromStream(streamed);
     } on TimeoutException {
-      throw ApiException('Request timed out');
+      throw ApiException('Request timed out — check your connection.');
+    } on http.ClientException {
+      // http wraps SocketException & co.; surface a human message instead
+      // of "ClientException with SocketException: Failed host lookup…".
+      throw ApiException('Network error — check your connection.');
     } finally {
       client.close();
     }

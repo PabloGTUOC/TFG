@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -34,10 +35,46 @@ String formatGap(int minutes) {
   return m > 0 ? '${h}h ${m}min' : '${h}h';
 }
 
+bool get _isTouchDevice =>
+    defaultTargetPlatform == TargetPlatform.iOS ||
+    defaultTargetPlatform == TargetPlatform.android;
+
+/// A plain [Draggable] grabs the pointer immediately, which makes lists and
+/// the hour grid unscrollable by touch (a scroll gesture starting on a chip
+/// becomes a drag). On touch devices use long-press to start dragging.
+Widget touchAwareDraggable({
+  required Map<String, dynamic> data,
+  VoidCallback? onDragStarted,
+  void Function(DraggableDetails)? onDragEnd,
+  required Widget feedback,
+  Widget? childWhenDragging,
+  required Widget child,
+}) {
+  if (_isTouchDevice) {
+    return LongPressDraggable<Map<String, dynamic>>(
+      data: data,
+      onDragStarted: onDragStarted,
+      onDragEnd: onDragEnd,
+      feedback: feedback,
+      childWhenDragging: childWhenDragging,
+      child: child,
+    );
+  }
+  return Draggable<Map<String, dynamic>>(
+    data: data,
+    onDragStarted: onDragStarted,
+    onDragEnd: onDragEnd,
+    feedback: feedback,
+    childWhenDragging: childWhenDragging,
+    child: child,
+  );
+}
+
 class _DailyScreenState extends State<DailyScreen> {
   List<Map<String, dynamic>> _activities = [];
   List<Map<String, dynamic>> _absences = [];
   bool _loading = true;
+  bool _error = false;
   late DateTime _day;
   bool _draggingScheduled = false;
   final _gridScroll = ScrollController();
@@ -78,11 +115,17 @@ class _DailyScreenState extends State<DailyScreen> {
           _absences =
               abs.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
           _loading = false;
+          _error = false;
         });
         _scrollToNow();
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
     }
   }
 
@@ -618,7 +661,7 @@ class _DailyScreenState extends State<DailyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width > kMobileBreakpoint;
+    final wide = isWideLayout(context);
     final items = _scheduledToday;
     final done = _completedToday.length;
 
@@ -673,7 +716,12 @@ class _DailyScreenState extends State<DailyScreen> {
             ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : _error && _activities.isEmpty
+              ? LoadErrorState(onRetry: () {
+                  setState(() => _loading = true);
+                  _load();
+                })
+              : Column(
               children: [
                 // Day progress: "X / Y done · 🪙 Zcc"
                 Padding(
@@ -810,8 +858,11 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Widget _buildHourGrid(List<Map<String, dynamic>> items) {
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: SingleChildScrollView(
       controller: _gridScroll,
+      physics: const AlwaysScrollableScrollPhysics(),
       child: DragTarget<Map<String, dynamic>>(
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (details) {
@@ -882,13 +933,12 @@ class _DailyScreenState extends State<DailyScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
-  String _hourLabel(int h24) {
-    final h = h24 > 12 ? h24 - 12 : h24;
-    return '$h:00 ${h24 >= 12 ? 'PM' : 'AM'}';
-  }
+  // 24-hour labels, consistent with the HH:mm format on every chip/card.
+  String _hourLabel(int h24) => '${(h24 % 24).toString().padLeft(2, '0')}:00';
 
   Widget _buildChip(Map<String, dynamic> a) {
     final ts = _startsAt(a)!;
@@ -996,7 +1046,7 @@ class _DailyScreenState extends State<DailyScreen> {
       right: 10,
       child: completed
           ? interactive
-          : Draggable<Map<String, dynamic>>(
+          : touchAwareDraggable(
               data: {'type': 'scheduled', 'activity': a},
               onDragStarted: () => setState(() => _draggingScheduled = true),
               onDragEnd: (_) => setState(() => _draggingScheduled = false),
@@ -1020,7 +1070,10 @@ class _DailyScreenState extends State<DailyScreen> {
         if (v < -300) _changeDay(1);
         if (v > 300) _changeDay(-1);
       },
-      child: ListView(
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
         children: [
           for (final abs in _dayAbsences)
@@ -1093,6 +1146,7 @@ class _DailyScreenState extends State<DailyScreen> {
               _buildDismissibleCard(a),
             ],
         ],
+        ),
       ),
     );
   }
@@ -1176,7 +1230,19 @@ class _ActivityAction extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 color: color)),
       );
-      return onTap == null ? w : GestureDetector(onTap: onTap, child: w);
+      if (onTap == null) return w;
+      // Pad the tap area toward the 44dp guideline without growing the
+      // visual pill; the compact grid chips have no vertical room to spare.
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: compact
+            ? w
+            : Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                child: w),
+      );
     }
 
     if (status == 'pending_validation') {
@@ -1368,7 +1434,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
       ),
     );
 
-    return Draggable<Map<String, dynamic>>(
+    return touchAwareDraggable(
       data: {'type': 'template', 'activity': t},
       feedback: Material(
         color: Colors.transparent,
