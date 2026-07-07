@@ -167,6 +167,9 @@ class VInput extends StatelessWidget {
     final radius = BorderRadius.circular(
         pill && maxLines == 1 ? AppRadii.pill : AppRadii.md);
     return Column(
+      // min, or a VInput used directly as AlertDialog content stretches
+      // the dialog to full screen height.
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[

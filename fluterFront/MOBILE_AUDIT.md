@@ -146,6 +146,17 @@ Low effort, but it is what a tribunal/user sees first on a home screen.
 > · §3.9 ✅ textScaler clamped at 1.3 (containers not yet flexible), SegmentedTabs
 > FittedBox · §3.10 ✅ `cacheWidth` + `gaplessPlayback` (disk cache via
 > `cached_network_image` deferred — new dependency needs a `pub get`).
+>
+> **UX drive (2026-07-07):** the logged-out surface was exercised end-to-end in
+> a Playwright-driven Chromium at a 390×844 phone viewport (and 844×390
+> landscape) against the real web build with the real Firebase SDK: landing
+> scroll + CTAs, login, typing, Enter-to-submit, empty-field toast, real
+> invalid-credential toast (root ToastListener confirmed on logged-out
+> screens), forgot-password dialog, register toggle, back navigation,
+> landscape keeping the mobile layout. One bug found & fixed: `VInput` used
+> directly as `AlertDialog` content stretched the reset-password dialog to
+> full screen height (missing `mainAxisSize: min`). Logged-in screens remain
+> undriven — they need the backend + a test account.
 
 ### 3.1 Drag & drop uses `Draggable`, which breaks touch scrolling
 `daily_screen.dart:1371` (Task Library rows) and `daily_screen.dart:999` (scheduled
