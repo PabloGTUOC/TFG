@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,11 @@ import 'screens/shell.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 
+/// Point auth at the Firebase Auth Emulator for local testing, matching the
+/// backend's `npm run dev:test`. Example:
+///   flutter run --dart-define=AUTH_EMULATOR=localhost:9099
+const String _kAuthEmulator = String.fromEnvironment('AUTH_EMULATOR');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -17,6 +23,11 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+    if (_kAuthEmulator.isNotEmpty) {
+      final parts = _kAuthEmulator.split(':');
+      await fb.FirebaseAuth.instance.useAuthEmulator(
+          parts[0], parts.length > 1 ? int.parse(parts[1]) : 9099);
+    }
   } catch (e) {
     // Keep the app bootable before `flutterfire configure` has been run.
     firebaseAvailable = false;

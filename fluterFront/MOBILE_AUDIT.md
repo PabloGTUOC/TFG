@@ -157,6 +157,21 @@ Low effort, but it is what a tribunal/user sees first on a home screen.
 > directly as `AlertDialog` content stretched the reset-password dialog to
 > full screen height (missing `mainAxisSize: min`). Logged-in screens remain
 > undriven — they need the backend + a test account.
+>
+> **Logged-in UX drive (2026-07-07, later same day):** full stack run locally —
+> Postgres 16 + the real backend + the **Firebase Auth Emulator** (new
+> `--dart-define=AUTH_EMULATOR=host:port` hook in `main.dart`, matching the
+> backend's `npm run dev:test`; nothing touched the production Firebase
+> project). Driven end-to-end at the phone viewport: register → onboarding
+> wizard (family + care object) → Family Hub (member cards, week strip,
+> KPIs) → all five tabs (lazy build + active refetch working) → "Tasks
+> Today" KPI → Daily → FAB → task sheet → schedule dialog → scheduled card
+> with gap indicator + success toast. Findings fixed: onboarding caretaker
+> placeholders truncated on 390dp ("Name (op…"), and the care-time dropdown
+> label collided with its arrow (now `isExpanded` + ellipsis). Known
+> cosmetic, dev-only: the auth-emulator warning banner overlays the bottom
+> tab bar. Still unexercised: validate/bounty/revert lifecycle (needs a
+> second account), marketplace redeem, avatar upload, push.
 
 ### 3.1 Drag & drop uses `Draggable`, which breaks touch scrolling
 `daily_screen.dart:1371` (Task Library rows) and `daily_screen.dart:999` (scheduled

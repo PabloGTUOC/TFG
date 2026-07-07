@@ -347,14 +347,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Short placeholders: the long ones truncated to
+                  // "Name (op…" / "caregiver…" on 390dp-wide screens.
                   Expanded(
-                      child: VInput(
-                          controller: c.name, placeholder: 'Name (optional)')),
+                      child: VInput(controller: c.name, placeholder: 'Name')),
                   const SizedBox(width: 8),
                   Expanded(
                       child: VInput(
                           controller: c.email,
-                          placeholder: 'caregiver@example.com',
+                          placeholder: 'Email address',
                           keyboardType: TextInputType.emailAddress)),
                   IconButton(
                     onPressed: () => setState(() {
@@ -412,6 +413,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: o.type,
+                          isExpanded: true,
                           decoration: const InputDecoration(isDense: true),
                           items: [
                             for (final (v, label) in _typeOptions)
@@ -423,14 +425,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
+                        // isExpanded ellipsizes the long "Full Time (24
+                        // coins/day)" label instead of colliding with the
+                        // dropdown arrow on narrow screens.
                         child: DropdownButtonFormField<String>(
                           initialValue: o.careTime,
+                          isExpanded: true,
                           decoration: const InputDecoration(isDense: true),
                           items: [
                             for (final (v, label) in _careTimeOptions)
                               DropdownMenuItem(
                                   value: v,
                                   child: Text(label,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 13))),
                           ],
                           onChanged: (v) =>

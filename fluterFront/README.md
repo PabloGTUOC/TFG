@@ -47,6 +47,19 @@ The backend URL defaults to `http://localhost:3000`; override with `--dart-defin
 platform shells currently opt out of cleartext blocking (`usesCleartextTraffic` on Android,
 `NSAllowsArbitraryLoads` on iOS) — **remove both once the backend is served over HTTPS**.
 
+### Local end-to-end testing without the real Firebase project
+
+The app supports the Firebase Auth Emulator (pairs with the backend's `npm run dev:test`),
+so the full stack runs offline with throwaway accounts:
+
+```bash
+firebase emulators:start --only auth --project tfg-carecoins   # port 9099
+cd backend && FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=tfg-carecoins \
+  DATABASE_URL=postgres://… ALLOWED_ORIGINS=http://localhost:8080 RESEND_API_KEY=re_dummy \
+  node src/server.js
+cd fluterFront && flutter run --dart-define=AUTH_EMULATOR=localhost:9099
+```
+
 ## Firebase setup
 
 Firebase is configured for **web, Android and iOS** against project `tfg-carecoins`:
