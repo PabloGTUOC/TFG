@@ -134,8 +134,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return [for (var d = 0; d < 7; d++) monday.add(Duration(days: d))];
   }
 
-  String get _weekLabel {
-    final first = _weekDays.first, last = _weekDays.last;
+  /// Phone variant of the week: a rolling window that always starts on
+  /// today (plus the pagination offset) — caregivers on mobile think in
+  /// "what's ahead", not calendar weeks.
+  List<DateTime> get _rollingDays {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .add(Duration(days: _weekOffset * 7));
+    return [for (var d = 0; d < 8; d++) start.add(Duration(days: d))];
+  }
+
+  String _rangeLabel(List<DateTime> days) {
+    final first = days.first, last = days.last;
     if (first.month == last.month) {
       return '${DateFormat('MMM').format(first)} ${first.day} — ${last.day}';
     }
@@ -220,6 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final app = context.watch<AppState>();
+    final wide = isWideLayout(context);
     final active = _members.where((m) => m['status'] != 'pending').toList();
     final pending = _members.where((m) => m['status'] == 'pending').toList();
     final objects = _asMaps(_dashboard['objectsOfCare']);
@@ -350,13 +361,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('This week',
-                            style: TextStyle(
+                        Text(wide ? 'This week' : 'Coming up',
+                            style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
-                        Text(_weekLabel,
+                        Text(_rangeLabel(wide ? _weekDays : _rollingDays),
                             style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -373,31 +384,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 8),
                         _PaginationButton(
                             label: '«',
+                            tooltip: 'Previous week',
                             onTap: () => setState(() => _weekOffset--)),
                         const SizedBox(width: 8),
                         _PaginationButton(
                             label: '»',
+                            tooltip: 'Next week',
                             onTap: () => setState(() => _weekOffset++)),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Phones: a vertical agenda of the next days — nothing is
+                // hidden off-canvas and every row is a full-width tap target.
+                if (!wide)
+                  Column(
                     children: [
-                      for (final day in _weekDays)
-                        _DayColumn(
+                      for (final day in _rollingDays)
+                        _DayRow(
                           day: day,
                           acts: _actsOn(day),
                           absences: _absencesOn(day),
                           onTap: () => _openDaily(day),
                         ),
                     ],
-                  ),
-                ),
+                  )
+                else
+                  // Port of the Vue `repeat(7, 1fr)` week grid: when the card
+                  // fits all seven days they stretch to share the full width;
+                  // narrower than that falls back to a horizontal scroll.
+                  LayoutBuilder(builder: (context, constraints) {
+                    const cellWidth = 120.0, gap = 10.0;
+                    if (constraints.maxWidth >= 7 * cellWidth + 6 * gap) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < _weekDays.length; i++) ...[
+                            if (i > 0) const SizedBox(width: gap),
+                            Expanded(
+                              child: _DayColumn(
+                                day: _weekDays[i],
+                                acts: _actsOn(_weekDays[i]),
+                                absences: _absencesOn(_weekDays[i]),
+                                onTap: () => _openDaily(_weekDays[i]),
+                                width: null,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final day in _weekDays)
+                            _DayColumn(
+                              day: day,
+                              acts: _actsOn(day),
+                              absences: _absencesOn(day),
+                              onTap: () => _openDaily(day),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
               ],
             ),
           ),
@@ -661,12 +714,21 @@ class _FeedItem {
 
 class _PaginationButton extends StatelessWidget {
   final String label;
+  final String tooltip;
   final VoidCallback onTap;
 
-  const _PaginationButton({required this.label, required this.onTap});
+  const _PaginationButton(
+      {required this.label, required this.tooltip, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: _buildButton(),
+    );
+  }
+
+  Widget _buildButton() {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
@@ -760,11 +822,16 @@ class _DayColumn extends StatelessWidget {
   final List<Map<String, dynamic>> absences;
   final VoidCallback onTap;
 
+  /// Fixed cell width for the scrolling (phone) layout; null lets the cell
+  /// expand to whatever the wide-layout week grid gives it.
+  final double? width;
+
   const _DayColumn(
       {required this.day,
       required this.acts,
       required this.absences,
-      required this.onTap});
+      required this.onTap,
+      this.width = 120});
 
   @override
   Widget build(BuildContext context) {
@@ -780,11 +847,11 @@ class _DayColumn extends StatelessWidget {
         ? AppColors.dangerSoft
         : (isToday ? AppColors.primary : AppColors.border);
 
-    return GestureDetector(
+    return Tappable(
       onTap: onTap,
       child: Container(
-        width: 120,
-        margin: const EdgeInsets.only(right: 10),
+        width: width,
+        margin: EdgeInsets.only(right: width == null ? 0 : 10),
         padding: const EdgeInsets.all(8),
         constraints: const BoxConstraints(minHeight: 220),
         decoration: BoxDecoration(
@@ -854,7 +921,7 @@ class _AbsenceChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
                   color: AppColors.danger)),
@@ -862,7 +929,7 @@ class _AbsenceChip extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
                   color: AppColors.danger)),
@@ -872,9 +939,124 @@ class _AbsenceChip extends StatelessWidget {
   }
 }
 
+/// One day of the phone agenda: date block, activity chips, chevron.
+/// Today is outlined in primary, absence days tinted danger — the same
+/// vocabulary as the desktop `_DayColumn`.
+class _DayRow extends StatelessWidget {
+  final DateTime day;
+  final List<Map<String, dynamic>> acts;
+  final List<Map<String, dynamic>> absences;
+  final VoidCallback onTap;
+
+  /// Chips shown before collapsing the rest into a "+N more" pill.
+  static const _maxChips = 3;
+
+  const _DayRow(
+      {required this.day,
+      required this.acts,
+      required this.absences,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
+    final hasAbsence = absences.isNotEmpty;
+
+    final bg = hasAbsence
+        ? AppColors.dangerSoft
+        : (isToday ? AppColors.primarySoft : AppColors.bg);
+    final borderColor = hasAbsence
+        ? AppColors.dangerSoft
+        : (isToday ? AppColors.primary : AppColors.border);
+    final free = acts.isEmpty && !hasAbsence;
+
+    return Tappable(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 48),
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border.all(color: borderColor),
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 44,
+              child: Column(
+                children: [
+                  Text(isToday ? 'TODAY' : DateFormat('EEE').format(day),
+                      style: TextStyle(
+                          fontSize: isToday ? 9 : 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color: isToday
+                              ? AppColors.primary
+                              : AppColors.textSecondary)),
+                  Text('${day.day}',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isToday
+                              ? AppColors.primary
+                              : AppColors.textPrimary)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: free
+                  ? const Text('Free day',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary))
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        for (final abs in absences)
+                          PillBadge(
+                              text:
+                                  '✈️ ${(abs['user_alias'] ?? abs['user_name'] ?? '').toString().toUpperCase()}',
+                              fontSize: 11,
+                              color: AppColors.danger,
+                              background: Colors.white),
+                        for (final a in acts.take(_maxChips))
+                          _ActChip(a: a, dense: true),
+                        if (acts.length > _maxChips)
+                          PillBadge(
+                              text: '+${acts.length - _maxChips} more',
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                              background: AppColors.surface),
+                      ],
+                    ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActChip extends StatelessWidget {
   final Map<String, dynamic> a;
-  const _ActChip({required this.a});
+
+  /// Dense chips size to their content (for the agenda-row Wrap) instead
+  /// of filling the day column's width.
+  final bool dense;
+
+  const _ActChip({required this.a, this.dense = false});
 
   @override
   Widget build(BuildContext context) {
@@ -896,9 +1078,9 @@ class _ActChip extends StatelessWidget {
     }
 
     final ts = DateTime.tryParse(a['starts_at']?.toString() ?? '')?.toLocal();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 5),
+    final chip = Container(
+      width: dense ? null : double.infinity,
+      margin: dense ? EdgeInsets.zero : const EdgeInsets.only(bottom: 5),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
           color: bg,
@@ -918,20 +1100,31 @@ class _ActChip extends StatelessWidget {
                       fontSize: 10, fontWeight: FontWeight.w600, color: fg),
                 ),
               ),
-              if (toNum(a['bounty_amount']) > 0)
+              // Hidden once completed: the bounty is already earned, and
+              // amber is unreadable on the green/amber completed chip.
+              if (toNum(a['bounty_amount']) > 0 && status != 'completed')
                 Text('+${a['bounty_amount']}cc',
                     style: const TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: AppColors.warning)),
             ],
           ),
           if (ts != null)
             Text(DateFormat('HH:mm').format(ts),
-                style:
-                    TextStyle(fontSize: 9, color: fg.withValues(alpha: 0.8))),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: status == 'completed'
+                        ? Colors.white
+                        : AppColors.textSecondary)),
         ],
       ),
     );
+    if (!dense) return chip;
+    // Inside a Wrap the width constraint is unbounded; cap it so the inner
+    // Expanded works and long titles ellipsize instead of overflowing.
+    return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 168), child: chip);
   }
 }

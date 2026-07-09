@@ -339,7 +339,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xA6FFFFFF))),
+                                color: Color(0xD9FFFFFF))),
                       ],
                     ),
                   ),
@@ -355,10 +355,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         const Text('FAMILY ID',
                             style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
-                                color: Color(0xA6FFFFFF))),
+                                color: Color(0xD9FFFFFF))),
                         Text('${family['family_id'] ?? '—'}',
                             style: const TextStyle(
                                 fontSize: 15,
@@ -529,7 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 .toString()
                                 .replaceAll('_', ' ')
                                 .toUpperCase(),
-                            fontSize: 10,
+                            fontSize: 11,
                             color: AppColors.indigo,
                             background: AppColors.primarySoft),
                       ),
@@ -854,6 +854,7 @@ class _WalletPanel extends StatelessWidget {
                     ),
                     IconButton(
                         onPressed: onPrevMonth,
+                        tooltip: 'Previous month',
                         icon: const Icon(Icons.chevron_left_rounded,
                             color: AppColors.textSecondary)),
                     Text(DateFormat('MMM yyyy').format(month),
@@ -861,6 +862,7 @@ class _WalletPanel extends StatelessWidget {
                             fontSize: 13, fontWeight: FontWeight.w700)),
                     IconButton(
                         onPressed: onNextMonth,
+                        tooltip: 'Next month',
                         icon: const Icon(Icons.chevron_right_rounded,
                             color: AppColors.textSecondary)),
                   ],
@@ -912,7 +914,7 @@ class _WalletPanel extends StatelessWidget {
                                     child: PillBadge(
                                         text:
                                             '${row['duration_minutes']} min',
-                                        fontSize: 10,
+                                        fontSize: 11,
                                         color: AppColors.violet,
                                         background: AppColors.primarySoft),
                                   ),

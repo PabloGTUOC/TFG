@@ -192,7 +192,9 @@ class VInput extends StatelessWidget {
           style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: placeholder,
-            hintStyle: const TextStyle(color: Color(0x8094A3B8)),
+            // Slate at full opacity: the old 50%-alpha hint fell to ~2:1
+            // contrast, below the WCAG AA floor PRODUCT.md commits to.
+            hintStyle: const TextStyle(color: Color(0xFF64748B)),
             filled: true,
             fillColor: AppColors.inputBg,
             isDense: true,
@@ -266,7 +268,7 @@ class KpiCard extends StatelessWidget {
               Expanded(
                 child: Text(label.toUpperCase(),
                     style: TextStyle(
-                        fontSize: compact ? 9 : 11,
+                        fontSize: compact ? 10 : 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
                         color: AppColors.textSecondary)),
@@ -312,7 +314,7 @@ class KpiCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(subtitle!,
                 style: TextStyle(
-                    fontSize: compact ? 10 : 12,
+                    fontSize: compact ? 11 : 12,
                     color: AppColors.textSecondary)),
           ],
           if (progress != null) ...[
@@ -454,29 +456,70 @@ class SegmentedTabs extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < tabs.length; i++)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                  decoration: BoxDecoration(
-                    color:
-                        i == selected ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+                child: InkWell(
+                  onTap: () => onChanged(i),
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                  hoverColor: i == selected
+                      ? Colors.transparent
+                      : AppColors.primarySoft,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: i == selected
+                          ? AppColors.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Text(tabs[i],
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: i == selected
+                                ? Colors.white
+                                : AppColors.textSecondary)),
                   ),
-                  child: Text(tabs[i],
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: i == selected
-                              ? Colors.white
-                              : AppColors.textSecondary)),
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ── Tappable (GestureDetector + pointer cursor) ────────────────────
+/// The Vue app gets `cursor: pointer` from CSS; Flutter's GestureDetector
+/// keeps the default arrow on web/desktop, hiding that an element is
+/// clickable. Use this for tap targets that are not Material buttons.
+class Tappable extends StatelessWidget {
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final HitTestBehavior? behavior;
+  final Widget child;
+
+  const Tappable({
+    super.key,
+    this.onTap,
+    this.onLongPress,
+    this.behavior,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null || onLongPress != null;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      child: GestureDetector(
+        behavior: behavior,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: child,
       ),
     );
   }

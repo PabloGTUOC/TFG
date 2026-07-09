@@ -355,6 +355,30 @@ class _DailyScreenState extends State<DailyScreen> {
     }, 'Task taken! Coins added to your account.');
   }
 
+  /// Tapping a completed card explains why nothing happens: validated
+  /// activities are locked on the schedule (no recurrence); undoing one
+  /// means reverting its coin entry from the ledger in the Personal Area.
+  Future<void> _showCompletedLockedDialog() => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.lg)),
+          title: const Text('Completed activities are locked',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text(
+              'Validated activities can no longer be modified from the '
+              'schedule — recurrence can\'t be added and they can\'t be '
+              'removed here. To undo one, revert its coin entry from your '
+              'ledger in the Personal Area.',
+              style: TextStyle(color: AppColors.textSecondary)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Got it')),
+          ],
+        ),
+      );
+
   Future<void> _openRecurrenceDialog(Map<String, dynamic> a) async {
     var frequency = 'daily';
     DateTime? until = _day.add(const Duration(days: 1));
@@ -680,12 +704,14 @@ class _DailyScreenState extends State<DailyScreen> {
             const Spacer(),
             IconButton(
                 onPressed: () => _changeDay(-1),
+                tooltip: 'Previous day',
                 icon: const Icon(Icons.chevron_left_rounded)),
             Text(DateFormat(wide ? 'EEEE, MMM d' : 'EEE, MMM d').format(_day),
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             IconButton(
                 onPressed: () => _changeDay(1),
+                tooltip: 'Next day',
                 icon: const Icon(Icons.chevron_right_rounded)),
             const Spacer(),
           ],
@@ -823,7 +849,7 @@ class _DailyScreenState extends State<DailyScreen> {
                             for (final abs in _dayAbsences)
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
-                                child: GestureDetector(
+                                child: Tappable(
                                   onTap: () => _absenceDetail(abs),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1033,10 +1059,10 @@ class _DailyScreenState extends State<DailyScreen> {
       ),
     );
 
-    final interactive = GestureDetector(
-      onTap: a['is_recurrent'] == true && !completed
-          ? () => _openRecurrenceDialog(a)
-          : null,
+    final interactive = Tappable(
+      onTap: completed
+          ? _showCompletedLockedDialog
+          : (a['is_recurrent'] == true ? () => _openRecurrenceDialog(a) : null),
       child: chip,
     );
 
@@ -1077,7 +1103,7 @@ class _DailyScreenState extends State<DailyScreen> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
         children: [
           for (final abs in _dayAbsences)
-            GestureDetector(
+            Tappable(
               onTap: () => _absenceDetail(abs),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -1104,7 +1130,7 @@ class _DailyScreenState extends State<DailyScreen> {
               ),
             ),
           if (items.isEmpty)
-            GestureDetector(
+            Tappable(
               onTap: _openScheduleSheet,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 60),
@@ -1159,6 +1185,7 @@ class _DailyScreenState extends State<DailyScreen> {
       onDelegate: () => _openBountyDialog(a),
       onTakeOver: () => _acceptBounty(a),
       onRecurrence: () => _openRecurrenceDialog(a),
+      onCompletedInfo: _showCompletedLockedDialog,
     );
     if (status == 'completed') return card;
     return Dismissible(
@@ -1233,7 +1260,7 @@ class _ActivityAction extends StatelessWidget {
       if (onTap == null) return w;
       // Pad the tap area toward the 44dp guideline without growing the
       // visual pill; the compact grid chips have no vertical room to spare.
-      return GestureDetector(
+      return Tappable(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: compact
@@ -1441,7 +1468,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
         child: SizedBox(width: 280, child: Opacity(opacity: 0.9, child: row)),
       ),
       childWhenDragging: Opacity(opacity: 0.4, child: row),
-      child: GestureDetector(onTap: () => widget.onSchedule(t), child: row),
+      child: Tappable(onTap: () => widget.onSchedule(t), child: row),
     );
   }
 }
@@ -1566,6 +1593,7 @@ class _TimelineCard extends StatelessWidget {
   final VoidCallback onDelegate;
   final VoidCallback onTakeOver;
   final VoidCallback onRecurrence;
+  final VoidCallback onCompletedInfo;
 
   const _TimelineCard({
     required this.item,
@@ -1573,6 +1601,7 @@ class _TimelineCard extends StatelessWidget {
     required this.onDelegate,
     required this.onTakeOver,
     required this.onRecurrence,
+    required this.onCompletedInfo,
   });
 
   @override
@@ -1599,9 +1628,11 @@ class _TimelineCard extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: GestureDetector(
-            onTap: isRecurrent && !completed ? onRecurrence : null,
-            onLongPress: !completed ? onRecurrence : null,
+          child: Tappable(
+            onTap: completed
+                ? onCompletedInfo
+                : (isRecurrent ? onRecurrence : null),
+            onLongPress: completed ? onCompletedInfo : onRecurrence,
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),

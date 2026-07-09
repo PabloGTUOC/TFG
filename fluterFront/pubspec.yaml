@@ -25,6 +25,25 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/icon-512.png
+
+# Launcher icons generated from the same CareCoins mark the Vue PWA uses
+# (frontend/public/icon-512.png). Regenerate after changing the icon with:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: assets/icon/icon-512.png
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#F26B5E"
+  # Adaptive icon: solid coral base (sampled from the icon itself) with the
+  # coin mark as foreground, so round/squircle masks blend seamlessly.
+  adaptive_icon_background: "#F26B5E"
+  adaptive_icon_foreground: assets/icon/icon-512.png
+  web:
+    generate: false

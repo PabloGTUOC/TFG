@@ -492,7 +492,7 @@ class _CircleCard extends StatelessWidget {
                   // while keeping the ✕ in the same visual spot.
                   top: -14,
                   right: -14,
-                  child: GestureDetector(
+                  child: Tappable(
                     behavior: HitTestBehavior.opaque,
                     onTap: onRemove,
                     child: Padding(

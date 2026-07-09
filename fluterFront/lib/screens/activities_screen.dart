@@ -295,7 +295,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                             const SizedBox(width: 6),
                             const PillBadge(
                                 text: 'approved',
-                                fontSize: 10,
+                                fontSize: 11,
                                 color: Colors.white,
                                 background: AppColors.success),
                           ],

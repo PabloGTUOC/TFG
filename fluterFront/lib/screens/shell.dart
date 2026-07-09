@@ -194,18 +194,21 @@ class _PillHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.pill),
             child: Row(
               children: [
+                // Port of App.vue .logo-mark: primary square with the same
+                // coin mark the PWA/launcher icons use (icon-mark.svg).
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: wide ? 32 : 24,
+                  height: wide ? 32 : 24,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                      gradient: AppColors.accentGradient,
-                      shape: BoxShape.circle),
-                  child: const Text('¢',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16)),
+                  decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(AppRadii.sm)),
+                  child: Image.asset('assets/icon/icon-512.png',
+                      width: 18,
+                      height: 18,
+                      cacheWidth:
+                          (18 * MediaQuery.devicePixelRatioOf(context))
+                              .round()),
                 ),
                 const SizedBox(width: 8),
                 const Text('CareCoins',
