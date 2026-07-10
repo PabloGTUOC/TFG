@@ -2,11 +2,17 @@
 
 CareCoins is a family caregiving coordination app built as a Progressive Web App (PWA). It uses a coin reward system to make household and caregiving contributions visible and valued across a family unit.
 
-**Stack:** Vue 3 + Vite (frontend) · Node.js / Express (backend) · PostgreSQL · Firebase Auth + FCM · Docker
+**Stack:** Flutter (web · iOS · Android, in `fluterFront/`) · Node.js / Express (backend) · PostgreSQL · Firebase Auth + FCM · Docker
+
+> **Note:** the original Vue 3 + Vite frontend has been retired from `main` and is
+> preserved in full on the [`vue-frontend`](../../tree/vue-frontend) branch, including
+> its unit/E2E test suites and documentation. The Flutter app (`fluterFront/README.md`)
+> is the primary frontend. Sections below that describe the Vue frontend document the
+> design system and behaviours that the Flutter app ports 1:1.
 
 ---
 
-## Part 1: Vue Frontend
+## Part 1: Vue Frontend (retired — see `vue-frontend` branch)
 
 ### Design System
 
@@ -272,17 +278,18 @@ cd backend && npm test
 
 Covers: activity lifecycle (complete, validate, bounty, revert), family budget calculation, family deletion consensus flow, invite token validation, member management.
 
-### Layer 2 — Frontend Unit Tests (25 tests)
+### Layer 2 — Frontend Unit Tests (25 tests, on the `vue-frontend` branch)
 
-**Runner:** Vitest with `vmThreads` pool. **Location:** `frontend/src/composables/__tests__/`, `frontend/src/stores/__tests__/`.
+**Runner:** Vitest with `vmThreads` pool. **Location:** `frontend/src/composables/__tests__/`, `frontend/src/stores/__tests__/`. The Flutter widget tests on `main` live in `fluterFront/test/`.
 
 ```bash
-cd frontend && npm test
+cd frontend && npm test        # on the vue-frontend branch
+cd fluterFront && flutter test # on main
 ```
 
 Covers: `getCardStyle` status/category mapping (6 cases), `formatGap` time formatting (4 cases), `useTimeline` positioning algorithm (8 cases), auth and family stores (7 cases).
 
-### Layer 3 — E2E Integration Tests (47 definitions, 72 executions)
+### Layer 3 — E2E Integration Tests (47 definitions, 72 executions, on the `vue-frontend` branch)
 
 **Runner:** Playwright 1.60. **Browsers:** Chromium + WebKit (Safari). **Location:** `frontend/e2e/`.  
 Uses the Firebase Auth Emulator — no real Google account needed, fully offline.
@@ -323,9 +330,9 @@ Copy `.env.example` to `backend/.env` and set:
 - `RESEND_API_KEY` — (optional) email sending; omit to use console mock
 - `EMAIL_FROM` — sender address for invitation emails
 
-Frontend env vars (in `frontend/.env` for local dev):
-- `VITE_FIREBASE_*` — Firebase client config (6 fields)
-- `VITE_FIREBASE_VAPID_KEY` — FCM web push VAPID key
+Frontend (Flutter) needs no env file — Firebase config is compiled in via
+`fluterFront/lib/firebase_options.dart`; the backend URL is a build-time
+`--dart-define` (see `fluterFront/README.md`).
 
 ### Running locally
 
@@ -333,8 +340,9 @@ Frontend env vars (in `frontend/.env` for local dev):
 # Backend
 cd backend && npm install && npm run dev   # hot-reload on :3000
 
-# Frontend
-cd frontend && npm install && npm run dev  # Vite dev server on :5173
+# Frontend (web; see fluterFront/README.md for iOS/Android)
+cd fluterFront && flutter run -d chrome --web-port 8080 \
+  --dart-define=API_BASE=http://localhost:3000
 ```
 
 **Important:** The Docker `db-init` service runs all migrations automatically on `docker compose up`. For local dev against a bare Postgres instance, run the init script once:
@@ -351,7 +359,7 @@ This executes `scripts/init-db.js`, which applies `schema.sql` and all migration
 docker compose up --build -d
 ```
 
-Runs Postgres 16, `db-init` (schema + all migrations), Node API, and NGINX-served frontend on port 80. Firebase credentials must be placed at `./firebase-credentials.json`.
+Runs Postgres 16, `db-init` (schema + all migrations), Node API, and the NGINX-served Flutter web build on port 80. Firebase credentials must be placed at `./firebase-credentials.json`.
 
 ### Testing push notifications locally
 

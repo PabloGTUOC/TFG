@@ -1,0 +1,11 @@
+# `build` is a symlink to a folder outside the repo (iCloud/codesign
+# workaround) — it must not enter the Docker context.
+build
+build.nosync
+.dart_tool
+ios
+android
+test
+*.iml
+Dockerfile
+.dockerignore
