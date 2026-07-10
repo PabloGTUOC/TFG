@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1088534743968-6ju24vbacgdomodcl0dpu6432efnvfmo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.carecoins.carecoins_flutter",
+            "certificate_hash": "615d7aaa62836fc7c1e2e5a77cc59d27bba36e6f"
+          }
+        },
+        {
           "client_id": "1088534743968-ivtn21njps9n3fke01m3jup15gjh6tht.apps.googleusercontent.com",
           "client_type": 3
         }

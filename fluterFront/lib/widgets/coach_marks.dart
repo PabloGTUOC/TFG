@@ -119,13 +119,29 @@ class _CoachOverlayState extends State<_CoachOverlay> {
     final reduced = MediaQuery.of(context).disableAnimations;
     final fade = reduced ? Duration.zero : const Duration(milliseconds: 180);
 
-    // Tooltip card geometry: below the target when it sits in the upper
-    // half of the screen, above it otherwise; clamped to the viewport.
-    final below = target == null || target.center.dy < size.height / 2;
+    // Tooltip card geometry: prefer whichever side of the target has room,
+    // and clamp to the viewport either way — tall targets (e.g. the phone
+    // week agenda) can span most of the screen, and anchoring blindly to
+    // their top edge would push the card off-screen.
+    final pad = MediaQuery.paddingOf(context);
+    const cardSpace = 220.0; // tooltip height incl. margins, worst case
     final cardWidth = size.width < 400 ? size.width - 32.0 : 340.0;
-    final cardLeft = target == null
-        ? 16.0
-        : (target.left).clamp(16.0, size.width - cardWidth - 16.0);
+    double? cardTop, cardBottom;
+    var cardLeft = 16.0;
+    if (target != null) {
+      cardLeft = target.left.clamp(16.0, size.width - cardWidth - 16.0);
+      final spaceBelow = size.height - pad.bottom - target.bottom;
+      final spaceAbove = target.top - pad.top;
+      if (spaceBelow >= cardSpace || spaceBelow >= spaceAbove) {
+        cardTop = (target.bottom + 14)
+            .clamp(pad.top + 16.0, size.height - pad.bottom - cardSpace);
+      } else {
+        // Above the target; never let the card's bottom edge rise so high
+        // that the card itself leaves the screen.
+        cardBottom = (size.height - target.top + 14)
+            .clamp(pad.bottom + 16.0, size.height - pad.top - cardSpace);
+      }
+    }
 
     return AnimatedSwitcher(
       duration: fade,
@@ -145,9 +161,8 @@ class _CoachOverlayState extends State<_CoachOverlay> {
                 Positioned(
                   left: cardLeft,
                   width: cardWidth,
-                  top: below ? target.bottom + 14 : null,
-                  bottom:
-                      below ? null : size.height - target.top + 14,
+                  top: cardTop,
+                  bottom: cardBottom,
                   child: _TooltipCard(
                     title: _mark.title,
                     body: _mark.body,
