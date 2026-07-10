@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/DailyView.vue + composables/useTimeline.js.
@@ -80,6 +81,10 @@ class _DailyScreenState extends State<DailyScreen> {
   final _gridScroll = ScrollController();
   final _gridKey = GlobalKey();
 
+  final _tourDateKey = GlobalKey();
+  final _tourAddKey = GlobalKey();
+  final _tourAbsenceKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +96,32 @@ class _DailyScreenState extends State<DailyScreen> {
   void dispose() {
     _gridScroll.dispose();
     super.dispose();
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _loading) return;
+      maybeShowTour(context, 'daily', [
+        CoachMark(
+          targetKey: _tourDateKey,
+          title: 'One day at a time',
+          body: 'Move between days with the arrows, or swipe the list on '
+              'your phone. The red NOW line marks the current time.',
+        ),
+        CoachMark(
+          targetKey: _tourAddKey,
+          title: 'Put a task on the clock',
+          body: 'Pick a template from your catalogue and give it a start '
+              'time. When it\'s done and validated, the coins land.',
+        ),
+        CoachMark(
+          targetKey: _tourAbsenceKey,
+          title: 'Going away?',
+          body: 'Log time off so the family sees you\'re unavailable that '
+              'day.',
+        ),
+      ]);
+    });
   }
 
   bool get _isToday => _sameDay(DateTime.now(), _day);
@@ -118,6 +149,7 @@ class _DailyScreenState extends State<DailyScreen> {
           _error = false;
         });
         _scrollToNow();
+        _maybeTour();
       }
     } catch (_) {
       if (mounted) {
@@ -707,6 +739,7 @@ class _DailyScreenState extends State<DailyScreen> {
                 tooltip: 'Previous day',
                 icon: const Icon(Icons.chevron_left_rounded)),
             Text(DateFormat(wide ? 'EEEE, MMM d' : 'EEE, MMM d').format(_day),
+                key: _tourDateKey,
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             IconButton(
@@ -718,6 +751,7 @@ class _DailyScreenState extends State<DailyScreen> {
         ),
         actions: [
           TextButton.icon(
+            key: _tourAbsenceKey,
             onPressed: _openAbsenceDialog,
             icon: const Icon(Icons.flight_takeoff_rounded,
                 size: 17, color: AppColors.textSecondary),
@@ -733,6 +767,7 @@ class _DailyScreenState extends State<DailyScreen> {
       floatingActionButton: wide
           ? null
           : FloatingActionButton.extended(
+              key: _tourAddKey,
               onPressed: _openScheduleSheet,
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,

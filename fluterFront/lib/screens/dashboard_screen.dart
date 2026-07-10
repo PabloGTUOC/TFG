@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../services/telemetry.dart';
+import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
 import '../widgets/absence_dialog.dart';
+import '../widgets/activation_checklist.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 import 'daily_screen.dart';
 
@@ -14,11 +18,21 @@ import 'daily_screen.dart';
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenStats;
 
+  /// Tab jumps used by the activation checklist's deep links.
+  final VoidCallback? onOpenActivities;
+  final VoidCallback? onOpenMarketplace;
+
   /// Whether this is the visible tab; becoming active triggers a silent
   /// refetch so the dashboard doesn't go stale between tab switches.
   final bool active;
 
-  const DashboardScreen({super.key, this.onOpenStats, this.active = true});
+  const DashboardScreen({
+    super.key,
+    this.onOpenStats,
+    this.onOpenActivities,
+    this.onOpenMarketplace,
+    this.active = true,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -36,17 +50,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _weekOffset = 0;
   bool _loading = true;
   bool _error = false;
+  int _rewardCount = 0;
+
+  /// Hidden until the stored flag loads, so the card never flashes in
+  /// for users who already dismissed it.
+  bool _checklistDismissed = true;
+
+  final _tourMembersKey = GlobalKey();
+  final _tourWeekKey = GlobalKey();
+  final _tourKpiKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    TourService.I.addListener(_maybeTour);
+    TourService.I.hasSeen('checklist-dismissed').then((seen) {
+      if (mounted && !seen) setState(() => _checklistDismissed = false);
+    });
     _load();
+  }
+
+  @override
+  void dispose() {
+    TourService.I.removeListener(_maybeTour);
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant DashboardScreen old) {
     super.didUpdateWidget(old);
-    if (widget.active && !old.active) _load();
+    if (widget.active && !old.active) {
+      _load();
+      _maybeTour();
+    }
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active || _loading) return;
+      maybeShowTour(context, 'dashboard', [
+        CoachMark(
+          targetKey: _tourMembersKey,
+          title: 'The family at a glance',
+          body: 'Everyone\'s coin balance lives here. Balances grow when a '
+              'caregiver validates a completed task.',
+        ),
+        CoachMark(
+          targetKey: _tourWeekKey,
+          title: 'Your week',
+          body: 'Tap any day to open its full schedule — that\'s where '
+              'tasks get scheduled, completed and validated.',
+        ),
+        CoachMark(
+          targetKey: _tourKpiKey,
+          title: 'The vital signs',
+          body: 'Family balance, today\'s progress and open bounties: the '
+              '30-second check-in.',
+        ),
+      ]);
+    });
   }
 
   List<Map<String, dynamic>> _asMaps(dynamic list) => ((list as List?) ?? [])
@@ -64,10 +126,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final data = await app.api.get('/api/dashboard/${app.familyId}');
       final acts = await app.api.get('/api/activities?familyId=${app.familyId}');
       List<Map<String, dynamic>> claimed = [];
+      var rewardCount = 0;
       try {
         final rewards =
             await app.api.get('/api/marketplace/rewards/${app.familyId}');
-        claimed = _asMaps(rewards['claimed']);
+        if (rewards is List) {
+          rewardCount = rewards.length;
+        } else {
+          claimed = _asMaps(rewards['claimed']);
+          rewardCount = ((rewards['rewards'] as List?) ?? []).length;
+        }
       } catch (_) {}
       List<Map<String, dynamic>> absences = [];
       try {
@@ -81,9 +149,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               acts is List ? _asMaps(acts) : _asMaps(acts['activities']);
           _claimed = claimed;
           _absences = absences;
+          _rewardCount = rewardCount;
           _loading = false;
           _error = false;
         });
+        _maybeTour();
       }
     } catch (_) {
       if (mounted) {
@@ -96,6 +166,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<Map<String, dynamic>> get _members => _asMaps(_dashboard['members']);
+
+  /// Logs checklist_completed exactly once, and only for a user who was
+  /// shown the checklist while it was still incomplete.
+  Future<void> _maybeLogChecklistComplete() async {
+    if (!await TourService.I.hasSeen('checklist-started')) return;
+    if (await TourService.I.hasSeen('checklist-completed-logged')) return;
+    await TourService.I.markSeen('checklist-completed-logged');
+    Telemetry.log('checklist_completed');
+  }
+
+  /// Steps auto-check from data the dashboard already loads; the whole
+  /// card disappears once the family has run the full loop.
+  List<Widget> _buildChecklist() {
+    final hasTemplate = _activities.any((a) => a['is_template'] == true);
+    final hasScheduled = _scheduled.isNotEmpty;
+    final hasCompleted = _activities.any((a) =>
+        a['status'] == 'pending_validation' || a['status'] == 'completed');
+    final hasValidated = _activities.any((a) => a['status'] == 'completed');
+    final hasReward = _rewardCount > 0;
+    if (hasTemplate &&
+        hasScheduled &&
+        hasCompleted &&
+        hasValidated &&
+        hasReward) {
+      _maybeLogChecklistComplete();
+      return const [];
+    }
+    // Remember that this user actually saw the checklist, so
+    // checklist_completed only fires for people it was shown to (and not
+    // for every member of an already-established family).
+    TourService.I.markSeen('checklist-started');
+    void go(String step, VoidCallback action) {
+      Telemetry.log('checklist_step_tapped', {'step': step});
+      action();
+    }
+
+    final doneCount = [
+      hasTemplate,
+      hasScheduled,
+      hasCompleted,
+      hasValidated,
+      hasReward
+    ].where((d) => d).length;
+    return [
+      ActivationChecklist(
+        steps: [
+          ChecklistStep(
+              label: 'Create a task template',
+              done: hasTemplate,
+              onGo: () =>
+                  go('create_task', () => widget.onOpenActivities?.call())),
+          ChecklistStep(
+              label: 'Schedule it on a day',
+              done: hasScheduled,
+              onGo: () => go('schedule', () => _openDaily(DateTime.now()))),
+          ChecklistStep(
+              label: 'Mark it done',
+              done: hasCompleted,
+              onGo: () => go('complete', () => _openDaily(DateTime.now()))),
+          ChecklistStep(
+              label: 'Validate it — the coins land',
+              done: hasValidated,
+              onGo: () => go('validate', () => _openDaily(DateTime.now()))),
+          ChecklistStep(
+              label: 'Stock the reward store',
+              done: hasReward,
+              onGo: () =>
+                  go('reward', () => widget.onOpenMarketplace?.call())),
+        ],
+        onDismiss: () {
+          Telemetry.log('checklist_dismissed', {'progress': doneCount});
+          TourService.I.markSeen('checklist-dismissed');
+          setState(() => _checklistDismissed = true);
+        },
+      ),
+    ];
+  }
 
   /// Port of scheduledInstances: non-template activities with a start time.
   List<Map<String, dynamic>> get _scheduled => _activities
@@ -275,9 +422,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   '$_greeting, $greetName! Your family has earned $totalCoins cc today. '
                   '$pendingTasks tasks are waiting for attention.'),
 
+          // ── Activation checklist (onboarding-help-plan Phase 3) ──
+          // Caregiver-only: creating tasks, validating and stocking the
+          // store are caregiver actions. Auto-hides once the loop ran.
+          if (app.isCaregiver && !_checklistDismissed)
+            ..._buildChecklist(),
+
           // ── Active members ──
           const _SectionTitle('Active Family Members'),
           Wrap(
+            key: _tourMembersKey,
             spacing: 16,
             runSpacing: 16,
             children: [
@@ -337,6 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // ── Week strip ──
           Container(
+            key: _tourWeekKey,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.surface,
@@ -528,6 +683,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final perRow = c.maxWidth > kMobileBreakpoint ? 4 : 2;
             final w = (c.maxWidth - (perRow - 1) * 14) / perRow;
             return Wrap(
+              key: _tourKpiKey,
               spacing: 14,
               runSpacing: 14,
               children: [
@@ -602,10 +758,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 20),
                 if (recent.isEmpty)
-                  const Text('No activity yet.',
-                      style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600)),
+                  EmptyState(
+                    icon: Icons.checklist_rounded,
+                    title: 'Nothing completed yet',
+                    body:
+                        'Completed tasks and redeemed rewards land here. '
+                        'Schedule something for today and check it off.',
+                    actionLabel: 'Open today\'s schedule',
+                    onAction: () => _openDaily(DateTime.now()),
+                  ),
                 for (final item in recent)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 20),

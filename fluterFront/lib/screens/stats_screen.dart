@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
 import '../widgets/charts.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/StatsView.vue — all ten ECharts panels rendered as
@@ -37,16 +39,48 @@ class _StatsScreenState extends State<StatsScreen> {
     AppColors.danger,
   ];
 
+  final _tourHeadingKey = GlobalKey();
+  final _tourCompareKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    TourService.I.addListener(_maybeTour);
     _load();
+  }
+
+  @override
+  void dispose() {
+    TourService.I.removeListener(_maybeTour);
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant StatsScreen old) {
     super.didUpdateWidget(old);
-    if (widget.active && !old.active) _load();
+    if (widget.active && !old.active) {
+      _load();
+      _maybeTour();
+    }
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active || _loading) return;
+      maybeShowTour(context, 'stats', [
+        CoachMark(
+          targetKey: _tourHeadingKey,
+          title: 'The fairness receipts',
+          body: 'Who contributed what — by person, category and month. '
+              'This is where the invisible labour becomes visible.',
+        ),
+        CoachMark(
+          targetKey: _tourCompareKey,
+          title: 'Compare caregivers',
+          body: 'Flip this to put caregivers side by side on every chart.',
+        ),
+      ]);
+    });
   }
 
   Future<void> _load() async {
@@ -59,6 +93,7 @@ class _StatsScreenState extends State<StatsScreen> {
           _loading = false;
           _error = false;
         });
+        _maybeTour();
       }
     } catch (_) {
       if (mounted) {
@@ -114,14 +149,16 @@ class _StatsScreenState extends State<StatsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 child: PageHeading(
+                    key: _tourHeadingKey,
                     title: 'Performance Analytics',
                     subtitle:
                         'How care work and coins flow across the family.'),
               ),
               if (_caregivers.length > 1)
                 Column(
+                  key: _tourCompareKey,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Padding(

@@ -7,7 +7,10 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/avatar_upload.dart';
 import '../utils/json.dart';
+import '../services/tour_service.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/family_circle.dart';
+import '../widgets/help_sheet.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/ProfileView.vue: family banner, deletion-request banner,
@@ -46,6 +49,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, bool> _notifPrefs = {};
   bool _notifGranted = false;
 
+  final _tourWalletKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -53,9 +58,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _displayName.text = app.profile?['display_name']?.toString() ?? '';
     _email.text = app.profile?['email']?.toString() ?? '';
     _alias.text = app.family?['alias']?.toString() ?? '';
+    TourService.I.addListener(_maybeTour);
     _loadLedger();
     _loadDeletionRequests();
     _checkNotifPermission();
+    _maybeTour();
   }
 
   @override
@@ -64,7 +71,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (widget.active && !old.active) {
       _loadLedger();
       _loadDeletionRequests();
+      _maybeTour();
     }
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active) return;
+      maybeShowTour(context, 'profile', [
+        CoachMark(
+          targetKey: _tourWalletKey,
+          title: 'Your wallet',
+          body: 'Every coin you\'ve earned and spent, month by month. '
+              'Caregivers can revert a mistaken validation from the '
+              'ledger below.',
+        ),
+      ]);
+    });
   }
 
   Future<void> _checkNotifPermission() async {
@@ -91,6 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    TourService.I.removeListener(_maybeTour);
     _displayName.dispose();
     _email.dispose();
     _alias.dispose();
@@ -256,6 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final wide = isWideLayout(context);
 
     final wallet = _WalletPanel(
+      key: _tourWalletKey,
       balance: toNum(family?['coin_balance']),
       month: _month,
       ledger: _ledger,
@@ -633,7 +658,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const Divider(height: 32),
+          // Help entry (docs/onboarding-help-plan.md Phase 1): same sheet
+          // as the header's ? button, for people who look in settings.
+          Tappable(
+            onTap: () => showHelpSheet(context),
+            child: Row(
+              children: [
+                const Icon(Icons.help_outline_rounded,
+                    size: 20, color: AppColors.primary),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Help & how CareCoins works',
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w700)),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: AppColors.textSecondary),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           VButton(
             type: VButtonType.danger,
             onPressed: () => app.logout(),
@@ -659,6 +704,7 @@ class _WalletPanel extends StatelessWidget {
   final ValueChanged<Map<String, dynamic>> onUncheck;
 
   const _WalletPanel({
+    super.key,
     required this.balance,
     required this.month,
     required this.ledger,
@@ -871,7 +917,10 @@ class _WalletPanel extends StatelessWidget {
                 if (ledger.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text('No activity this month.',
+                    child: Text(
+                        'No coins moved this month. Entries appear when a '
+                        'task is validated or a reward is redeemed.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textSecondary)),
                   )
                 else

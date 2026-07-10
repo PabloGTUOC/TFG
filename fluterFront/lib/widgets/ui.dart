@@ -525,6 +525,63 @@ class Tappable extends StatelessWidget {
   }
 }
 
+/// ── EmptyState (teaching empty states, onboarding-help-plan Phase 1) ──
+/// An empty list is a chance to explain the mechanic and point at the next
+/// action, instead of a bare "nothing here".
+class EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 32, color: AppColors.textSecondary),
+            const SizedBox(height: 12),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(body,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.55,
+                      color: AppColors.textSecondary)),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              VButton(
+                  type: VButtonType.outline,
+                  onPressed: onAction,
+                  child: Text(actionLabel!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Error placeholder with a retry button. Shown when a screen's load fails
 /// and there is no data to fall back on, so failures stop masquerading as
 /// empty states on flaky connections.

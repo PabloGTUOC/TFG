@@ -183,3 +183,16 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   bounty_offered     BOOLEAN NOT NULL DEFAULT true,
   family_events      BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Onboarding instrumentation (docs/onboarding-help-plan.md Phase 4):
+-- one row per guided-tour / checklist event, for the activation analysis.
+CREATE TABLE IF NOT EXISTS onboarding_events (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  detail JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_onboarding_events_user_event
+  ON onboarding_events (user_id, event);

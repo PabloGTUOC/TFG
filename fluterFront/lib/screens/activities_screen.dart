@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 
 /// Port of views/ActivitiesView.vue: Catalogue / New Activity / Budget tabs.
@@ -36,22 +38,51 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   bool _isRecurrent = false;
   double _coins = 0;
 
+  final _tourTabsKey = GlobalKey();
+  final _tourFilterKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    TourService.I.addListener(_maybeTour);
     _load();
   }
 
   @override
   void didUpdateWidget(covariant ActivitiesScreen old) {
     super.didUpdateWidget(old);
-    if (widget.active && !old.active) _load();
+    if (widget.active && !old.active) {
+      _load();
+      _maybeTour();
+    }
   }
 
   @override
   void dispose() {
+    TourService.I.removeListener(_maybeTour);
     _title.dispose();
     super.dispose();
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active || _loading) return;
+      maybeShowTour(context, 'activities', [
+        CoachMark(
+          targetKey: _tourTabsKey,
+          title: 'The task library',
+          body: 'Catalogue holds your templates, New Activity creates one, '
+              'and Budget shows how many coins are left to assign this '
+              'month.',
+        ),
+        CoachMark(
+          targetKey: _tourFilterKey,
+          title: 'Care vs. household',
+          body: 'Every task is one of two kinds. The split is what powers '
+              'the fairness charts in Stats.',
+        ),
+      ]);
+    });
   }
 
   Future<void> _load() async {
@@ -74,6 +105,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           _loading = false;
           _error = false;
         });
+        _maybeTour();
       }
     } catch (_) {
       if (mounted) {
@@ -190,6 +222,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
               subtitle:
                   'Your family\'s task templates, coin economics and monthly budget.'),
           SegmentedTabs(
+            key: _tourTabsKey,
             tabs: const ['Catalogue', 'New Activity', 'Budget'],
             selected: _tab,
             onChanged: (i) => setState(() => _tab = i),
@@ -219,6 +252,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
     return [
       Row(
+        key: _tourFilterKey,
         children: [
           for (final (i, label) in ['All', 'Care', 'Household'].indexed)
             Padding(
@@ -245,12 +279,22 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       ),
       const SizedBox(height: 16),
       if (filtered.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
-          child: Text('No activities found.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary)),
-        )
+        templates.isEmpty
+            // Nothing in the catalogue at all: teach the first mechanic.
+            ? EmptyState(
+                icon: Icons.playlist_add_rounded,
+                title: 'No tasks in the catalogue yet',
+                body:
+                    'Task templates describe a job — its duration and what it '
+                    'pays in coins. Everything else starts from one.',
+                actionLabel: 'Create your first task',
+                onAction: () => setState(() => _tab = 1),
+              )
+            : const EmptyState(
+                icon: Icons.filter_list_off_rounded,
+                title: 'Nothing matches this filter',
+                body: 'Try another category above.',
+              )
       else
         for (final a in filtered)
           Container(

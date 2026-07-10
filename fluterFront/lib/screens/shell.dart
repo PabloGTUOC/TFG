@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/push_service.dart';
+import '../services/telemetry.dart';
+import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/help_sheet.dart';
 import '../widgets/ui.dart';
 import 'activities_screen.dart';
 import 'dashboard_screen.dart';
@@ -26,6 +29,7 @@ class _ShellState extends State<Shell> {
   // on first visit instead of firing ~10 requests at startup.
   final Set<int> _visited = {0};
   late final AppLifecycleListener _lifecycle;
+  bool _welcomeChecked = false;
 
   @override
   void initState() {
@@ -62,15 +66,70 @@ class _ShellState extends State<Shell> {
         _visited.add(i);
       });
 
+  /// One-time welcome after the user first lands in the shell with a
+  /// family (docs/onboarding-help-plan.md Phase 2). Frames the economy in
+  /// one sentence, then either starts the guided tour or opts out of it.
+  Future<void> _maybeShowWelcome() async {
+    if (await TourService.I.hasSeen(TourService.welcome)) return;
+    if (!mounted) return;
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
+        title: const Text('Welcome to CareCoins! 👋',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text(
+            'The idea in one line: tasks earn coins from your family\'s '
+            'monthly budget, and coins buy rewards your family chooses.\n\n'
+            'We can point out the important bits on each screen as you '
+            'visit it — or you can find your own way (the ? up top always '
+            'has the full story).',
+            style: TextStyle(
+                height: 1.55, color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'solo'),
+              child: const Text('Explore on my own')),
+          VButton(
+              onPressed: () => Navigator.pop(ctx, 'tour'),
+              child: const Text('Show me around')),
+        ],
+      ),
+    );
+    Telemetry.log(
+        'welcome_choice', {'choice': choice == 'solo' ? 'explore' : 'tour'});
+    if (choice == 'solo') {
+      await TourService.I.suppressAll();
+    } else {
+      // Welcome decided: notify so the visible tab starts its tour.
+      await TourService.I.markSeen(TourService.welcome, notify: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = isWideLayout(context);
+
+    // Trigger the welcome check once the user actually has a family (the
+    // onboarding wizard runs before this for brand-new users).
+    final hasFamilies = context.watch<AppState>().hasFamilies;
+    if (hasFamilies && !_welcomeChecked) {
+      _welcomeChecked = true;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeShowWelcome());
+    }
 
     // `active` tells a screen it just became the visible tab so it can
     // silently refetch — without it, tabs go stale (IndexedStack keeps
     // them alive but initState never runs again).
     final screens = [
-      DashboardScreen(active: _index == 0, onOpenStats: () => _go(3)),
+      DashboardScreen(
+          active: _index == 0,
+          onOpenStats: () => _go(3),
+          onOpenActivities: () => _go(1),
+          onOpenMarketplace: () => _go(2)),
       ActivitiesScreen(active: _index == 1),
       MarketplaceScreen(active: _index == 2),
       StatsScreen(active: _index == 3),
@@ -241,6 +300,13 @@ class _PillHeader extends StatelessWidget {
                 onTap: () => onNavigate(4)),
             const Spacer(),
           ],
+          IconButton(
+            onPressed: () => showHelpSheet(context),
+            tooltip: 'How CareCoins works',
+            icon: const Icon(Icons.help_outline_rounded,
+                size: 22, color: AppColors.textSecondary),
+          ),
+          const SizedBox(width: 2),
           // Coin counter
           if (app.hasFamilies)
             InkWell(

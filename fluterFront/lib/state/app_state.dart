@@ -5,12 +5,17 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/api_client.dart';
+import '../services/telemetry.dart';
 import '../utils/json.dart';
 
 /// App-wide state: Firebase auth session + `/api/me` payload + toast messages.
 /// Mirrors stores/auth.js + stores/family.js from the Vue frontend.
 class AppState extends ChangeNotifier {
   final ApiClient api = ApiClient();
+
+  AppState() {
+    Telemetry.init(api);
+  }
 
   fb.User? user;
   bool authReady = false;

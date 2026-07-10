@@ -315,14 +315,17 @@ class _FamilyCircleState extends State<FamilyCircle> {
           ),
           if (app.isCaregiver) ...[
             const SizedBox(height: 20),
-            Row(
+            // Wrap, not Row: both pills don't fit side by side inside the
+            // card on phone widths, so the second one drops to its own line.
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 VButton(
                     type: VButtonType.outline,
                     onPressed: _addActor,
                     child: const Text('＋ Add Dependent',
                         style: TextStyle(fontSize: 14))),
-                const SizedBox(width: 10),
                 VButton(
                     type: VButtonType.secondary,
                     onPressed: _inviteByEmail,
@@ -358,7 +361,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
                           text: 'pending',
                           color: AppColors.warning,
                           background: AppColors.warningSoft,
-                          fontSize: 10),
+                          fontSize: 11),
                     ],
                   ),
                 ),

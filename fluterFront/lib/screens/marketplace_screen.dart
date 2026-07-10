@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 import '../utils/json.dart';
 
@@ -41,20 +43,42 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     Color(0xFFEDE9FE), // violet-soft, 5th banner variant
   ];
 
+  final _tourTabsKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    TourService.I.addListener(_maybeTour);
     _load();
   }
 
   @override
   void didUpdateWidget(covariant MarketplaceScreen old) {
     super.didUpdateWidget(old);
-    if (widget.active && !old.active) _load();
+    if (widget.active && !old.active) {
+      _load();
+      _maybeTour();
+    }
+  }
+
+  void _maybeTour() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active || _loading) return;
+      maybeShowTour(context, 'marketplace', [
+        CoachMark(
+          targetKey: _tourTabsKey,
+          title: 'Where coins get spent',
+          body: 'The Store holds rewards your family agreed on; History '
+              'shows every redemption. Caregivers stock the store from '
+              'Create.',
+        ),
+      ]);
+    });
   }
 
   @override
   void dispose() {
+    TourService.I.removeListener(_maybeTour);
     _title.dispose();
     _description.dispose();
     _cost.dispose();
@@ -89,6 +113,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           _loading = false;
           _error = false;
         });
+        _maybeTour();
       }
     } catch (_) {
       if (mounted) {
@@ -185,6 +210,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               subtitle:
                   'Spend earned CareCoins on rewards the family agreed on.'),
           SegmentedTabs(
+            key: _tourTabsKey,
             tabs: app.isCaregiver
                 ? const ['Store', 'History', 'Create']
                 : const ['Store', 'History'],
@@ -202,11 +228,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 
   Widget _buildStore() {
     if (_rewards.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Text(
-            'The reward store is empty — a caregiver can add rewards in Create.',
-            style: TextStyle(color: AppColors.textSecondary)),
+      final isCaregiver = context.read<AppState>().isCaregiver;
+      return EmptyState(
+        icon: Icons.storefront_rounded,
+        title: 'The reward store is empty',
+        body: isCaregiver
+            ? 'Rewards are what coins are for — anything your family agrees '
+                'is worth earning toward, from screen time to a day out.'
+            : 'A caregiver can stock the store with anything your family '
+                'agrees is worth earning toward.',
+        actionLabel: isCaregiver ? 'Create a reward' : null,
+        onAction: isCaregiver ? () => setState(() => _tab = 2) : null,
       );
     }
     return LayoutBuilder(builder: (context, c) {
@@ -230,10 +262,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 
   Widget _buildHistory() {
     if (_claimed.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Text('No rewards claimed yet.',
-            style: TextStyle(color: AppColors.textSecondary)),
+      return const EmptyState(
+        icon: Icons.history_rounded,
+        title: 'No rewards claimed yet',
+        body:
+            'When someone spends their coins in the store, the redemption '
+            'shows up here for the whole family to see.',
       );
     }
     return Column(
