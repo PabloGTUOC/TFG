@@ -7,14 +7,12 @@
          prompt from FirebaseMessaging.requestPermission) or FCM
          notifications are silently dropped. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- usesCleartextTraffic: the backend is plain HTTP (API_BASE defaults
-         to http://…:3000) and Android 9+ blocks cleartext by default.
-         Remove this once the backend is served over HTTPS. -->
+    <!-- Cleartext HTTP is only allowed in debug builds (see
+         src/debug/AndroidManifest.xml); release talks HTTPS only. -->
     <application
         android:label="CareCoins"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"

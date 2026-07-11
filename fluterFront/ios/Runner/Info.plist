@@ -44,12 +44,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- The backend is plain HTTP during development (API_BASE defaults to
-	     http://…:3000) and ATS blocks cleartext by default. Replace with a
-	     scoped exception (or remove) once the backend is served over HTTPS. -->
+	<!-- Store-safe ATS: local networking only (simulator dev against
+	     http://localhost:3000; LAN IP literals bypass ATS anyway). All
+	     production traffic is HTTPS, so no arbitrary-loads exception. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
+		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
