@@ -1271,14 +1271,20 @@ class _ActChip extends StatelessWidget {
                         color: AppColors.warning)),
             ],
           ),
-          if (ts != null)
-            Text(DateFormat('HH:mm').format(ts),
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: status == 'completed'
-                        ? Colors.white
-                        : AppColors.textSecondary)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (ts != null)
+                Text(DateFormat('HH:mm').format(ts),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: status == 'completed'
+                            ? Colors.white
+                            : AppColors.textSecondary)),
+              Flexible(child: AssigneeBadge(item: a, compact: true)),
+            ],
+          ),
         ],
       ),
     );

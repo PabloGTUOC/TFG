@@ -98,6 +98,17 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
     return { error: { code: 400, message: `You are marked as absent during this time ("${absenceOverlap[0].title}").` } };
   }
 
+  const { rows: selfOverlap } = await client.query(
+    `SELECT id, title FROM activities
+     WHERE assigned_to = $1 AND family_id = $2 AND is_template = false
+       AND status IN ('approved', 'pending_validation')
+       AND (starts_at < $4 AND ends_at > $3)`,
+    [userId, t.family_id, start.toISOString(), endsAtDate.toISOString()]
+  );
+  if (selfOverlap.length > 0) {
+    return { error: { code: 409, message: `You already have "${selfOverlap[0].title}" scheduled during this time.` } };
+  }
+
   const { rows: budgetRows } = await client.query(`
     SELECT f.monthly_coin_budget,
       COALESCE((
@@ -173,6 +184,14 @@ export async function createRecurrence(client, userId, instanceId, { frequency, 
       [act.assigned_to, act.family_id, startIso, endIso]
     );
     if (absenceOverlap.length > 0) continue;
+    const { rows: selfOverlap } = await client.query(
+      `SELECT id FROM activities
+       WHERE assigned_to = $1 AND family_id = $2 AND is_template = false
+         AND status IN ('approved', 'pending_validation')
+         AND (starts_at < $4 AND ends_at > $3)`,
+      [act.assigned_to, act.family_id, startIso, endIso]
+    );
+    if (selfOverlap.length > 0) continue;
     await client.query(
       `INSERT INTO activities
          (family_id, created_by, assigned_to, title, category,

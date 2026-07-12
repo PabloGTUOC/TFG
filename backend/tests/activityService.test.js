@@ -7,6 +7,7 @@ import {
   acceptBounty,
   revertActivity,
   listActivities,
+  scheduleActivity,
 } from '../src/services/activityService.js';
 
 // Builds a mock DB client that responds to queries in order.
@@ -245,5 +246,43 @@ describe('listActivities', () => {
     const client = mockClient([{ rows: [], rowCount: 0 }]);
     const result = await listActivities(client, 99, 10);
     assert.equal(result.error.code, 403);
+  });
+});
+
+// ─── scheduleActivity ────────────────────────────────────────────────────────
+
+describe('scheduleActivity', () => {
+  const tmpl = {
+    id: 5, family_id: 10, created_by: 98, title: 'Dinner', category: 'meals',
+    duration_minutes: 60, coin_value: 60, approved_by: 98, approved_at: '2030-01-01T00:00:00Z',
+    is_recurrent: false,
+  };
+  const futureStart = '2030-06-01T19:00:00Z';
+
+  test('returns 409 when the user already has an activity in that slot', async () => {
+    const client = mockClient([
+      ok([tmpl]),                          // SELECT template
+      empty(),                             // absence overlap
+      ok([{ id: 7, title: 'Bath time' }]), // self overlap
+    ]);
+    const result = await scheduleActivity(client, 99, 5, futureStart);
+    assert.equal(result.error.code, 409);
+    assert.match(result.error.message, /Bath time/);
+  });
+
+  test('scopes the overlap check to the scheduling user, so other caretakers can share the slot', async () => {
+    const scheduled = { id: 8, family_id: 10, assigned_to: 99, title: 'Dinner' };
+    const client = mockClient([
+      ok([tmpl]),                                                  // SELECT template
+      empty(),                                                     // absence overlap
+      empty(),                                                     // self overlap
+      ok([{ monthly_coin_budget: 1000, used_this_month: 0 }]),     // budget
+      ok([scheduled]),                                             // INSERT
+    ]);
+    const result = await scheduleActivity(client, 99, 5, futureStart);
+    assert.equal(result.data.id, 8);
+    const overlapCall = client._calls[2];
+    assert.match(overlapCall.sql, /assigned_to = \$1/);
+    assert.equal(overlapCall.params[0], 99);
   });
 });

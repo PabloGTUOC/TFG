@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 
 /// ── VCard (components/VCard.vue) ──────────────────────────────────
@@ -651,6 +653,50 @@ class PageHeading extends StatelessWidget {
         ],
         const SizedBox(height: 28),
       ],
+    );
+  }
+}
+
+/// ── AssigneeBadge ──────────────────────────────────────────────────
+/// "Who's doing this" pill for activity chips/cards, so simultaneous
+/// activities from different caregivers are tellable apart. Shows "You"
+/// (accented) for the viewer's own activities, the assignee's alias
+/// otherwise; hides itself when there is no one to show.
+class AssigneeBadge extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final bool compact;
+
+  const AssigneeBadge({super.key, required this.item, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final mine = item['assigned_to']?.toString() == app.userId?.toString();
+    final name = (item['assigned_alias'] ?? item['assigned_to_name'] ?? '')
+        .toString()
+        .trim();
+    if (!mine && name.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 7 : 10, vertical: compact ? 2 : 4),
+      constraints: BoxConstraints(maxWidth: compact ? 72 : 130),
+      decoration: BoxDecoration(
+        color: mine ? AppColors.primarySoft : AppColors.bg,
+        border:
+            Border.all(color: mine ? AppColors.primary : AppColors.border),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: Text(
+        mine ? 'You' : name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: compact ? 10 : 11.5,
+          fontWeight: FontWeight.w800,
+          color: mine ? AppColors.primary : AppColors.textSecondary,
+        ),
+      ),
     );
   }
 }

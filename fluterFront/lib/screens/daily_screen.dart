@@ -1066,7 +1066,9 @@ class _DailyScreenState extends State<DailyScreen> {
                   fontSize: 13.5, fontWeight: FontWeight.w800, color: fg),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          AssigneeBadge(item: a, compact: true),
+          const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
@@ -1332,8 +1334,8 @@ class _ActivityAction extends StatelessWidget {
       return pill('Take Over (+${bounty}cc)', AppColors.success,
           AppColors.successSoft, onTakeOver);
     }
-    return pill('→ ${item['assigned_alias'] ?? 'Caregiver'}',
-        AppColors.textSecondary, AppColors.bg);
+    // Assignee is shown by _AssigneeBadge on every chip/card; no action here.
+    return const SizedBox.shrink();
   }
 }
 
@@ -1708,8 +1710,10 @@ class _TimelineCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      Flexible(child: AssigneeBadge(item: item)),
+                      const SizedBox(width: 8),
                       _ActivityAction(
                         item: item,
                         onValidate: onValidate,
