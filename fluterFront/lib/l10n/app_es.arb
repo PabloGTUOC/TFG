@@ -1,0 +1,22 @@
+{
+  "@@locale": "es",
+
+  "tabFamily": "Familia",
+  "tabActivities": "Actividades",
+  "tabRewards": "Premios",
+  "tabStats": "Datos",
+  "tabMe": "Yo",
+
+  "navMarketplace": "Mercado",
+  "navPersonal": "Personal",
+
+  "menuLogout": "Cerrar sesión",
+  "userMenuTooltip": "Menú de usuario",
+  "helpTooltip": "Cómo funciona CareCoins",
+
+  "loadingApp": "Cargando CareCoins...",
+  "back": "Atrás",
+
+  "languageTitle": "Idioma",
+  "languageSystem": "Idioma del sistema"
+}

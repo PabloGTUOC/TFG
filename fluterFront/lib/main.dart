@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -47,21 +48,27 @@ class CareCoinsApp extends StatelessWidget {
       create: (_) => AppState()
         ..firebaseAvailable = firebaseAvailable
         ..init(),
-      child: MaterialApp(
-        title: 'CareCoins',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(),
-        // Fixed-height chrome (bottom tabs, timeline chips) breaks beyond
-        // ~130% OS font scale; clamp until those containers are flexible.
-        builder: (context, child) {
-          final mq = MediaQuery.of(context);
-          return MediaQuery(
-            data: mq.copyWith(
-                textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
-            child: child!,
-          );
-        },
-        home: const _ToastListener(child: _AuthGate()),
+      child: Consumer<AppState>(
+        builder: (context, app, _) => MaterialApp(
+          title: 'CareCoins',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          // User-chosen language (persisted); null follows the device.
+          locale: app.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          // Fixed-height chrome (bottom tabs, timeline chips) breaks beyond
+          // ~130% OS font scale; clamp until those containers are flexible.
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            return MediaQuery(
+              data: mq.copyWith(
+                  textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
+              child: child!,
+            );
+          },
+          home: const _ToastListener(child: _AuthGate()),
+        ),
       ),
     );
   }
@@ -120,13 +127,14 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final l = AppLocalizations.of(context);
 
     if (!app.authReady) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(
-          child: Text('Loading CareCoins...',
-              style: TextStyle(
+          child: Text(l.loadingApp,
+              style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary)),
@@ -147,7 +155,7 @@ class _AuthGateState extends State<_AuthGate> {
               child: TextButton.icon(
                 onPressed: () => setState(() => _showLogin = false),
                 icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                label: const Text('Back'),
+                label: Text(l.back),
               ),
             ),
           ),

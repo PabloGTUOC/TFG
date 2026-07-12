@@ -1,0 +1,10 @@
+# Config for `flutter gen-l10n` (runs automatically on pub get / build).
+# See docs/i18n-plan.md for the full localization workflow.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+# Written on every generation; must be empty before a release. CI should
+# fail when any key is missing from a language (docs/i18n-plan.md §5).
+untranslated-messages-file: untranslated.json
+# AppLocalizations.of(context) returns non-null: locales are fully resolved.
+nullable-getter: false

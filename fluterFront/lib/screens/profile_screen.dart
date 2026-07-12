@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/push_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -659,6 +660,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const Divider(height: 32),
+          // Language picker (docs/i18n-plan.md §2). Language names stay in
+          // their own language on purpose; only "system" is translated.
+          Text(AppLocalizations.of(context).languageTitle,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: app.locale?.languageCode ?? 'system',
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(12),
+                style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary),
+                items: [
+                  DropdownMenuItem(
+                      value: 'system',
+                      child: Text(AppLocalizations.of(context).languageSystem)),
+                  const DropdownMenuItem(value: 'en', child: Text('English')),
+                  const DropdownMenuItem(value: 'es', child: Text('Español')),
+                  const DropdownMenuItem(value: 'fr', child: Text('Français')),
+                  const DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+                ],
+                onChanged: (v) => context.read<AppState>().setLocale(
+                    v == null || v == 'system' ? null : Locale(v)),
+              ),
+            ),
+          ),
+          const Divider(height: 32),
           // Help entry (docs/onboarding-help-plan.md Phase 1): same sheet
           // as the header's ? button, for people who look in settings.
           Tappable(
@@ -682,7 +722,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           VButton(
             type: VButtonType.danger,
             onPressed: () => app.logout(),
-            child: const Text('Logout'),
+            child: Text(AppLocalizations.of(context).menuLogout),
           ),
         ],
       ),

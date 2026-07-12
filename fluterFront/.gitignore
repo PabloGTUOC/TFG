@@ -35,6 +35,10 @@ migrate_working_dir/
 /build.nosync/
 /coverage/
 
+# Generated localizations (recreated by flutter pub get / build via gen-l10n)
+lib/l10n/app_localizations*.dart
+untranslated.json
+
 # Symbolication related
 app.*.symbols
 

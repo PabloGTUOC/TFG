@@ -1,0 +1,64 @@
+{
+  "@@locale": "en",
+
+  "tabFamily": "Family",
+  "@tabFamily": {
+    "description": "Bottom tab bar + desktop nav: the dashboard / family hub tab"
+  },
+  "tabActivities": "Activities",
+  "@tabActivities": {
+    "description": "Bottom tab bar + desktop nav: the activity library tab"
+  },
+  "tabRewards": "Rewards",
+  "@tabRewards": {
+    "description": "Bottom tab bar: the marketplace tab (short mobile label)"
+  },
+  "tabStats": "Stats",
+  "@tabStats": {
+    "description": "Bottom tab bar: the statistics tab"
+  },
+  "tabMe": "Me",
+  "@tabMe": {
+    "description": "Bottom tab bar: the personal area / profile tab (short mobile label)"
+  },
+
+  "navMarketplace": "Marketplace",
+  "@navMarketplace": {
+    "description": "Desktop pill-header nav: the marketplace link (long label)"
+  },
+  "navPersonal": "Personal",
+  "@navPersonal": {
+    "description": "Desktop pill-header nav: the personal area link (long label)"
+  },
+
+  "menuLogout": "Logout",
+  "@menuLogout": {
+    "description": "Avatar menu item and profile-screen button that signs the user out"
+  },
+  "userMenuTooltip": "User Menu",
+  "@userMenuTooltip": {
+    "description": "Tooltip on the avatar button in the header"
+  },
+  "helpTooltip": "How CareCoins works",
+  "@helpTooltip": {
+    "description": "Tooltip on the ? help button in the header"
+  },
+
+  "loadingApp": "Loading CareCoins...",
+  "@loadingApp": {
+    "description": "Full-screen message while the auth session is restored at startup"
+  },
+  "back": "Back",
+  "@back": {
+    "description": "Generic back button label (e.g. from login back to the landing page)"
+  },
+
+  "languageTitle": "Language",
+  "@languageTitle": {
+    "description": "Section title above the language picker in Account Settings"
+  },
+  "languageSystem": "System default",
+  "@languageSystem": {
+    "description": "Language picker option that follows the device language"
+  }
+}
