@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/avatar_upload.dart';
@@ -30,14 +31,14 @@ class _FamilyCircleState extends State<FamilyCircle> {
   bool _generatingLink = false;
   bool _linkCopied = false;
 
-  static const _badges = {
-    'child': ('Junior Explorer', Color(0xFF6366F1)),
-    'pet': ('Furry Friend', Color(0xFF10B981)),
-    'elderly': ('Guiding Star', Color(0xFFF59E0B)),
-    'caregiver': ('Caregiver', Color(0xFF059669)),
-    'member': ('Family Member', Color(0xFF3B82F6)),
-    'person': ('Family Member', Color(0xFF3B82F6)),
-  };
+  Map<String, (String, Color)> _badges(AppLocalizations l) => {
+        'child': (l.badgeJuniorExplorer, const Color(0xFF6366F1)),
+        'pet': (l.badgeFurryFriend, const Color(0xFF10B981)),
+        'elderly': (l.badgeGuidingStar, const Color(0xFFF59E0B)),
+        'caregiver': (l.fallbackCaregiver, const Color(0xFF059669)),
+        'member': (l.badgeFamilyMember, const Color(0xFF3B82F6)),
+        'person': (l.badgeFamilyMember, const Color(0xFF3B82F6)),
+      };
 
   @override
   void initState() {
@@ -74,11 +75,12 @@ class _FamilyCircleState extends State<FamilyCircle> {
   /// Members first, then care actors — same as combinedCircleItems in Vue.
   List<Map<String, dynamic>> get _circle {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     return [
       for (final m in _members)
         {
           'key': 'user_${m['id']}',
-          'name': m['name'] ?? 'Member',
+          'name': m['name'] ?? l.fallbackMemberName,
           'type': (m['role'] ?? 'member').toString(),
           'avatarUrl': m['avatar_url'],
           'isActor': false,
@@ -87,7 +89,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
         {
           'key': 'actor_${a['id']}',
           'id': a['id'],
-          'name': a['name'] ?? 'Dependent',
+          'name': a['name'] ?? l.fallbackDependent,
           'type': (a['actor_type'] ?? 'person').toString(),
           'avatarUrl': a['avatar_url'],
           'isActor': true,
@@ -99,7 +101,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
     final app = context.read<AppState>();
     final ok = await pickAndUploadAvatar(
         context, '/api/families/${app.familyId}/actors/$actorId/avatar',
-        successMessage: 'Avatar updated!');
+        successMessage: AppLocalizations.of(context).toastAvatarUpdatedShort);
     if (ok && mounted) {
       await app.fetchUserData();
       await _load();
@@ -107,6 +109,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
   }
 
   Future<void> _addActor() async {
+    final l = AppLocalizations.of(context);
     final name = TextEditingController();
     var actorType = 'child';
     var careTime = 'full_time';
@@ -116,36 +119,36 @@ class _FamilyCircleState extends State<FamilyCircle> {
         builder: (ctx, setLocal) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Add Dependent',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(l.addDependentTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               VInput(
                   controller: name,
-                  label: 'Name',
-                  placeholder: 'e.g. Luna, Grandpa…'),
+                  label: l.nameLabel,
+                  placeholder: l.dependentNameHint),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: actorType,
-                decoration: const InputDecoration(labelText: 'Type'),
-                items: const [
+                decoration: InputDecoration(labelText: l.typeLabel),
+                items: [
+                  DropdownMenuItem(value: 'child', child: Text(l.typeChild)),
+                  DropdownMenuItem(value: 'pet', child: Text(l.typePet)),
                   DropdownMenuItem(
-                      value: 'child', child: Text('👶 Child / Baby')),
-                  DropdownMenuItem(value: 'pet', child: Text('🐾 Pet')),
-                  DropdownMenuItem(value: 'elderly', child: Text('👴 Elderly')),
+                      value: 'elderly', child: Text(l.typeElderly)),
                 ],
                 onChanged: (v) => setLocal(() => actorType = v ?? 'child'),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: careTime,
-                decoration: const InputDecoration(labelText: 'Care time'),
-                items: const [
+                decoration: InputDecoration(labelText: l.careTimeLabel),
+                items: [
                   DropdownMenuItem(
-                      value: 'full_time', child: Text('Full Time')),
+                      value: 'full_time', child: Text(l.fullTime)),
                   DropdownMenuItem(
-                      value: 'part_time', child: Text('Part Time')),
+                      value: 'part_time', child: Text(l.partTime)),
                 ],
                 onChanged: (v) => setLocal(() => careTime = v ?? 'full_time'),
               ),
@@ -154,18 +157,19 @@ class _FamilyCircleState extends State<FamilyCircle> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
+                child: Text(l.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Add')),
+                child: Text(l.addBtn)),
           ],
         ),
       ),
     );
     if (ok != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     if (name.text.trim().isEmpty) {
-      app.setError('Name is required.');
+      app.setError(l.errNameRequired);
       return;
     }
     await app.runAction(() async {
@@ -176,39 +180,42 @@ class _FamilyCircleState extends State<FamilyCircle> {
       });
       await app.fetchUserData();
       await _load();
-    }, 'Dependent added to the circle!');
+    }, l.toastDependentAdded);
   }
 
   Future<void> _removeActor(dynamic actorId, String name) async {
+    final l = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Remove dependent?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text('Remove "$name" from the family circle?'),
+        title: Text(l.removeDependentTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(l.removeDependentBody(name)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remove',
-                  style: TextStyle(color: AppColors.danger))),
+              child: Text(l.remove,
+                  style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
     if (ok != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     await app.runAction(() async {
       await app.api.delete('/api/families/${app.familyId}/actors/$actorId');
       await app.fetchUserData();
       await _load();
-    }, 'Dependent removed.');
+    }, l.toastDependentRemoved);
   }
 
   Future<void> _inviteByEmail() async {
+    final l = AppLocalizations.of(context);
     final email = TextEditingController();
     final name = TextEditingController();
     final ok = await showDialog<bool>(
@@ -216,38 +223,39 @@ class _FamilyCircleState extends State<FamilyCircle> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Invite a Caregiver',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(l.inviteCaregiverTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             VInput(
                 controller: email,
-                label: 'Email Address *',
+                label: l.emailRequiredLabel,
                 placeholder: 'caregiver@email.com',
                 keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 12),
             VInput(
                 controller: name,
-                label: 'Their Name (optional)',
-                placeholder: 'e.g. Maria'),
+                label: l.theirNameLabel,
+                placeholder: l.theirNameHint),
           ],
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Send invite')),
+              child: Text(l.sendInvite)),
         ],
       ),
     );
     if (ok != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     final mail = email.text.trim();
     if (mail.isEmpty) {
-      app.setError('Email is required.');
+      app.setError(l.errEmailRequired);
       return;
     }
     await app.runAction(() async {
@@ -256,7 +264,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
         if (name.text.trim().isNotEmpty) 'name': name.text.trim(),
       });
       await _load();
-    }, 'Invitation sent!');
+    }, l.toastInvitationSent);
   }
 
   Future<void> _generateInviteLink() async {
@@ -268,7 +276,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
       final id = (data['link'] as Map?)?['id'];
       setState(() => _inviteLink = '$kWebAppOrigin/join?token=$id');
     } catch (e) {
-      app.setError('Failed to generate invite link.');
+      if (mounted) app.setError(AppLocalizations.of(context).errGenerateLink);
     } finally {
       if (mounted) setState(() => _generatingLink = false);
     }
@@ -285,9 +293,11 @@ class _FamilyCircleState extends State<FamilyCircle> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final l = AppLocalizations.of(context);
+    final badges = _badges(l);
 
     return VCard(
-      title: 'Family Circle',
+      title: l.familyCircleTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -299,7 +309,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 _CircleCard(
                   name: item['name'].toString(),
                   imageUrl: item['avatarUrl']?.toString(),
-                  badge: _badges[item['type']] ??
+                  badge: badges[item['type']] ??
                       (
                         item['type'].toString().replaceAll('_', ' '),
                         const Color(0xFF94A3B8)
@@ -324,19 +334,19 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 VButton(
                     type: VButtonType.outline,
                     onPressed: _addActor,
-                    child: const Text('＋ Add Dependent',
-                        style: TextStyle(fontSize: 14))),
+                    child: Text(l.addDependentBtn,
+                        style: const TextStyle(fontSize: 14))),
                 VButton(
                     type: VButtonType.secondary,
                     onPressed: _inviteByEmail,
-                    child: const Text('✉️ Invite Caregiver',
-                        style: TextStyle(fontSize: 14))),
+                    child: Text(l.inviteCaregiverBtn,
+                        style: const TextStyle(fontSize: 14))),
               ],
             ),
             if (_invitations.isNotEmpty) ...[
               const SizedBox(height: 20),
-              const Text('PENDING INVITATIONS',
-                  style: TextStyle(
+              Text(l.pendingInvitations,
+                  style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
@@ -352,13 +362,13 @@ class _FamilyCircleState extends State<FamilyCircle> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${inv['email'] ?? inv['name'] ?? 'Invitee'}',
+                          '${inv['email'] ?? inv['name'] ?? l.fallbackInvitee}',
                           style: const TextStyle(
                               fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ),
-                      const PillBadge(
-                          text: 'pending',
+                      PillBadge(
+                          text: l.badgePending,
                           color: AppColors.warning,
                           background: AppColors.warningSoft,
                           fontSize: 11),
@@ -371,10 +381,10 @@ class _FamilyCircleState extends State<FamilyCircle> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const Expanded(
-                  child: Text('Invite Link',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Expanded(
+                  child: Text(l.inviteLinkTitle,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800)),
                 ),
                 VButton(
                   type: VButtonType.outline,
@@ -382,10 +392,10 @@ class _FamilyCircleState extends State<FamilyCircle> {
                   onPressed: _generateInviteLink,
                   child: Text(
                       _generatingLink
-                          ? 'Generating…'
+                          ? l.generating
                           : _inviteLink.isEmpty
-                              ? '🔗 Generate Link'
-                              : '↻ New Link',
+                              ? l.generateLink
+                              : l.newLink,
                       style: const TextStyle(fontSize: 13)),
                 ),
               ],
@@ -426,7 +436,7 @@ class _FamilyCircleState extends State<FamilyCircle> {
                 type: VButtonType.secondary,
                 block: true,
                 onPressed: _copyLink,
-                child: Text(_linkCopied ? '✓ Copied!' : 'Copy link',
+                child: Text(_linkCopied ? l.copied : l.copyLink,
                     style: const TextStyle(fontSize: 14)),
               ),
             ],
