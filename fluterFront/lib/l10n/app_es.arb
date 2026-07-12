@@ -18,5 +18,76 @@
   "back": "Atrás",
 
   "languageTitle": "Idioma",
-  "languageSystem": "Idioma del sistema"
+  "languageSystem": "Idioma del sistema",
+
+  "welcomeTitle": "¡Bienvenido a CareCoins! 👋",
+  "welcomeBody": "La idea en una línea: las tareas ganan monedas del presupuesto mensual de tu familia, y con las monedas se compran los premios que tu familia elige.\n\nPodemos señalarte lo importante de cada pantalla cuando la visites, o puedes explorar por tu cuenta (el ? de arriba siempre tiene la historia completa).",
+  "welcomeExplore": "Explorar por mi cuenta",
+  "welcomeTour": "Enséñame la app",
+
+  "greetingMorning": "Buenos días",
+  "greetingAfternoon": "Buenas tardes",
+  "greetingEvening": "Buenas noches",
+  "dashTitle": "Centro Familiar",
+  "dashEarned": "¡{greeting}, {name}! Tu familia ha ganado {coins} cc hoy.",
+  "dashPendingTasks": "{count, plural, one{# tarea espera tu atención.} other{# tareas esperan tu atención.}}",
+
+  "tourMembersTitle": "La familia de un vistazo",
+  "tourMembersBody": "Aquí vive el saldo de monedas de cada uno. Los saldos crecen cuando un cuidador valida una tarea completada.",
+  "tourWeekTitle": "Tu semana",
+  "tourWeekBody": "Toca cualquier día para abrir su agenda completa: ahí se programan, completan y validan las tareas.",
+  "tourKpiTitle": "Los signos vitales",
+  "tourKpiBody": "Saldo familiar, progreso de hoy e incentivos abiertos: el chequeo de 30 segundos.",
+
+  "toastMemberApproved": "¡Miembro aprobado!",
+  "checklistCreateTask": "Crea una plantilla de tarea",
+  "checklistSchedule": "Prográmala en un día",
+  "checklistMarkDone": "Márcala como hecha",
+  "checklistValidate": "Valídala: llegan las monedas",
+  "checklistStockStore": "Llena la tienda de premios",
+
+  "dashActiveMembers": "Miembros activos de la familia",
+  "dashPendingApproval": "Pendientes de aprobación",
+  "approve": "Aprobar",
+  "dashThisWeek": "Esta semana",
+  "dashComingUp": "Próximos días",
+  "logTimeOff": "+ Registrar ausencia",
+  "prevWeek": "Semana anterior",
+  "nextWeek": "Semana siguiente",
+
+  "dashOffersTitle": "Ofertas de tareas e incentivos",
+  "offersOpenCount": "{count} abiertas",
+
+  "kpiFamilyBalance": "Saldo familiar",
+  "kpiMembersCount": "{count, plural, one{entre # miembro} other{entre # miembros}}",
+  "kpiTasksToday": "Tareas de hoy",
+  "kpiAwaitingValidation": "{count} por validar",
+  "kpiOnTrack": "todo en orden",
+  "kpiOpenBounties": "Incentivos abiertos",
+  "kpiNoBounties": "Sin incentivos abiertos",
+  "kpiUpForGrabs": "{coins} cc en juego",
+  "recentActivity": "Actividad reciente",
+  "kpiNoRecent": "sin actividad reciente",
+  "kpiCompletedRecently": "completadas hace poco",
+
+  "feedEmptyTitle": "Aún no hay nada completado",
+  "feedEmptyBody": "Las tareas completadas y los premios canjeados aparecen aquí. Programa algo para hoy y márcalo como hecho.",
+  "feedEmptyAction": "Abrir la agenda de hoy",
+  "feedVerbCompleted": "completó",
+  "feedVerbGot": "consiguió",
+  "seeAllActivity": "Ver toda la actividad",
+
+  "timeAgoDays": "{count, plural, one{hace # día} other{hace # días}}",
+  "timeAgoHours": "{count, plural, one{hace # hora} other{hace # horas}}",
+  "timeAgoMins": "{count, plural, one{hace # min} other{hace # min}}",
+
+  "caredFor": "bajo cuidado",
+  "dayToday": "HOY",
+  "freeDay": "Día libre",
+  "moreCount": "+{count} más",
+
+  "fallbackSomeone": "Alguien",
+  "fallbackDependent": "Dependiente",
+  "fallbackCaregiver": "Cuidador",
+  "fallbackUser": "Usuario {id}"
 }

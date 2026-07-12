@@ -65,29 +65,25 @@ class _ShellState extends State<Shell> {
   Future<void> _maybeShowWelcome() async {
     if (await TourService.I.hasSeen(TourService.welcome)) return;
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
     final choice = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Welcome to CareCoins! 👋',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            'The idea in one line: tasks earn coins from your family\'s '
-            'monthly budget, and coins buy rewards your family chooses.\n\n'
-            'We can point out the important bits on each screen as you '
-            'visit it — or you can find your own way (the ? up top always '
-            'has the full story).',
-            style: TextStyle(
+        title: Text(l.welcomeTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(l.welcomeBody,
+            style: const TextStyle(
                 height: 1.55, color: AppColors.textSecondary)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, 'solo'),
-              child: const Text('Explore on my own')),
+              child: Text(l.welcomeExplore)),
           VButton(
               onPressed: () => Navigator.pop(ctx, 'tour'),
-              child: const Text('Show me around')),
+              child: Text(l.welcomeTour)),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/telemetry.dart';
 import '../services/tour_service.dart';
 import '../state/app_state.dart';
@@ -88,24 +89,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.active || _loading) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'dashboard', [
         CoachMark(
           targetKey: _tourMembersKey,
-          title: 'The family at a glance',
-          body: 'Everyone\'s coin balance lives here. Balances grow when a '
-              'caregiver validates a completed task.',
+          title: l.tourMembersTitle,
+          body: l.tourMembersBody,
         ),
         CoachMark(
           targetKey: _tourWeekKey,
-          title: 'Your week',
-          body: 'Tap any day to open its full schedule — that\'s where '
-              'tasks get scheduled, completed and validated.',
+          title: l.tourWeekTitle,
+          body: l.tourWeekBody,
         ),
         CoachMark(
           targetKey: _tourKpiKey,
-          title: 'The vital signs',
-          body: 'Family balance, today\'s progress and open bounties: the '
-              '30-second check-in.',
+          title: l.tourKpiTitle,
+          body: l.tourKpiBody,
         ),
       ]);
     });
@@ -209,28 +208,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
       hasValidated,
       hasReward
     ].where((d) => d).length;
+    final l = AppLocalizations.of(context);
     return [
       ActivationChecklist(
         steps: [
           ChecklistStep(
-              label: 'Create a task template',
+              label: l.checklistCreateTask,
               done: hasTemplate,
               onGo: () =>
                   go('create_task', () => widget.onOpenActivities?.call())),
           ChecklistStep(
-              label: 'Schedule it on a day',
+              label: l.checklistSchedule,
               done: hasScheduled,
               onGo: () => go('schedule', () => _openDaily(DateTime.now()))),
           ChecklistStep(
-              label: 'Mark it done',
+              label: l.checklistMarkDone,
               done: hasCompleted,
               onGo: () => go('complete', () => _openDaily(DateTime.now()))),
           ChecklistStep(
-              label: 'Validate it — the coins land',
+              label: l.checklistValidate,
               done: hasValidated,
               onGo: () => go('validate', () => _openDaily(DateTime.now()))),
           ChecklistStep(
-              label: 'Stock the reward store',
+              label: l.checklistStockStore,
               done: hasReward,
               onGo: () =>
                   go('reward', () => widget.onOpenMarketplace?.call())),
@@ -251,11 +251,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _approveMember(dynamic userId) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     await app.runAction(() async {
       await app.api
           .post('/api/families/${app.familyId}/members/$userId/approve');
       await _load();
-    }, 'Member approved!');
+    }, l.toastMemberApproved);
   }
 
   Future<void> _openDaily(DateTime day) async {
@@ -291,12 +292,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return [for (var d = 0; d < 8; d++) start.add(Duration(days: d))];
   }
 
-  String _rangeLabel(List<DateTime> days) {
+  String _rangeLabel(List<DateTime> days, String loc) {
     final first = days.first, last = days.last;
     if (first.month == last.month) {
-      return '${DateFormat('MMM').format(first)} ${first.day} — ${last.day}';
+      return '${DateFormat('MMM', loc).format(first)} ${first.day} — ${last.day}';
     }
-    return '${DateFormat('MMM d').format(first)} — ${DateFormat('MMM d').format(last)}';
+    return '${DateFormat('MMM d', loc).format(first)} — ${DateFormat('MMM d', loc).format(last)}';
   }
 
   List<Map<String, dynamic>> _absencesOn(DateTime day) {
@@ -328,6 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ── Recent activity feed (port of recentActivitiesList) ─────────
 
   List<_FeedItem> get _recentActivity {
+    final l = AppLocalizations.of(context);
     final items = <_FeedItem>[
       for (final a in _scheduled)
         if (a['status'] == 'completed')
@@ -335,8 +337,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: '✓',
             color: AppColors.primary,
             background: AppColors.primarySoft,
-            actor: (a['assigned_to_name'] ?? 'Someone').toString(),
-            verb: 'completed',
+            actor: (a['assigned_to_name'] ?? l.fallbackSomeone).toString(),
+            verb: l.feedVerbCompleted,
             subject: (a['title'] ?? '').toString(),
             time: DateTime.tryParse(a['starts_at']?.toString() ?? ''),
             coinText: '+${toNum(a['coin_value'])} cc',
@@ -347,8 +349,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: '🛍️',
           color: AppColors.danger,
           background: AppColors.dangerSoft,
-          actor: (r['buyer_name'] ?? 'Someone').toString(),
-          verb: 'got',
+          actor: (r['buyer_name'] ?? l.fallbackSomeone).toString(),
+          verb: l.feedVerbGot,
           subject: (r['title'] ?? '').toString(),
           time: DateTime.tryParse(r['redeemed_at']?.toString() ?? ''),
           coinText: '-${toNum(r['cost'])} cc',
@@ -359,11 +361,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return items.take(3).toList();
   }
 
-  String get _greeting {
+  String _greeting(AppLocalizations l) {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 12) return l.greetingMorning;
+    if (h < 18) return l.greetingAfternoon;
+    return l.greetingEvening;
   }
 
   @override
@@ -378,6 +380,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final app = context.watch<AppState>();
     final wide = isWideLayout(context);
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final active = _members.where((m) => m['status'] != 'pending').toList();
     final pending = _members.where((m) => m['status'] == 'pending').toList();
     final objects = _asMaps(_dashboard['objectsOfCare']);
@@ -406,9 +410,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bountyTotal =
         offers.fold<num>(0, (acc, o) => acc + toNum(o['bounty_amount']));
     final recent = _recentActivity;
-    final greetName =
-        (app.family?['alias'] ?? app.profile?['display_name'] ?? 'Caregiver')
-            .toString();
+    final greetName = (app.family?['alias'] ??
+            app.profile?['display_name'] ??
+            l.fallbackCaregiver)
+        .toString();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -417,10 +422,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.only(top: 16, bottom: 40),
         children: [
           PageHeading(
-              title: 'Family Hub',
+              title: l.dashTitle,
               subtitle:
-                  '$_greeting, $greetName! Your family has earned $totalCoins cc today. '
-                  '$pendingTasks tasks are waiting for attention.'),
+                  '${l.dashEarned(_greeting(l), greetName, totalCoins)} '
+                  '${l.dashPendingTasks(pendingTasks)}'),
 
           // ── Activation checklist (onboarding-help-plan Phase 3) ──
           // Caregiver-only: creating tasks, validating and stocking the
@@ -429,7 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ..._buildChecklist(),
 
           // ── Active members ──
-          const _SectionTitle('Active Family Members'),
+          _SectionTitle(l.dashActiveMembers),
           Wrap(
             key: _tourMembersKey,
             spacing: 16,
@@ -437,7 +442,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               for (var i = 0; i < active.length; i++)
                 _MemberCard(
-                  name: (active[i]['name'] ?? 'User ${active[i]['user_id']}')
+                  name: (active[i]['name'] ??
+                          l.fallbackUser(active[i]['user_id'] ?? ''))
                       .toString(),
                   imageUrl: active[i]['avatar_url']?.toString(),
                   balance: toNum(active[i]['coin_balance']),
@@ -445,7 +451,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               for (var i = 0; i < objects.length; i++)
                 _MemberCard(
-                  name: (objects[i]['name'] ?? 'Dependent').toString(),
+                  name: (objects[i]['name'] ?? l.fallbackDependent).toString(),
                   imageUrl: objects[i]['avatar_url']?.toString(),
                   balance: null,
                   colorIndex: active.length + i,
@@ -455,7 +461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           if (pending.isNotEmpty) ...[
             const SizedBox(height: 28),
-            const _SectionTitle('Pending Approval'),
+            _SectionTitle(l.dashPendingApproval),
             for (final pm in pending)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -475,13 +481,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                         child: Text(
-                            (pm['name'] ?? 'User ${pm['user_id']}').toString(),
+                            (pm['name'] ?? l.fallbackUser(pm['user_id'] ?? ''))
+                                .toString(),
                             style:
                                 const TextStyle(fontWeight: FontWeight.w700))),
                     VButton(
                         type: VButtonType.outline,
                         onPressed: () => _approveMember(pm['user_id']),
-                        child: const Text('Approve')),
+                        child: Text(l.approve)),
                   ],
                 ),
               ),
@@ -516,13 +523,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(wide ? 'This week' : 'Coming up',
+                        Text(wide ? l.dashThisWeek : l.dashComingUp,
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
-                        Text(_rangeLabel(wide ? _weekDays : _rollingDays),
+                        Text(_rangeLabel(wide ? _weekDays : _rollingDays, loc),
                             style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -535,16 +542,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         VButton(
                             type: VButtonType.outline,
                             onPressed: _logTimeOff,
-                            child: const Text('+ Log Time Off')),
+                            child: Text(l.logTimeOff)),
                         const SizedBox(width: 8),
                         _PaginationButton(
                             label: '«',
-                            tooltip: 'Previous week',
+                            tooltip: l.prevWeek,
                             onTap: () => setState(() => _weekOffset--)),
                         const SizedBox(width: 8),
                         _PaginationButton(
                             label: '»',
-                            tooltip: 'Next week',
+                            tooltip: l.nextWeek,
                             onTap: () => setState(() => _weekOffset++)),
                       ],
                     ),
@@ -616,10 +623,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (offers.isNotEmpty) ...[
             Row(
               children: [
-                const Expanded(child: _SectionTitle('Task Offers & Bribes')),
+                Expanded(child: _SectionTitle(l.dashOffersTitle)),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: PillBadge(text: '${offers.length} open'),
+                  child: PillBadge(text: l.offersOpenCount(offers.length)),
                 ),
               ],
             ),
@@ -660,7 +667,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     fontWeight: FontWeight.w800)),
                             if (offer['starts_at'] != null)
                               Text(
-                                  DateFormat('EEE d MMM · HH:mm').format(
+                                  DateFormat('EEE d MMM · HH:mm', loc).format(
                                       DateTime.parse(
                                               offer['starts_at'].toString())
                                           .toLocal()),
@@ -692,12 +699,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: InkWell(
                         onTap: widget.onOpenStats,
                         child: KpiCard(
-                            label: 'Family Balance',
-                            value: NumberFormat.decimalPattern()
+                            label: l.kpiFamilyBalance,
+                            value: NumberFormat.decimalPattern(loc)
                                 .format(totalCoins),
                             unit: 'cc',
-                            subtitle:
-                                'across ${_members.length} ${_members.length == 1 ? 'member' : 'members'}'))),
+                            subtitle: l.kpiMembersCount(_members.length)))),
                 SizedBox(
                     width: w,
                     // The most-used destination gets a direct entry point:
@@ -705,12 +711,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: InkWell(
                         onTap: () => _openDaily(DateTime.now()),
                         child: KpiCard(
-                            label: 'Tasks Today',
+                            label: l.kpiTasksToday,
                             value: '$completedToday/$todayActs',
                             accent: AppColors.success,
                             subtitle: pendingTasks > 0
-                                ? '$pendingTasks awaiting validation'
-                                : 'on track',
+                                ? l.kpiAwaitingValidation(pendingTasks)
+                                : l.kpiOnTrack,
                             progress: todayActs == 0
                                 ? 0
                                 : 100 * completedToday / todayActs))),
@@ -719,23 +725,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: InkWell(
                         onTap: widget.onOpenStats,
                         child: KpiCard(
-                            label: 'Open Bounties',
+                            label: l.kpiOpenBounties,
                             value: '${offers.length}',
                             accent: AppColors.warning,
                             subtitle: offers.isEmpty
-                                ? 'No bounties open'
-                                : '$bountyTotal cc up for grabs'))),
+                                ? l.kpiNoBounties
+                                : l.kpiUpForGrabs(bountyTotal)))),
                 SizedBox(
                     width: w,
                     child: InkWell(
                         onTap: widget.onOpenStats,
                         child: KpiCard(
-                            label: 'Recent Activity',
+                            label: l.recentActivity,
                             value: '${recent.length}',
                             accent: AppColors.textPrimary,
                             subtitle: recent.isEmpty
-                                ? 'no recent activity'
-                                : 'completed recently'))),
+                                ? l.kpiNoRecent
+                                : l.kpiCompletedRecently))),
               ],
             );
           }),
@@ -753,18 +759,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Recent Activity',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(l.recentActivity,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 20),
                 if (recent.isEmpty)
                   EmptyState(
                     icon: Icons.checklist_rounded,
-                    title: 'Nothing completed yet',
-                    body:
-                        'Completed tasks and redeemed rewards land here. '
-                        'Schedule something for today and check it off.',
-                    actionLabel: 'Open today\'s schedule',
+                    title: l.feedEmptyTitle,
+                    body: l.feedEmptyBody,
+                    actionLabel: l.feedEmptyAction,
                     onAction: () => _openDaily(DateTime.now()),
                   ),
                 for (final item in recent)
@@ -808,7 +812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 5),
                               Row(
                                 children: [
-                                  Text(item.timeAgo,
+                                  Text(item.timeAgo(l),
                                       style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
@@ -831,7 +835,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     type: VButtonType.outline,
                     block: true,
                     onPressed: widget.onOpenStats,
-                    child: const Text('See all activity')),
+                    child: Text(l.seeAllActivity)),
               ],
             ),
           ),
@@ -865,11 +869,11 @@ class _FeedItem {
     required this.coinColor,
   });
 
-  String get timeAgo {
+  String timeAgo(AppLocalizations l) {
     final ms = DateTime.now().difference(time!);
-    if (ms.inHours > 24) return '${ms.inHours ~/ 24} days ago';
-    if (ms.inHours > 0) return '${ms.inHours} hours ago';
-    return '${ms.inMinutes.clamp(1, 59)} mins ago';
+    if (ms.inHours > 24) return l.timeAgoDays(ms.inHours ~/ 24);
+    if (ms.inHours > 0) return l.timeAgoHours(ms.inHours);
+    return l.timeAgoMins(ms.inMinutes.clamp(1, 59));
   }
 }
 
@@ -967,8 +971,8 @@ class _MemberCard extends StatelessWidget {
           if (balance != null)
             PillBadge(text: '$balance cc')
           else
-            const PillBadge(
-                text: 'cared for',
+            PillBadge(
+                text: AppLocalizations.of(context).caredFor,
                 color: AppColors.textSecondary,
                 background: AppColors.bg),
         ],
@@ -1027,7 +1031,10 @@ class _DayColumn extends StatelessWidget {
               children: [
                 Column(
                   children: [
-                    Text(DateFormat('EEE').format(day),
+                    Text(
+                        DateFormat('EEE',
+                                Localizations.localeOf(context).toString())
+                            .format(day),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -1151,7 +1158,12 @@ class _DayRow extends StatelessWidget {
               width: 44,
               child: Column(
                 children: [
-                  Text(isToday ? 'TODAY' : DateFormat('EEE').format(day),
+                  Text(
+                      isToday
+                          ? AppLocalizations.of(context).dayToday
+                          : DateFormat('EEE',
+                                  Localizations.localeOf(context).toString())
+                              .format(day),
                       style: TextStyle(
                           fontSize: isToday ? 9 : 11,
                           fontWeight: FontWeight.w800,
@@ -1172,8 +1184,8 @@ class _DayRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: free
-                  ? const Text('Free day',
-                      style: TextStyle(
+                  ? Text(AppLocalizations.of(context).freeDay,
+                      style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary))
@@ -1193,7 +1205,8 @@ class _DayRow extends StatelessWidget {
                           _ActChip(a: a, dense: true),
                         if (acts.length > _maxChips)
                           PillBadge(
-                              text: '+${acts.length - _maxChips} more',
+                              text: AppLocalizations.of(context)
+                                  .moreCount(acts.length - _maxChips),
                               fontSize: 11,
                               color: AppColors.textSecondary,
                               background: AppColors.surface),

@@ -60,5 +60,181 @@
   "languageSystem": "System default",
   "@languageSystem": {
     "description": "Language picker option that follows the device language"
+  },
+
+  "welcomeTitle": "Welcome to CareCoins! 👋",
+  "@welcomeTitle": {
+    "description": "Title of the one-time welcome dialog after first landing in the app"
+  },
+  "welcomeBody": "The idea in one line: tasks earn coins from your family's monthly budget, and coins buy rewards your family chooses.\n\nWe can point out the important bits on each screen as you visit it — or you can find your own way (the ? up top always has the full story).",
+  "@welcomeBody": {
+    "description": "Body of the welcome dialog explaining the coin economy and offering a guided tour"
+  },
+  "welcomeExplore": "Explore on my own",
+  "@welcomeExplore": {
+    "description": "Welcome dialog button that skips the guided tour"
+  },
+  "welcomeTour": "Show me around",
+  "@welcomeTour": {
+    "description": "Welcome dialog button that starts the guided tour"
+  },
+
+  "greetingMorning": "Good morning",
+  "@greetingMorning": { "description": "Dashboard greeting before 12:00" },
+  "greetingAfternoon": "Good afternoon",
+  "@greetingAfternoon": { "description": "Dashboard greeting 12:00-18:00" },
+  "greetingEvening": "Good evening",
+  "@greetingEvening": { "description": "Dashboard greeting after 18:00" },
+  "dashTitle": "Family Hub",
+  "@dashTitle": { "description": "Dashboard page heading" },
+  "dashEarned": "{greeting}, {name}! Your family has earned {coins} cc today.",
+  "@dashEarned": {
+    "description": "First dashboard subtitle sentence. greeting is one of the greeting* strings, name the family alias.",
+    "placeholders": {
+      "greeting": {},
+      "name": {},
+      "coins": {}
+    }
+  },
+  "dashPendingTasks": "{count, plural, one{# task is waiting for attention.} other{# tasks are waiting for attention.}}",
+  "@dashPendingTasks": {
+    "description": "Second dashboard subtitle sentence: tasks pending validation/approval",
+    "placeholders": { "count": { "type": "num" } }
+  },
+
+  "tourMembersTitle": "The family at a glance",
+  "@tourMembersTitle": { "description": "Dashboard coach-mark title over the member cards" },
+  "tourMembersBody": "Everyone's coin balance lives here. Balances grow when a caregiver validates a completed task.",
+  "@tourMembersBody": { "description": "Dashboard coach-mark body over the member cards" },
+  "tourWeekTitle": "Your week",
+  "@tourWeekTitle": { "description": "Dashboard coach-mark title over the week strip" },
+  "tourWeekBody": "Tap any day to open its full schedule — that's where tasks get scheduled, completed and validated.",
+  "@tourWeekBody": { "description": "Dashboard coach-mark body over the week strip" },
+  "tourKpiTitle": "The vital signs",
+  "@tourKpiTitle": { "description": "Dashboard coach-mark title over the KPI cards" },
+  "tourKpiBody": "Family balance, today's progress and open bounties: the 30-second check-in.",
+  "@tourKpiBody": { "description": "Dashboard coach-mark body over the KPI cards" },
+
+  "toastMemberApproved": "Member approved!",
+  "@toastMemberApproved": { "description": "Toast after approving a pending family member" },
+  "checklistCreateTask": "Create a task template",
+  "@checklistCreateTask": { "description": "Activation checklist step 1" },
+  "checklistSchedule": "Schedule it on a day",
+  "@checklistSchedule": { "description": "Activation checklist step 2" },
+  "checklistMarkDone": "Mark it done",
+  "@checklistMarkDone": { "description": "Activation checklist step 3" },
+  "checklistValidate": "Validate it — the coins land",
+  "@checklistValidate": { "description": "Activation checklist step 4" },
+  "checklistStockStore": "Stock the reward store",
+  "@checklistStockStore": { "description": "Activation checklist step 5" },
+
+  "dashActiveMembers": "Active Family Members",
+  "@dashActiveMembers": { "description": "Dashboard section title: member cards" },
+  "dashPendingApproval": "Pending Approval",
+  "@dashPendingApproval": { "description": "Dashboard section title: members awaiting approval" },
+  "approve": "Approve",
+  "@approve": { "description": "Button approving a pending family member" },
+  "dashThisWeek": "This week",
+  "@dashThisWeek": { "description": "Week strip label on wide layouts (calendar week)" },
+  "dashComingUp": "Coming up",
+  "@dashComingUp": { "description": "Week strip label on phones (rolling window from today)" },
+  "logTimeOff": "+ Log Time Off",
+  "@logTimeOff": { "description": "Button opening the absence dialog" },
+  "prevWeek": "Previous week",
+  "@prevWeek": { "description": "Tooltip on the week-back pagination button" },
+  "nextWeek": "Next week",
+  "@nextWeek": { "description": "Tooltip on the week-forward pagination button" },
+
+  "dashOffersTitle": "Task Offers & Bribes",
+  "@dashOffersTitle": { "description": "Dashboard section title: open bounty offers" },
+  "offersOpenCount": "{count} open",
+  "@offersOpenCount": {
+    "description": "Badge next to the offers section title",
+    "placeholders": { "count": {} }
+  },
+
+  "kpiFamilyBalance": "Family Balance",
+  "@kpiFamilyBalance": { "description": "KPI card label: sum of all member balances" },
+  "kpiMembersCount": "{count, plural, one{across # member} other{across # members}}",
+  "@kpiMembersCount": {
+    "description": "KPI subtitle under Family Balance",
+    "placeholders": { "count": { "type": "num" } }
+  },
+  "kpiTasksToday": "Tasks Today",
+  "@kpiTasksToday": { "description": "KPI card label: completed/total tasks today" },
+  "kpiAwaitingValidation": "{count} awaiting validation",
+  "@kpiAwaitingValidation": {
+    "description": "KPI subtitle when tasks are pending validation",
+    "placeholders": { "count": {} }
+  },
+  "kpiOnTrack": "on track",
+  "@kpiOnTrack": { "description": "KPI subtitle when nothing is pending" },
+  "kpiOpenBounties": "Open Bounties",
+  "@kpiOpenBounties": { "description": "KPI card label: open bounty offers" },
+  "kpiNoBounties": "No bounties open",
+  "@kpiNoBounties": { "description": "KPI subtitle when there are no bounties" },
+  "kpiUpForGrabs": "{coins} cc up for grabs",
+  "@kpiUpForGrabs": {
+    "description": "KPI subtitle: total coins offered across open bounties",
+    "placeholders": { "coins": {} }
+  },
+  "recentActivity": "Recent Activity",
+  "@recentActivity": { "description": "KPI card label and feed section title" },
+  "kpiNoRecent": "no recent activity",
+  "@kpiNoRecent": { "description": "KPI subtitle when the feed is empty" },
+  "kpiCompletedRecently": "completed recently",
+  "@kpiCompletedRecently": { "description": "KPI subtitle when the feed has items" },
+
+  "feedEmptyTitle": "Nothing completed yet",
+  "@feedEmptyTitle": { "description": "Empty state title of the Recent Activity feed" },
+  "feedEmptyBody": "Completed tasks and redeemed rewards land here. Schedule something for today and check it off.",
+  "@feedEmptyBody": { "description": "Empty state body of the Recent Activity feed" },
+  "feedEmptyAction": "Open today's schedule",
+  "@feedEmptyAction": { "description": "Empty state action of the Recent Activity feed" },
+  "feedVerbCompleted": "completed",
+  "@feedVerbCompleted": { "description": "Feed verb: '<name> completed <task>'" },
+  "feedVerbGot": "got",
+  "@feedVerbGot": { "description": "Feed verb: '<name> got <reward>'" },
+  "seeAllActivity": "See all activity",
+  "@seeAllActivity": { "description": "Button under the feed linking to Stats" },
+
+  "timeAgoDays": "{count, plural, one{# day ago} other{# days ago}}",
+  "@timeAgoDays": {
+    "description": "Relative time in the activity feed",
+    "placeholders": { "count": { "type": "num" } }
+  },
+  "timeAgoHours": "{count, plural, one{# hour ago} other{# hours ago}}",
+  "@timeAgoHours": {
+    "description": "Relative time in the activity feed",
+    "placeholders": { "count": { "type": "num" } }
+  },
+  "timeAgoMins": "{count, plural, one{# min ago} other{# mins ago}}",
+  "@timeAgoMins": {
+    "description": "Relative time in the activity feed",
+    "placeholders": { "count": { "type": "num" } }
+  },
+
+  "caredFor": "cared for",
+  "@caredFor": { "description": "Badge on dependent cards (children/pets/elderly) instead of a balance" },
+  "dayToday": "TODAY",
+  "@dayToday": { "description": "Short uppercase label replacing the weekday for today in the agenda; must stay very short" },
+  "freeDay": "Free day",
+  "@freeDay": { "description": "Agenda row with no tasks or absences" },
+  "moreCount": "+{count} more",
+  "@moreCount": {
+    "description": "Collapsed-chips pill: number of additional tasks not shown",
+    "placeholders": { "count": {} }
+  },
+
+  "fallbackSomeone": "Someone",
+  "@fallbackSomeone": { "description": "Fallback actor name in the feed when the name is missing" },
+  "fallbackDependent": "Dependent",
+  "@fallbackDependent": { "description": "Fallback name for a care dependent" },
+  "fallbackCaregiver": "Caregiver",
+  "@fallbackCaregiver": { "description": "Fallback name for a caregiver (greeting, assignee chips)" },
+  "fallbackUser": "User {id}",
+  "@fallbackUser": {
+    "description": "Fallback member name when only the numeric id is known",
+    "placeholders": { "id": {} }
   }
 }
