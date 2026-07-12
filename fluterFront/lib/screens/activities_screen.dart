@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -67,19 +68,17 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.active || _loading) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'activities', [
         CoachMark(
           targetKey: _tourTabsKey,
-          title: 'The task library',
-          body: 'Catalogue holds your templates, New Activity creates one, '
-              'and Budget shows how many coins are left to assign this '
-              'month.',
+          title: l.tourActTitle,
+          body: l.tourActBody,
         ),
         CoachMark(
           targetKey: _tourFilterKey,
-          title: 'Care vs. household',
-          body: 'Every task is one of two kinds. The split is what powers '
-              'the fairness charts in Stats.',
+          title: l.tourCatTitle,
+          body: l.tourCatBody,
         ),
       ]);
     });
@@ -134,17 +133,18 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     });
   }
 
-  static String _durationLabel(int mins) {
+  String _durationLabel(AppLocalizations l, int mins) {
     final h = mins ~/ 60, m = mins % 60;
-    if (h == 0) return '$m mins';
-    if (m == 0) return h == 1 ? '1 hour' : '$h hours';
+    if (h == 0) return l.durMins('$m');
+    if (m == 0) return l.durHours(h);
     return '${h}h ${m}m';
   }
 
   Future<void> _create() async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     if (_title.text.trim().isEmpty) {
-      app.setError('Give the activity a name first.');
+      app.setError(l.errNameFirst);
       return;
     }
     final ok = await app.runAction(() async {
@@ -157,7 +157,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
         'isRecurrent': _isRecurrent,
       });
       await _load();
-    }, 'Activity template created — pending approval.');
+    }, l.toastTemplateCreated);
     if (ok) {
       _title.clear();
       setState(() => _tab = 0);
@@ -166,31 +166,32 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
   Future<void> _approve(dynamic id) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     await app.runAction(() async {
       await app.api.post('/api/activities/$id/approve');
       await _load();
-    }, 'Activity approved! It can now be scheduled from the Daily view.');
+    }, l.toastTemplateApproved);
   }
 
   Future<void> _delete(dynamic id) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Delete activity?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            'This removes the task template from your family library.'),
+        title: Text(l.deleteActivityTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(l.deleteActivityBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete',
-                  style: TextStyle(color: AppColors.danger))),
+              child: Text(l.deleteAction,
+                  style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -198,7 +199,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     await app.runAction(() async {
       await app.api.delete('/api/activities/$id');
       await _load();
-    }, 'Activity template deleted.');
+    }, l.toastTemplateDeleted);
   }
 
   @override
@@ -211,19 +212,17 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       });
     }
 
+    final l = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 16, bottom: 40),
         children: [
-          const PageHeading(
-              title: 'Activity Library',
-              subtitle:
-                  'Your family\'s task templates, coin economics and monthly budget.'),
+          PageHeading(title: l.actTitle, subtitle: l.actSubtitle),
           SegmentedTabs(
             key: _tourTabsKey,
-            tabs: const ['Catalogue', 'New Activity', 'Budget'],
+            tabs: [l.tabCatalogue, l.tabNewActivity, l.tabBudget],
             selected: _tab,
             onChanged: (i) => setState(() => _tab = i),
           ),
@@ -239,6 +238,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   // ── Catalogue tab ────────────────────────────────────────────────
 
   List<Widget> _buildCatalogue() {
+    final l = AppLocalizations.of(context);
     final templates =
         _activities.where((a) => a['is_template'] == true).toList()
           ..sort((a, b) => (a['title'] ?? '')
@@ -254,7 +254,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       Row(
         key: _tourFilterKey,
         children: [
-          for (final (i, label) in ['All', 'Care', 'Household'].indexed)
+          for (final (i, label)
+              in [l.filterAll, l.filterCare, l.filterHousehold].indexed)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
@@ -283,17 +284,15 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             // Nothing in the catalogue at all: teach the first mechanic.
             ? EmptyState(
                 icon: Icons.playlist_add_rounded,
-                title: 'No tasks in the catalogue yet',
-                body:
-                    'Task templates describe a job — its duration and what it '
-                    'pays in coins. Everything else starts from one.',
-                actionLabel: 'Create your first task',
+                title: l.catEmptyTitle,
+                body: l.catEmptyBody,
+                actionLabel: l.catEmptyAction,
                 onAction: () => setState(() => _tab = 1),
               )
-            : const EmptyState(
+            : EmptyState(
                 icon: Icons.filter_list_off_rounded,
-                title: 'Nothing matches this filter',
-                body: 'Try another category above.',
+                title: l.filterEmptyTitle,
+                body: l.filterEmptyBody,
               )
       else
         for (final a in filtered)
@@ -337,8 +336,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                           ),
                           if (a['status'] == 'approved') ...[
                             const SizedBox(width: 6),
-                            const PillBadge(
-                                text: 'approved',
+                            PillBadge(
+                                text: l.badgeApproved,
                                 fontSize: 11,
                                 color: Colors.white,
                                 background: AppColors.success),
@@ -346,7 +345,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                         ],
                       ),
                       Text(
-                          '${(a['category'] ?? '').toString()} · ${_durationLabel(toNum(a['duration_minutes'] ?? a['durationMinutes']).toInt())} · 🪙 ${a['coin_value'] ?? a['coinValue'] ?? 0}cc',
+                          '${a['category'] == 'care' ? l.filterCare : l.filterHousehold} · ${_durationLabel(l, toNum(a['duration_minutes'] ?? a['durationMinutes']).toInt())} · 🪙 ${a['coin_value'] ?? a['coinValue'] ?? 0}cc',
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                     ],
@@ -358,11 +357,11 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                     child: VButton(
                         type: VButtonType.outline,
                         onPressed: () => _approve(a['id']),
-                        child: const Text('Approve')),
+                        child: Text(l.approve)),
                   ),
                 IconButton(
                   onPressed: () => _delete(a['id']),
-                  tooltip: 'Delete',
+                  tooltip: l.deleteAction,
                   icon: const Icon(Icons.delete_outline_rounded,
                       size: 20, color: AppColors.danger),
                 ),
@@ -374,31 +373,30 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           type: VButtonType.secondary,
           block: true,
           onPressed: () => setState(() => _tab = 1),
-          child: const Text('+ New Activity')),
+          child: Text(l.newActivityBtn)),
     ];
   }
 
   // ── New Activity tab ─────────────────────────────────────────────
 
   Widget _buildNewActivity() {
+    final l = AppLocalizations.of(context);
     return VCard(
-      title: 'New Activity',
+      title: l.tabNewActivity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-              'Define a reusable activity template. Once approved, it can be '
-              'scheduled from the Daily view any number of times.',
-              style:
-                  TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(l.newActivityIntro,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: 16),
           VInput(
               controller: _title,
-              label: 'Title',
-              placeholder: 'Park Visit, Bedtime routine…'),
+              label: l.fieldTitle,
+              placeholder: l.activityTitleHint),
           const SizedBox(height: 16),
-          const Text('Category',
-              style: TextStyle(
+          Text(l.categoryLabel,
+              style: const TextStyle(
                   fontSize: 13.6,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500)),
@@ -406,8 +404,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           Row(
             children: [
               for (final (value, label) in [
-                ('care', '❤️ Care / Nurture'),
-                ('household', '🍽️ Household')
+                ('care', l.chipCare),
+                ('household', l.chipHousehold)
               ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -432,8 +430,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          const Text('Duration',
-              style: TextStyle(
+          Text(l.durationFieldLabel,
+              style: const TextStyle(
                   fontSize: 13.6,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500)),
@@ -444,7 +442,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             items: [
               for (var i = 1; i <= 24; i++)
                 DropdownMenuItem(
-                    value: i * 30, child: Text(_durationLabel(i * 30))),
+                    value: i * 30, child: Text(_durationLabel(l, i * 30))),
             ],
             onChanged: (v) {
               if (v != null) _onDurationChanged(v);
@@ -460,8 +458,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                     activeColor: AppColors.primary,
                     onChanged: (v) =>
                         setState(() => _isRecurrent = v ?? false)),
-                const Text('🔁 This is a recurring activity',
-                    style: TextStyle(
+                Text(l.recurringCheckbox,
+                    style: const TextStyle(
                         fontSize: 14, color: AppColors.textSecondary)),
               ],
             ),
@@ -470,8 +468,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Coin Value Reward (cc)',
-                  style: TextStyle(
+              Text(l.coinValueLabel,
+                  style: const TextStyle(
                       fontSize: 13.6, color: AppColors.textSecondary)),
               Text('${_coins.round()} cc',
                   style: const TextStyle(
@@ -489,13 +487,13 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Min: $_minCoins',
+              Text(l.minLabel('$_minCoins'),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
-              Text('Suggested: $_baseScore',
+              Text(l.suggestedLabel('$_baseScore'),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
-              Text('Max: $_maxCoins',
+              Text(l.maxLabel('$_maxCoins'),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
             ],
@@ -504,7 +502,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           VButton(
               onPressed: _create,
               block: true,
-              child: const Text('Create activity template')),
+              child: Text(l.createTemplateBtn)),
         ],
       ),
     );
@@ -513,13 +511,14 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   // ── Budget tab ───────────────────────────────────────────────────
 
   Widget _buildBudget() {
+    final l = AppLocalizations.of(context);
     final b = _budget;
     if (b == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Text('Budget information is unavailable.',
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Text(l.budgetUnavailable,
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary)),
+            style: const TextStyle(color: AppColors.textSecondary)),
       );
     }
     final monthly = toNum(b['monthlyBudget']);
@@ -530,11 +529,11 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
         monthly > 0 ? (remaining / monthly).clamp(0.0, 1.0) : 0.0;
 
     return VCard(
-      title: 'Family Budget Health',
+      title: l.budgetTitle,
       child: Column(
         children: [
-          const Text('REMAINING THIS MONTH',
-              style: TextStyle(
+          Text(l.remainingThisMonth,
+              style: const TextStyle(
                   fontSize: 11,
                   letterSpacing: 1,
                   fontWeight: FontWeight.w600,
@@ -572,9 +571,9 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             child: Column(
               children: [
                 for (final (label, value, color) in [
-                  ('Total Monthly Pool', '$monthly cc', AppColors.textPrimary),
-                  ('Scheduled/Used', '$used cc', AppColors.textPrimary),
-                  ('Estimated Rate', '~$rate cc / hr', AppColors.warning),
+                  (l.totalMonthlyPool, '$monthly cc', AppColors.textPrimary),
+                  (l.scheduledUsed, '$used cc', AppColors.textPrimary),
+                  (l.estimatedRate, l.ratePerHour('$rate'), AppColors.warning),
                 ])
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
