@@ -18,9 +18,9 @@ and dialog copy).
 
 ## To-do
 
-### 1. Wire up the localization system (one-time, ~30 min)
+### 1. Wire up the localization system (one-time, ~30 min) — DONE
 
-- [ ] `fluterFront/pubspec.yaml`:
+- [x] `fluterFront/pubspec.yaml`:
   ```yaml
   dependencies:
     flutter_localizations:
@@ -28,49 +28,55 @@ and dialog copy).
   flutter:
     generate: true
   ```
-- [ ] Create `fluterFront/l10n.yaml`:
+- [x] Create `fluterFront/l10n.yaml`:
   ```yaml
   arb-dir: lib/l10n
   template-arb-file: app_en.arb
   output-localization-file: app_localizations.dart
   untranslated-messages-file: untranslated.json
   ```
-- [ ] Create `lib/l10n/app_en.arb` (template), `app_es.arb`, `app_fr.arb`,
+- [x] Create `lib/l10n/app_en.arb` (template), `app_es.arb`, `app_fr.arb`,
   `app_de.arb`.
-- [ ] In `MaterialApp` (`lib/main.dart`):
+- [x] In `MaterialApp` (`lib/main.dart`):
   ```dart
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   locale: appState.locale, // null = follow device language
   ```
 
-### 2. Language selection by the user
+### 2. Language selection by the user — DONE
 
-- [ ] Add `locale` to `AppState` (`lib/state/app_state.dart`), persisted
+- [x] Add `locale` to `AppState` (`lib/state/app_state.dart`), persisted
   with `shared_preferences` (already a dependency). `null` means "follow
   the device language" — keep that as the default.
-- [ ] Add a language picker to the Profile screen
+- [x] Add a language picker to the Profile screen
   (`lib/screens/profile_screen.dart`): System / English / Español /
   Français / Deutsch. Show each language in its own name, not translated.
-- [ ] Setting the locale notifies listeners → `MaterialApp` rebuilds →
+- [x] Setting the locale notifies listeners → `MaterialApp` rebuilds →
   the whole app switches instantly, no restart.
 
-### 3. Extract hardcoded strings into ARB (the bulk of the work)
+### 3. Extract hardcoded strings into ARB (the bulk of the work) — DONE
 
 Replace literals with `AppLocalizations.of(context)` getters, one file at
 a time. Suggested order (most user-visible first):
 
-- [ ] `screens/shell.dart` — tab labels, app-level chrome
-- [ ] `screens/dashboard_screen.dart`
-- [ ] `screens/daily_screen.dart` + `widgets/absence_dialog.dart`
-- [ ] `screens/login_screen.dart` + `screens/landing_screen.dart`
-- [ ] `screens/onboarding_screen.dart` + `widgets/activation_checklist.dart`
-- [ ] `screens/marketplace_screen.dart`
-- [ ] `screens/activities_screen.dart`
-- [ ] `screens/profile_screen.dart` + `widgets/family_circle.dart`
-- [ ] `screens/stats_screen.dart` + `widgets/charts.dart`
-- [ ] `widgets/coach_marks.dart`, `widgets/help_sheet.dart`,
-  `widgets/ui.dart`, snackbar/error messages in `services/`
+- [x] `screens/shell.dart` — tab labels, app-level chrome
+- [x] `screens/dashboard_screen.dart`
+- [x] `screens/daily_screen.dart` + `widgets/absence_dialog.dart`
+- [x] `screens/login_screen.dart` + `screens/landing_screen.dart`
+- [x] `screens/onboarding_screen.dart` + `widgets/activation_checklist.dart`
+- [x] `screens/marketplace_screen.dart`
+- [x] `screens/activities_screen.dart`
+- [x] `screens/profile_screen.dart` + `widgets/family_circle.dart`
+- [x] `screens/stats_screen.dart` + `widgets/charts.dart`
+- [x] `widgets/coach_marks.dart`, `widgets/help_sheet.dart`, `widgets/ui.dart`
+- [ ] **Follow-up:** error strings in `services/` (`ApiClient` network/timeout
+  errors, `PushService` permission errors). These are `static` singletons
+  with no `BuildContext`, so localizing them needs a small refactor (thread
+  a locale/resolver in, or route the messages through a widget). Left in
+  English for now; rare infrastructure/error paths, not the main UI flow.
+  Decorative landing-page mockup sample data (fake ledger rows, the phone
+  clock) is intentionally left as illustrative content.
 
 Extraction rules:
 
@@ -102,10 +108,14 @@ Extraction rules:
 
 ### 6. Testing
 
-- [ ] Widget test that pumps the app in each of the four locales and
-  asserts a known string per screen (catches delegate wiring breaks).
+- [x] Widget test that pumps the app in each of the four locales and
+  asserts a known string (`test/l10n_test.dart`, catches delegate wiring
+  breaks and any language that loses a key and falls back to English).
+  Existing widget tests wrap their harness in the localization delegates.
 - [ ] Manual smoke in Spanish on a phone: onboarding → schedule a task →
-  marketplace purchase → profile.
+  marketplace purchase → profile. **(Still needs a real device run — the
+  extraction was verified with `flutter analyze` + `flutter test`, not by
+  driving the UI.)**
 - [ ] RTL is out of scope (none of the four languages is RTL), but avoid
   hardcoded `left`/`right` in new code — use `start`/`end`.
 
