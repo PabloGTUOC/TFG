@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/telemetry.dart';
 import '../services/tour_service.dart';
 import '../theme/app_theme.dart';
@@ -260,8 +261,8 @@ class _TooltipCard extends StatelessWidget {
                         minimumSize: const Size(0, 36),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text('Skip tour',
-                          style: TextStyle(
+                      child: Text(AppLocalizations.of(context).skipTour,
+                          style: const TextStyle(
                               fontSize: 12.5,
                               color: AppColors.textSecondary)),
                     ),
@@ -275,7 +276,9 @@ class _TooltipCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 VButton(
                     onPressed: onNext,
-                    child: Text(isLast ? 'Got it' : 'Next')),
+                    child: Text(isLast
+                        ? AppLocalizations.of(context).gotIt
+                        : AppLocalizations.of(context).next)),
               ],
             ),
           ],

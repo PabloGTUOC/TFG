@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:carecoins_flutter/l10n/app_localizations.dart';
 import 'package:carecoins_flutter/services/tour_service.dart';
 import 'package:carecoins_flutter/widgets/activation_checklist.dart';
 import 'package:carecoins_flutter/widgets/coach_marks.dart';
 import 'package:carecoins_flutter/widgets/help_sheet.dart';
 import 'package:carecoins_flutter/widgets/ui.dart';
+
+/// Wraps [home] in a MaterialApp with the localization delegates so widgets
+/// that call AppLocalizations.of(context) resolve to English in tests.
+Widget _app(Widget home) => MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: home,
+    );
 
 void main() {
   testWidgets('UI kit smoke test: VButton, KpiCard and PillBadge render',
@@ -33,8 +42,8 @@ void main() {
   testWidgets('help sheet opens and shows steps, glossary and FAQ',
       (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _app(
+        Scaffold(
           body: Builder(
             builder: (context) => Center(
               child: TextButton(
@@ -94,8 +103,8 @@ void main() {
     late BuildContext ctx;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _app(
+        Scaffold(
           body: Builder(builder: (c) {
             ctx = c;
             return Center(
@@ -133,8 +142,8 @@ void main() {
     var wentToStore = false;
     var dismissed = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _app(
+        Scaffold(
           body: ActivationChecklist(
             steps: [
               ChecklistStep(

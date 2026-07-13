@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
@@ -43,15 +44,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<_CareObjectEntry> _careObjects = [_CareObjectEntry()];
   List<dynamic> _invites = [];
 
-  static const _typeOptions = [
-    ('child', 'Child'),
-    ('elderly', 'Elderly'),
-    ('pet', 'Pet'),
-  ];
-  static const _careTimeOptions = [
-    ('full_time', 'Full Time (24 coins/day)'),
-    ('part_time', 'Part Time (12 coins/day)'),
-  ];
+  List<(String, String)> _typeOptions(AppLocalizations l) => [
+        ('child', l.typeChildPlain),
+        ('elderly', l.typeElderlyPlain),
+        ('pet', l.typePetPlain),
+      ];
+  List<(String, String)> _careTimeOptions(AppLocalizations l) => [
+        ('full_time', l.careFullTime),
+        ('part_time', l.carePartTime),
+      ];
 
   @override
   void initState() {
@@ -90,7 +91,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _createFamily() async {
     final app = context.read<AppState>();
     if (_familyName.text.trim().isEmpty) {
-      app.setError('Family name is required.');
+      app.setError(AppLocalizations.of(context).errFamilyNameRequired);
       return;
     }
     await app.runAction(() async {
@@ -114,19 +115,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ],
       });
       await app.fetchUserData();
-    }, 'Family created successfully!');
+    }, AppLocalizations.of(context).toastFamilyCreated);
   }
 
   Future<void> _joinByToken() async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     // Accept a full invite link or a bare token (mirror of joinByToken).
     final match = RegExp(
             r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
             caseSensitive: false)
         .firstMatch(_token.text.trim());
     if (match == null) {
-      app.setError(
-          'No valid invite token found. Paste the full invite link or just the token.');
+      app.setError(l.errNoValidToken);
       return;
     }
     await app.runAction(() async {
@@ -136,30 +137,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'alias': _tokenAlias.text.trim(),
       });
       await app.fetchUserData();
-    }, 'You joined the family!');
+    }, l.toastJoinedFamily);
   }
 
   Future<void> _acceptInvite(Map invite) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     final aliasCtl = TextEditingController();
     final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: Text('Join ${invite['family_name'] ?? 'family'}?',
+        title: Text(
+            l.joinFamilyPrompt(
+                (invite['family_name'] ?? l.fallbackFamily).toString()),
             style: const TextStyle(fontWeight: FontWeight.w800)),
         content: VInput(
             controller: aliasCtl,
-            label: 'Your Alias (optional)',
-            placeholder: 'e.g. Dada, Uncle Joe'),
+            label: l.aliasOptional,
+            placeholder: l.aliasJoinHint),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Join')),
+              child: Text(l.join)),
         ],
       ),
     );
@@ -173,7 +177,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         if (aliasCtl.text.trim().isNotEmpty) 'alias': aliasCtl.text.trim(),
       });
       await app.fetchUserData();
-    }, 'You joined the family!');
+    }, l.toastJoinedFamily);
     aliasCtl.dispose();
   }
 
@@ -181,34 +185,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final wide = isWideLayout(context);
+    final l = AppLocalizations.of(context);
 
     final createCard = _buildCreateWizard(app);
 
     final joinCard = VCard(
-      title: 'Join via Invite Link',
+      title: l.joinTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-              'Received an invite link or QR code? Paste the link (or just '
-              'the token) here to join instantly.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.6)),
+          Text(l.joinIntro,
+              style: const TextStyle(
+                  color: AppColors.textSecondary, height: 1.6)),
           const SizedBox(height: 20),
           VInput(
               controller: _token,
-              label: 'Invite Link or Token',
-              placeholder: 'https://…/join?token=… or the token'),
+              label: l.inviteLinkOrToken,
+              placeholder: l.inviteLinkHint),
           const SizedBox(height: 14),
           VInput(
               controller: _tokenAlias,
-              label: 'Your Alias (optional)',
-              placeholder: 'e.g. Grandma'),
+              label: l.aliasOptional,
+              placeholder: l.aliasGrandmaHint),
           const SizedBox(height: 20),
           VButton(
               type: VButtonType.outline,
               onPressed: _joinByToken,
               block: true,
-              child: const Text('Join Family')),
+              child: Text(l.joinFamilyBtn)),
         ],
       ),
     );
@@ -225,10 +229,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  const PageHeading(
-                      title: 'Welcome to CareCoins',
-                      subtitle:
-                          'Set up your family to start sharing care responsibly.'),
+                  PageHeading(
+                      title: l.onboardingTitle,
+                      subtitle: l.onboardingSubtitle),
                   if (app.pendingRequests.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -239,7 +242,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         borderRadius: BorderRadius.circular(AppRadii.md),
                       ),
                       child: Text(
-                        'Your request to join "${(app.pendingRequests.first as Map)['name'] ?? 'a family'}" is pending approval.',
+                        l.requestPending(
+                            ((app.pendingRequests.first as Map)['name'] ??
+                                    l.fallbackAFamily)
+                                .toString()),
                         style: const TextStyle(
                             color: AppColors.warning,
                             fontWeight: FontWeight.w700),
@@ -247,7 +253,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   if (_invites.isNotEmpty)
                     VCard(
-                      title: 'You have been invited to join',
+                      title: l.invitedToJoin,
                       child: Column(
                         children: [
                           for (final inv in _invites)
@@ -261,11 +267,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                            '${(inv as Map)['family_name'] ?? 'Family'}',
+                                            ((inv as Map)['family_name'] ??
+                                                    l.fallbackFamily)
+                                                .toString(),
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w800)),
                                         Text(
-                                            'Invited by ${inv['inviter_name'] ?? 'a member'}',
+                                            l.invitedBy((inv['inviter_name'] ??
+                                                    l.fallbackAMember)
+                                                .toString()),
                                             style: const TextStyle(
                                                 fontSize: 12,
                                                 color:
@@ -275,7 +285,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   ),
                                   VButton(
                                       onPressed: () => _acceptInvite(inv),
-                                      child: const Text('Accept')),
+                                      child: Text(l.accept)),
                                 ],
                               ),
                             ),
@@ -295,8 +305,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Center(
                     child: TextButton(
                       onPressed: () => app.logout(),
-                      child: const Text('Logout',
-                          style: TextStyle(color: AppColors.textSecondary)),
+                      child: Text(l.menuLogout,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary)),
                     ),
                   ),
                 ],
@@ -309,33 +320,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildCreateWizard(AppState app) {
+    final l = AppLocalizations.of(context);
     return VCard(
-      title: 'Setup Your New Family',
+      title: l.setupFamilyTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── 1. Family details ──
-          const _StepTitle('1. Family Details',
-              'Define the family name and your identity within it.'),
+          _StepTitle(l.step1Title, l.step1Desc),
           VInput(
               controller: _familyName,
-              label: 'Family Name',
-              placeholder: 'e.g. The Smiths'),
+              label: l.familyNameLabel,
+              placeholder: l.familyNameHint),
           const SizedBox(height: 12),
           VInput(
               controller: _alias,
-              label: 'Your Alias (Role)',
-              placeholder: 'e.g. Dada, Mama, Nanny'),
+              label: l.aliasRoleLabel,
+              placeholder: l.aliasRoleHint),
           const Divider(height: 36),
 
           // ── 2. Caregivers ──
-          const _StepTitle('2. Caregivers',
-              'You are the Main Caregiver. Invite others by email below — '
-                  'they receive an invitation when the family is created.'),
+          _StepTitle(l.step2Title, l.step2Desc),
           VInput(
               controller: _mainCaretakerName,
-              label: 'Your Display Name',
-              placeholder: 'Your name'),
+              label: l.yourDisplayName,
+              placeholder: l.yourNameHint),
           const SizedBox(height: 6),
           Text((app.profile?['email'] ?? '').toString(),
               style: const TextStyle(
@@ -350,12 +359,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   // Short placeholders: the long ones truncated to
                   // "Name (op…" / "caregiver…" on 390dp-wide screens.
                   Expanded(
-                      child: VInput(controller: c.name, placeholder: 'Name')),
+                      child: VInput(
+                          controller: c.name, placeholder: l.nameLabel)),
                   const SizedBox(width: 8),
                   Expanded(
                       child: VInput(
                           controller: c.email,
-                          placeholder: 'Email address',
+                          placeholder: l.emailAddressHint,
                           keyboardType: TextInputType.emailAddress)),
                   IconButton(
                     onPressed: () => setState(() {
@@ -373,14 +383,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 type: VButtonType.outline,
                 onPressed: () =>
                     setState(() => _caretakers.add(_CaretakerEntry())),
-                child: const Text('+ Add another caregiver')),
+                child: Text(l.addAnotherCaregiver)),
           ),
           const Divider(height: 36),
 
           // ── 3. Objects of care ──
-          const _StepTitle('3. Objects of Care',
-              'Who or what are you taking care of? This defines your '
-                  'family\'s daily CareCoin budget.'),
+          _StepTitle(l.step3Title, l.step3Desc),
           for (final (i, o) in _careObjects.indexed)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
@@ -397,7 +405,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Expanded(
                           child: VInput(
                               controller: o.name,
-                              placeholder: 'Name (e.g. Tommy)')),
+                              placeholder: l.careObjectNameHint)),
                       IconButton(
                         onPressed: () => setState(() {
                           _careObjects.removeAt(i).dispose();
@@ -416,7 +424,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           isExpanded: true,
                           decoration: const InputDecoration(isDense: true),
                           items: [
-                            for (final (v, label) in _typeOptions)
+                            for (final (v, label) in _typeOptions(l))
                               DropdownMenuItem(value: v, child: Text(label)),
                           ],
                           onChanged: (v) =>
@@ -433,7 +441,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           isExpanded: true,
                           decoration: const InputDecoration(isDense: true),
                           items: [
-                            for (final (v, label) in _careTimeOptions)
+                            for (final (v, label) in _careTimeOptions(l))
                               DropdownMenuItem(
                                   value: v,
                                   child: Text(label,
@@ -455,13 +463,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 type: VButtonType.outline,
                 onPressed: () =>
                     setState(() => _careObjects.add(_CareObjectEntry())),
-                child: const Text('+ Add someone to care for')),
+                child: Text(l.addSomeoneToCareFor)),
           ),
           const SizedBox(height: 24),
           VButton(
               onPressed: _createFamily,
               block: true,
-              child: const Text('Complete Setup')),
+              child: Text(l.completeSetup)),
         ],
       ),
     );
