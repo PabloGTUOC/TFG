@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
@@ -30,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     final app = context.read<AppState>();
     if (_email.text.isEmpty || _password.text.isEmpty) {
-      app.setError('Email and password are required.');
+      app.setError(AppLocalizations.of(context).errEmailPasswordRequired);
       return;
     }
     setState(() => _loading = true);
@@ -51,27 +52,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _forgotPassword() async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     final ctl = TextEditingController(text: _email.text.trim());
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Reset password',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(l.resetPasswordTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         content: VInput(
             controller: ctl,
-            label: 'Email Address',
+            label: l.emailLabel,
             placeholder: 'hello@carecoins.app',
             keyboardType: TextInputType.emailAddress,
             autofillHints: const [AutofillHints.email]),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Send reset email')),
+              child: Text(l.sendResetEmail)),
         ],
       ),
     );
@@ -89,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Center(
@@ -98,15 +101,13 @@ class _LoginScreenState extends State<LoginScreen> {
             constraints: const BoxConstraints(maxWidth: 450),
             child: VCard(
               title: _isRegistering
-                  ? 'Create CareCoins Account'
-                  : 'Welcome to CareCoins',
+                  ? l.createAccountTitle
+                  : l.welcomeCardTitle,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    _isRegistering
-                        ? 'Sign up to start sharing responsibly.'
-                        : 'Sign in to access your dashboard.',
+                    _isRegistering ? l.signUpIntro : l.signInIntro,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: AppColors.textSecondary, height: 1.6),
@@ -118,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         VInput(
                             controller: _email,
-                            label: 'Email Address',
+                            label: l.emailLabel,
                             placeholder: 'hello@carecoins.app',
                             enabled: !_loading,
                             keyboardType: TextInputType.emailAddress,
@@ -130,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 16),
                         VInput(
                             controller: _password,
-                            label: 'Password',
+                            label: l.passwordLabel,
                             placeholder: '••••••••',
                             obscure: true,
                             enabled: !_loading,
@@ -149,8 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: _loading ? null : _forgotPassword,
-                        child: const Text('Forgot password?',
-                            style: TextStyle(
+                        child: Text(l.forgotPassword,
+                            style: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textSecondary,
                                 decoration: TextDecoration.underline)),
@@ -162,16 +163,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     disabled: _loading,
                     onPressed: _submit,
                     child: Text(_loading
-                        ? 'Processing...'
-                        : (_isRegistering ? 'Sign Up' : 'Sign In')),
+                        ? l.processing
+                        : (_isRegistering ? l.signUp : l.signIn)),
                   ),
                   const SizedBox(height: 24),
                   Row(children: [
                     const Expanded(child: Divider(color: AppColors.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 13),
-                      child: Text('or',
-                          style: TextStyle(
+                      child: Text(l.orDivider,
+                          style: const TextStyle(
                               fontSize: 13.6, color: AppColors.textSecondary)),
                     ),
                     const Expanded(child: Divider(color: AppColors.border)),
@@ -181,13 +182,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     type: VButtonType.secondary,
                     block: true,
                     onPressed: _google,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _GoogleMark(),
-                        SizedBox(width: 10),
-                        Text('Sign in with Google'),
+                        const _GoogleMark(),
+                        const SizedBox(width: 10),
+                        Text(l.signInWithGoogle),
                       ],
                     ),
                   ),
@@ -199,8 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Text(
                           _isRegistering
-                              ? 'Already have an account?'
-                              : 'New to CareCoins?',
+                              ? l.alreadyHaveAccount
+                              : l.newToCareCoins,
                           style: const TextStyle(
                               fontSize: 14.4, color: AppColors.textSecondary)),
                       TextButton(
@@ -208,8 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             setState(() => _isRegistering = !_isRegistering),
                         child: Text(
                             _isRegistering
-                                ? 'Sign In instead'
-                                : 'Create an account',
+                                ? l.signInInstead
+                                : l.createAnAccount,
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primary)),
