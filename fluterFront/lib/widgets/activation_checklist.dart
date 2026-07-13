@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'ui.dart';
 
@@ -29,6 +30,7 @@ class ActivationChecklist extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final done = steps.where((s) => s.done).length;
     return Container(
       margin: const EdgeInsets.only(bottom: 28),
@@ -49,9 +51,9 @@ class ActivationChecklist extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text('Get your family going',
-                    style: TextStyle(
+              Expanded(
+                child: Text(l.checklistCardTitle,
+                    style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.w800)),
               ),
               PillBadge(
@@ -61,17 +63,16 @@ class ActivationChecklist extends StatelessWidget {
                   fontSize: 11),
               IconButton(
                 onPressed: onDismiss,
-                tooltip: 'Dismiss checklist',
+                tooltip: l.dismissChecklist,
                 icon: const Icon(Icons.close_rounded,
                     size: 18, color: AppColors.textSecondary),
               ),
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(right: 8, bottom: 12),
-            child: Text(
-                'Run the loop once and you\'ll know the whole app.',
-                style: TextStyle(
+          Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 12),
+            child: Text(l.checklistCardSubtitle,
+                style: const TextStyle(
                     fontSize: 13, color: AppColors.textSecondary)),
           ),
           for (final step in steps)

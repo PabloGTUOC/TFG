@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show Locale;
 
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_client.dart';
 import '../services/telemetry.dart';
@@ -47,7 +49,36 @@ class AppState extends ChangeNotifier {
   /// Backend user id (from /api/me), used to tell "my" tasks from others'.
   dynamic get userId => profile?['id'];
 
+  // ── Locale (user-selectable language, docs/i18n-plan.md) ────────
+
+  static const String _localePrefKey = 'app_locale';
+  Locale? _locale;
+
+  /// The user-chosen app language; null follows the device language.
+  Locale? get locale => _locale;
+
+  Future<void> setLocale(Locale? value) async {
+    _locale = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (value == null) {
+      await prefs.remove(_localePrefKey);
+    } else {
+      await prefs.setString(_localePrefKey, value.languageCode);
+    }
+  }
+
+  Future<void> _restoreLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString(_localePrefKey);
+    if (code != null && code.isNotEmpty) {
+      _locale = Locale(code);
+      notifyListeners();
+    }
+  }
+
   void init() {
+    _restoreLocale();
     if (!firebaseAvailable) {
       authReady = true;
       notifyListeners();

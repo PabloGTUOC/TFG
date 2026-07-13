@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/push_service.dart';
 import '../services/telemetry.dart';
 import '../services/tour_service.dart';
@@ -52,14 +53,6 @@ class _ShellState extends State<Shell> {
     super.dispose();
   }
 
-  static const _tabs = [
-    (icon: Icons.home_rounded, label: 'Family'),
-    (icon: Icons.calendar_today_rounded, label: 'Activities'),
-    (icon: Icons.shopping_bag_rounded, label: 'Rewards'),
-    (icon: Icons.bar_chart_rounded, label: 'Stats'),
-    (icon: Icons.person_rounded, label: 'Me'),
-  ];
-
   /// Navigate to a tab, marking it visited so it gets built.
   void _go(int i) => setState(() {
         _index = i;
@@ -72,29 +65,25 @@ class _ShellState extends State<Shell> {
   Future<void> _maybeShowWelcome() async {
     if (await TourService.I.hasSeen(TourService.welcome)) return;
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
     final choice = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Welcome to CareCoins! 👋',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            'The idea in one line: tasks earn coins from your family\'s '
-            'monthly budget, and coins buy rewards your family chooses.\n\n'
-            'We can point out the important bits on each screen as you '
-            'visit it — or you can find your own way (the ? up top always '
-            'has the full story).',
-            style: TextStyle(
+        title: Text(l.welcomeTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(l.welcomeBody,
+            style: const TextStyle(
                 height: 1.55, color: AppColors.textSecondary)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, 'solo'),
-              child: const Text('Explore on my own')),
+              child: Text(l.welcomeExplore)),
           VButton(
               onPressed: () => Navigator.pop(ctx, 'tour'),
-              child: const Text('Show me around')),
+              child: Text(l.welcomeTour)),
         ],
       ),
     );
@@ -111,6 +100,14 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final wide = isWideLayout(context);
+    final l = AppLocalizations.of(context);
+    final tabs = <({IconData icon, String label})>[
+      (icon: Icons.home_rounded, label: l.tabFamily),
+      (icon: Icons.calendar_today_rounded, label: l.tabActivities),
+      (icon: Icons.shopping_bag_rounded, label: l.tabRewards),
+      (icon: Icons.bar_chart_rounded, label: l.tabStats),
+      (icon: Icons.person_rounded, label: l.tabMe),
+    ];
 
     // Trigger the welcome check once the user actually has a family (the
     // onboarding wizard runs before this for brand-new users).
@@ -183,20 +180,20 @@ class _ShellState extends State<Shell> {
                   height: 60,
                   child: Row(
                     children: [
-                      for (var i = 0; i < _tabs.length; i++)
+                      for (var i = 0; i < tabs.length; i++)
                         Expanded(
                           child: InkWell(
                             onTap: () => _go(i),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(_tabs[i].icon,
+                                Icon(tabs[i].icon,
                                     size: 22,
                                     color: i == _index
                                         ? AppColors.primary
                                         : AppColors.textSecondary),
                                 const SizedBox(height: 2),
-                                Text(_tabs[i].label,
+                                Text(tabs[i].label,
                                     style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
@@ -227,6 +224,7 @@ class _PillHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final l = AppLocalizations.of(context);
     final family = app.family;
     final alias =
         (family?['alias'] ?? app.profile?['display_name'] ?? 'C').toString();
@@ -279,22 +277,22 @@ class _PillHeader extends StatelessWidget {
           const Spacer(),
           if (wide && app.hasFamilies) ...[
             _NavLink(
-                label: 'Family',
+                label: l.tabFamily,
                 icon: Icons.home_rounded,
                 active: index == 0,
                 onTap: () => onNavigate(0)),
             _NavLink(
-                label: 'Activities',
+                label: l.tabActivities,
                 icon: Icons.calendar_today_rounded,
                 active: index == 1,
                 onTap: () => onNavigate(1)),
             _NavLink(
-                label: 'Marketplace',
+                label: l.navMarketplace,
                 icon: Icons.shopping_bag_rounded,
                 active: index == 2,
                 onTap: () => onNavigate(2)),
             _NavLink(
-                label: 'Personal',
+                label: l.navPersonal,
                 icon: Icons.person_rounded,
                 active: index == 4,
                 onTap: () => onNavigate(4)),
@@ -302,7 +300,7 @@ class _PillHeader extends StatelessWidget {
           ],
           IconButton(
             onPressed: () => showHelpSheet(context),
-            tooltip: 'How CareCoins works',
+            tooltip: l.helpTooltip,
             icon: const Icon(Icons.help_outline_rounded,
                 size: 22, color: AppColors.textSecondary),
           ),
@@ -343,15 +341,15 @@ class _PillHeader extends StatelessWidget {
           if (wide) ...[
             const SizedBox(width: 10),
             PopupMenuButton<String>(
-              tooltip: 'User Menu',
+              tooltip: l.userMenuTooltip,
               offset: const Offset(0, 44),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadii.md)),
               onSelected: (v) {
                 if (v == 'logout') app.logout();
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'logout', child: Text('Logout')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'logout', child: Text(l.menuLogout)),
               ],
               child: AvatarCircle(
                   name: (app.profile?['display_name'] ?? app.user?.email ?? '?')

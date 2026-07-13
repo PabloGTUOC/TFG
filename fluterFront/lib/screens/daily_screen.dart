@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
@@ -101,24 +102,22 @@ class _DailyScreenState extends State<DailyScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _loading) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'daily', [
         CoachMark(
           targetKey: _tourDateKey,
-          title: 'One day at a time',
-          body: 'Move between days with the arrows, or swipe the list on '
-              'your phone. The red NOW line marks the current time.',
+          title: l.tourDayTitle,
+          body: l.tourDayBody,
         ),
         CoachMark(
           targetKey: _tourAddKey,
-          title: 'Put a task on the clock',
-          body: 'Pick a template from your catalogue and give it a start '
-              'time. When it\'s done and validated, the coins land.',
+          title: l.tourAddTitle,
+          body: l.tourAddBody,
         ),
         CoachMark(
           targetKey: _tourAbsenceKey,
-          title: 'Going away?',
-          body: 'Log time off so the family sees you\'re unavailable that '
-              'day.',
+          title: l.tourAwayTitle,
+          body: l.tourAwayBody,
         ),
       ]);
     });
@@ -266,46 +265,46 @@ class _DailyScreenState extends State<DailyScreen> {
 
   Future<void> _validate(dynamic id) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     await app.runAction(() async {
       await app.api.post('/api/activities/$id/validate');
       await _load();
-    }, 'Activity validated! Coins awarded to the user.');
+    }, l.toastValidated);
   }
 
   Future<void> _unschedule(dynamic id, {required bool series}) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     await app.runAction(() async {
       await app.api
           .delete('/api/activities/$id${series ? '?series=true' : ''}');
       await _load();
-    },
-        series
-            ? 'Entire recurring series removed.'
-            : 'Activity removed from schedule.');
+    }, series ? l.toastSeriesRemoved : l.toastActivityRemoved);
   }
 
   Future<void> _removeFlow(Map<String, dynamic> a) async {
     if (a['is_recurrent'] == true) {
+      final l = AppLocalizations.of(context);
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Remove recurring task?',
-              style: TextStyle(fontWeight: FontWeight.w800)),
-          content: Text(
-              '"${a['title']}" repeats. Remove just this one or the whole series?'),
+          title: Text(l.removeRecurringTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          content:
+              Text(l.removeRecurringBody((a['title'] ?? '').toString())),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
+                child: Text(l.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, 'single'),
-                child: const Text('This one')),
+                child: Text(l.removeThisOne)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, 'series'),
-                child: const Text('Whole series',
-                    style: TextStyle(color: AppColors.danger))),
+                child: Text(l.removeWholeSeries,
+                    style: const TextStyle(color: AppColors.danger))),
           ],
         ),
       );
@@ -317,74 +316,78 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _openBountyDialog(Map<String, dynamic> a) async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController();
     final amount = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Delegate with a bounty',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(l.bountyDialogTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Offer CareCoins so another caretaker takes "${a['title']}".',
+            Text(l.bountyDialogBody((a['title'] ?? '').toString()),
                 style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             VInput(
                 controller: controller,
-                label: 'Bounty (cc)',
-                placeholder: 'e.g. 15',
+                label: l.bountyLabel,
+                placeholder: l.bountyHint,
                 keyboardType: TextInputType.number),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
           TextButton(
               onPressed: () =>
                   Navigator.pop(ctx, int.tryParse(controller.text)),
-              child: const Text('Offer bounty')),
+              child: Text(l.offerBounty)),
         ],
       ),
     );
     if (amount == null || amount <= 0) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     await app.runAction(() async {
       await app.api
           .post('/api/activities/${a['id']}/bounty', {'bountyAmount': amount});
       await _load();
-    }, 'Bounty added! Another caretaker can now take this task.');
+    }, l.toastBountyAdded);
   }
 
   Future<void> _acceptBounty(Map<String, dynamic> a) async {
+    final l = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Take over this task?',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(
-            'You\'ll take "${a['title']}" and earn +${a['bounty_amount']}cc on top of its value.'),
+        title: Text(l.takeOverTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(l.takeOverBody(
+            (a['title'] ?? '').toString(), '${a['bounty_amount']}')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Take over')),
+              child: Text(l.takeOver)),
         ],
       ),
     );
     if (ok != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     await app.runAction(() async {
       await app.api.post('/api/activities/${a['id']}/accept-bounty');
       await app.fetchUserData();
       await _load();
-    }, 'Task taken! Coins added to your account.');
+    }, l.toastTaskTaken);
   }
 
   /// Tapping a completed card explains why nothing happens: validated
@@ -395,23 +398,21 @@ class _DailyScreenState extends State<DailyScreen> {
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Completed activities are locked',
-              style: TextStyle(fontWeight: FontWeight.w800)),
-          content: const Text(
-              'Validated activities can no longer be modified from the '
-              'schedule — recurrence can\'t be added and they can\'t be '
-              'removed here. To undo one, revert its coin entry from your '
-              'ledger in the Personal Area.',
-              style: TextStyle(color: AppColors.textSecondary)),
+          title: Text(AppLocalizations.of(ctx).completedLockedTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          content: Text(AppLocalizations.of(ctx).completedLockedBody,
+              style: const TextStyle(color: AppColors.textSecondary)),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Got it')),
+                child: Text(AppLocalizations.of(ctx).gotIt)),
           ],
         ),
       );
 
   Future<void> _openRecurrenceDialog(Map<String, dynamic> a) async {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     var frequency = 'daily';
     DateTime? until = _day.add(const Duration(days: 1));
     final confirmed = await showDialog<bool>(
@@ -420,25 +421,23 @@ class _DailyScreenState extends State<DailyScreen> {
         builder: (ctx, setLocal) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Schedule Future Copies',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(l.recurrenceTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Repeat "${a['title']}" at this time into the future.',
+              Text(l.recurrenceBody((a['title'] ?? '').toString()),
                   style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: frequency,
-                decoration: const InputDecoration(labelText: 'Frequency'),
-                items: const [
-                  DropdownMenuItem(value: 'daily', child: Text('Every Day')),
+                decoration: InputDecoration(labelText: l.frequency),
+                items: [
+                  DropdownMenuItem(value: 'daily', child: Text(l.freqDaily)),
                   DropdownMenuItem(
-                      value: 'weekdays',
-                      child: Text('Every Working Day (Mon–Fri)')),
-                  DropdownMenuItem(
-                      value: 'weekly', child: Text('Every Week (same day)')),
+                      value: 'weekdays', child: Text(l.freqWeekdays)),
+                  DropdownMenuItem(value: 'weekly', child: Text(l.freqWeekly)),
                 ],
                 onChanged: (v) => setLocal(() => frequency = v ?? 'daily'),
               ),
@@ -455,24 +454,26 @@ class _DailyScreenState extends State<DailyScreen> {
                 },
                 icon: const Icon(Icons.event_rounded, size: 18),
                 label: Text(until == null
-                    ? 'Pick until date'
-                    : 'Until ${DateFormat('d MMM yyyy').format(until!)}'),
+                    ? l.pickUntilDate
+                    : l.untilDate(
+                        DateFormat('d MMM yyyy', loc).format(until!))),
               ),
             ],
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
+                child: Text(l.cancel)),
             TextButton(
                 onPressed:
                     until == null ? null : () => Navigator.pop(ctx, true),
-                child: const Text('Create copies')),
+                child: Text(l.createCopies)),
           ],
         ),
       ),
     );
     if (confirmed != true || until == null) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     await app.runAction(() async {
       final res = await app.api.post('/api/activities/${a['id']}/recurrence', {
@@ -480,11 +481,14 @@ class _DailyScreenState extends State<DailyScreen> {
         'untilDate': DateFormat('yyyy-MM-dd').format(until!),
       });
       await _load();
-      app.setSuccess('Created ${res['created']} future instances!');
+      app.setSuccess(
+          l.toastCreatedInstances(toNum(res['created']).toInt()));
     });
   }
 
   Future<void> _openAbsenceDialog() async {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final title = TextEditingController();
     var start = DateTime(_day.year, _day.month, _day.day, 9);
     var end = DateTime(_day.year, _day.month, _day.day, 17);
@@ -494,19 +498,19 @@ class _DailyScreenState extends State<DailyScreen> {
         builder: (ctx, setLocal) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Log time off',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(l.absenceDialogTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               VInput(
                   controller: title,
-                  label: 'Title',
-                  placeholder: 'e.g. Business trip'),
+                  label: l.fieldTitle,
+                  placeholder: l.absenceHint),
               const SizedBox(height: 12),
               for (final (label, get, set) in [
-                ('From', () => start, (DateTime d) => start = d),
-                ('To', () => end, (DateTime d) => end = d),
+                (l.fromLabel, () => start, (DateTime d) => start = d),
+                (l.toLabel, () => end, (DateTime d) => end = d),
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -529,7 +533,7 @@ class _DailyScreenState extends State<DailyScreen> {
                     },
                     icon: const Icon(Icons.schedule_rounded, size: 18),
                     label: Text(
-                        '$label: ${DateFormat('d MMM HH:mm').format(get())}'),
+                        '$label: ${DateFormat('d MMM HH:mm', loc).format(get())}'),
                   ),
                 ),
             ],
@@ -537,18 +541,19 @@ class _DailyScreenState extends State<DailyScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
+                child: Text(l.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Log')),
+                child: Text(l.logAction)),
           ],
         ),
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     if (title.text.trim().isEmpty) {
-      app.setError('Please fill in all fields.');
+      app.setError(l.errFillAllFields);
       return;
     }
     await app.runAction(() async {
@@ -559,10 +564,12 @@ class _DailyScreenState extends State<DailyScreen> {
         'endTime': end.toUtc().toIso8601String(),
       });
       await _load();
-    }, 'Time off logged successfully!');
+    }, l.toastTimeOffLogged);
   }
 
   Future<void> _absenceDetail(Map<String, dynamic> abs) async {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final delete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -571,32 +578,35 @@ class _DailyScreenState extends State<DailyScreen> {
         title: Text('✈️ ${abs['title']}',
             style: const TextStyle(fontWeight: FontWeight.w800)),
         content: Text(
-            '${abs['user_alias'] ?? abs['user_name'] ?? 'A caregiver'} is away\n'
-            '${DateFormat('d MMM HH:mm').format(DateTime.parse(abs['start_time'].toString()).toLocal())}'
-            ' → ${DateFormat('d MMM HH:mm').format(DateTime.parse(abs['end_time'].toString()).toLocal())}'),
+            '${l.absenceAway((abs['user_alias'] ?? abs['user_name'] ?? l.fallbackACaregiver).toString())}\n'
+            '${DateFormat('d MMM HH:mm', loc).format(DateTime.parse(abs['start_time'].toString()).toLocal())}'
+            ' → ${DateFormat('d MMM HH:mm', loc).format(DateTime.parse(abs['end_time'].toString()).toLocal())}'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Close')),
+              child: Text(l.close)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remove',
-                  style: TextStyle(color: AppColors.danger))),
+              child: Text(l.remove,
+                  style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
     if (delete != true) return;
+    if (!mounted) return;
     final app = context.read<AppState>();
     await app.runAction(() async {
       await app.api.delete('/api/absences/${abs['id']}');
       await _load();
-    }, 'Time off record removed.');
+    }, l.toastTimeOffRemoved);
   }
 
   // ── Scheduling (hour/minute selects, 06:00–23:30, like DailyModals) ──
 
   Future<void> _openScheduleDialog(Map<String, dynamic> activity,
       {int? hour, int? minute}) async {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     var h = (hour ?? DateTime.now().hour).clamp(kStartHour, 23);
     var m = (minute ?? (DateTime.now().minute >= 30 ? 30 : 0)) >= 30 ? 30 : 0;
 
@@ -606,14 +616,15 @@ class _DailyScreenState extends State<DailyScreen> {
         builder: (ctx, setLocal) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: const Text('Schedule Task',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(l.scheduleTaskTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  '"${activity['title']}" on ${DateFormat('EEEE, MMM d').format(_day)}',
+                  l.scheduleTaskBody((activity['title'] ?? '').toString(),
+                      DateFormat('EEEE, MMM d', loc).format(_day)),
                   style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 16),
               Row(
@@ -621,7 +632,7 @@ class _DailyScreenState extends State<DailyScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: h,
-                      decoration: const InputDecoration(labelText: 'Hour'),
+                      decoration: InputDecoration(labelText: l.hourLabel),
                       items: [
                         for (var i = kStartHour; i <= 23; i++)
                           DropdownMenuItem(
@@ -635,7 +646,7 @@ class _DailyScreenState extends State<DailyScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: m,
-                      decoration: const InputDecoration(labelText: 'Minute'),
+                      decoration: InputDecoration(labelText: l.minuteLabel),
                       items: const [
                         DropdownMenuItem(value: 0, child: Text('00')),
                         DropdownMenuItem(value: 30, child: Text('30')),
@@ -650,10 +661,10 @@ class _DailyScreenState extends State<DailyScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
+                child: Text(l.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Schedule')),
+                child: Text(l.scheduleAction)),
           ],
         ),
       ),
@@ -674,15 +685,16 @@ class _DailyScreenState extends State<DailyScreen> {
       if (s == null || e == null) return false;
       return s.isBefore(activityEnd) && e.isAfter(startsAt);
     });
+    final l = AppLocalizations.of(context);
     if (overlaps) {
-      app.setError('You cannot schedule activities during a logged absence.');
+      app.setError(l.errScheduleDuringAbsence);
       return;
     }
     await app.runAction(() async {
       await app.api.post('/api/activities/$activityId/schedule',
           {'startsAt': startsAt.toUtc().toIso8601String()});
       await _load();
-    }, 'Activity successfully scheduled!');
+    }, l.toastScheduled);
   }
 
   /// Drop on the hour grid: local dy → 30-min slot (mirror of dropOnTimeline).
@@ -697,8 +709,9 @@ class _DailyScreenState extends State<DailyScreen> {
 
   Future<void> _openScheduleSheet() async {
     if (_templates.isEmpty) {
-      context.read<AppState>().setError(
-          'No approved tasks in the library yet — create one in Activities.');
+      context
+          .read<AppState>()
+          .setError(AppLocalizations.of(context).errNoApprovedTasks);
       return;
     }
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
@@ -718,6 +731,8 @@ class _DailyScreenState extends State<DailyScreen> {
   @override
   Widget build(BuildContext context) {
     final wide = isWideLayout(context);
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final items = _scheduledToday;
     final done = _completedToday.length;
 
@@ -731,20 +746,23 @@ class _DailyScreenState extends State<DailyScreen> {
           children: [
             const SizedBox(width: 4),
             if (wide)
-              const Text('Daily Schedule',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              Text(l.dailyTitle,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800)),
             const Spacer(),
             IconButton(
                 onPressed: () => _changeDay(-1),
-                tooltip: 'Previous day',
+                tooltip: l.prevDay,
                 icon: const Icon(Icons.chevron_left_rounded)),
-            Text(DateFormat(wide ? 'EEEE, MMM d' : 'EEE, MMM d').format(_day),
+            Text(
+                DateFormat(wide ? 'EEEE, MMM d' : 'EEE, MMM d', loc)
+                    .format(_day),
                 key: _tourDateKey,
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             IconButton(
                 onPressed: () => _changeDay(1),
-                tooltip: 'Next day',
+                tooltip: l.nextDay,
                 icon: const Icon(Icons.chevron_right_rounded)),
             const Spacer(),
           ],
@@ -755,7 +773,7 @@ class _DailyScreenState extends State<DailyScreen> {
             onPressed: _openAbsenceDialog,
             icon: const Icon(Icons.flight_takeoff_rounded,
                 size: 17, color: AppColors.textSecondary),
-            label: Text(wide ? 'Log Time Off' : 'Time Off',
+            label: Text(wide ? l.timeOffLong : l.timeOffShort,
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -772,8 +790,8 @@ class _DailyScreenState extends State<DailyScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Add task',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              label: Text(l.addTask,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -801,7 +819,7 @@ class _DailyScreenState extends State<DailyScreen> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '$done / ${items.length} done'
+                        '${l.doneProgress('$done', '${items.length}')}'
                         '${_todayCoins > 0 ? ' · 🪙 ${_todayCoins}cc' : ''}',
                         style: const TextStyle(
                             fontSize: 12.5,
@@ -842,15 +860,15 @@ class _DailyScreenState extends State<DailyScreen> {
                       : null,
                 ),
                 child: _draggingScheduled
-                    ? const Center(
+                    ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.delete_outline_rounded,
+                            const Icon(Icons.delete_outline_rounded,
                                 size: 34, color: AppColors.danger),
-                            SizedBox(height: 8),
-                            Text('Drop here to unschedule',
-                                style: TextStyle(
+                            const SizedBox(height: 8),
+                            Text(AppLocalizations.of(context).dropToUnschedule,
+                                style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.danger)),
                           ],
@@ -1155,7 +1173,7 @@ class _DailyScreenState extends State<DailyScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${abs['user_alias'] ?? abs['user_name'] ?? 'Away'} · ${abs['title']}',
+                        '${abs['user_alias'] ?? abs['user_name'] ?? AppLocalizations.of(context).absAway} · ${abs['title']}',
                         style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
@@ -1169,18 +1187,18 @@ class _DailyScreenState extends State<DailyScreen> {
           if (items.isEmpty)
             Tappable(
               onTap: _openScheduleSheet,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Column(
                   children: [
-                    Icon(Icons.calendar_today_rounded,
+                    const Icon(Icons.calendar_today_rounded,
                         size: 28, color: AppColors.textSecondary),
-                    SizedBox(height: 12),
-                    Text('Your day is wide open.',
-                        style: TextStyle(fontWeight: FontWeight.w800)),
-                    SizedBox(height: 4),
-                    Text('Tap here to schedule a task.',
-                        style: TextStyle(color: AppColors.primary)),
+                    const SizedBox(height: 12),
+                    Text(AppLocalizations.of(context).emptyDayTitle,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(AppLocalizations.of(context).emptyDayAction,
+                        style: const TextStyle(color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -1240,13 +1258,13 @@ class _DailyScreenState extends State<DailyScreen> {
           color: AppColors.dangerSoft,
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_rounded, color: AppColors.danger),
-            SizedBox(width: 6),
-            Text('Remove',
-                style: TextStyle(
+            const Icon(Icons.delete_rounded, color: AppColors.danger),
+            const SizedBox(width: 6),
+            Text(AppLocalizations.of(context).remove,
+                style: const TextStyle(
                     color: AppColors.danger, fontWeight: FontWeight.w800)),
           ],
         ),
@@ -1309,29 +1327,30 @@ class _ActivityAction extends StatelessWidget {
       );
     }
 
+    final l = AppLocalizations.of(context);
     if (status == 'pending_validation') {
       return (!mine && app.isCaregiver)
-          ? pill('✓ Validate', AppColors.primary, AppColors.primarySoft,
+          ? pill(l.pillValidate, AppColors.primary, AppColors.primarySoft,
               onValidate)
-          : pill('Awaiting ✓', AppColors.warning, AppColors.warningSoft);
+          : pill(l.pillAwaiting, AppColors.warning, AppColors.warningSoft);
     }
     if (status == 'completed') {
-      return pill('✓ Done', Colors.white, Colors.black26);
+      return pill(l.pillDone, Colors.white, Colors.black26);
     }
     if (status == 'rejected') {
-      return pill('Rejected', AppColors.danger, AppColors.dangerSoft);
+      return pill(l.pillRejected, AppColors.danger, AppColors.dangerSoft);
     }
     // pending / approved
     if (mine && bounty == 0 && app.isCaregiver) {
       return pill(
-          'Delegate (-cc)', AppColors.warning, AppColors.warningSoft, onDelegate);
+          l.pillDelegate, AppColors.warning, AppColors.warningSoft, onDelegate);
     }
     if (mine && bounty > 0) {
       return pill(
-          'Offering: ${bounty}cc', AppColors.warning, AppColors.warningSoft);
+          l.pillOffering('$bounty'), AppColors.warning, AppColors.warningSoft);
     }
     if (!mine && bounty > 0 && app.isCaregiver) {
-      return pill('Take Over (+${bounty}cc)', AppColors.success,
+      return pill(l.pillTakeOver('$bounty'), AppColors.success,
           AppColors.successSoft, onTakeOver);
     }
     // Assignee is shown by _AssigneeBadge on every chip/card; no action here.
@@ -1374,20 +1393,22 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
       return true;
     }).toList();
 
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(4, 4, 4, 10),
-          child: Text('Task Library',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+          child: Text(l.taskLibrary,
+              style:
+                  const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         ),
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
           style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Search tasks…',
+            hintText: l.searchTasks,
             isDense: true,
             filled: true,
             fillColor: AppColors.surface,
@@ -1403,7 +1424,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
         ),
         const SizedBox(height: 8),
         SegmentedTabs(
-          tabs: const ['All', 'Care', 'Household'],
+          tabs: [l.filterAll, l.filterCare, l.filterHousehold],
           selected: _filter,
           onChanged: (i) => setState(() => _filter = i),
         ),
@@ -1426,7 +1447,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
                                     : AppColors.warning,
                                 shape: BoxShape.circle)),
                         const SizedBox(width: 7),
-                        Text(cat == 'care' ? 'Care & Wellness' : 'Household',
+                        Text(cat == 'care' ? l.careWellness : l.filterHousehold,
                             style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
@@ -1439,10 +1460,10 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
                     _libraryRow(t, cat),
                 ],
               if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No tasks found matching your filters.',
-                      style: TextStyle(
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(l.noTasksFiltered,
+                      style: const TextStyle(
                           fontSize: 13, color: AppColors.textSecondary)),
                 ),
             ],
@@ -1486,7 +1507,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
                     style: const TextStyle(
                         fontSize: 13.5, fontWeight: FontWeight.w800)),
                 Text(
-                    '${cat == 'care' ? 'Care' : 'Cleaning'} · 🪙 ${t['coin_value'] ?? 0}cc',
+                    '${cat == 'care' ? AppLocalizations.of(context).filterCare : AppLocalizations.of(context).categoryCleaning} · 🪙 ${t['coin_value'] ?? 0}cc',
                     style: const TextStyle(
                         fontSize: 11.5, color: AppColors.textSecondary)),
               ],
@@ -1558,8 +1579,8 @@ class _TaskSheetState extends State<_TaskSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Add a task',
-                        style: TextStyle(
+                    Text(AppLocalizations.of(context).sheetAddTask,
+                        style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
                     TextField(
@@ -1567,7 +1588,7 @@ class _TaskSheetState extends State<_TaskSheet> {
                       onChanged: (_) => setState(() {}),
                       style: const TextStyle(fontSize: 16),
                       decoration: InputDecoration(
-                        hintText: 'Search tasks…',
+                        hintText: AppLocalizations.of(context).searchTasks,
                         isDense: true,
                         filled: true,
                         fillColor: AppColors.bg,
@@ -1581,7 +1602,11 @@ class _TaskSheetState extends State<_TaskSheet> {
                     ),
                     const SizedBox(height: 10),
                     SegmentedTabs(
-                      tabs: const ['All', 'Care', 'Household'],
+                      tabs: [
+                        AppLocalizations.of(context).filterAll,
+                        AppLocalizations.of(context).filterCare,
+                        AppLocalizations.of(context).filterHousehold,
+                      ],
                       selected: _filter,
                       onChanged: (i) => setState(() => _filter = i),
                     ),
@@ -1606,11 +1631,13 @@ class _TaskSheetState extends State<_TaskSheet> {
                         onTap: () => Navigator.of(context).pop(t),
                       ),
                     if (filtered.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
+                      Padding(
+                        padding: const EdgeInsets.all(24),
                         child: Center(
-                          child: Text('No matching tasks.',
-                              style: TextStyle(color: AppColors.textSecondary)),
+                          child: Text(
+                              AppLocalizations.of(context).noMatchingTasks,
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary)),
                         ),
                       ),
                   ],

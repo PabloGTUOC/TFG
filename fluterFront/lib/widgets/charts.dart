@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// Minimal chart widgets replacing the ECharts panels of StatsView.vue.
@@ -296,8 +297,8 @@ class DonutChart extends StatelessWidget {
                   Text(total.round().toString(),
                       style: const TextStyle(
                           fontSize: 26, fontWeight: FontWeight.w800)),
-                  const Text('total',
-                      style: TextStyle(
+                  Text(AppLocalizations.of(context).totalLower,
+                      style: const TextStyle(
                           fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),

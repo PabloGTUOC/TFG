@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -67,17 +68,17 @@ class _StatsScreenState extends State<StatsScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.active || _loading) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'stats', [
         CoachMark(
           targetKey: _tourHeadingKey,
-          title: 'The fairness receipts',
-          body: 'Who contributed what — by person, category and month. '
-              'This is where the invisible labour becomes visible.',
+          title: l.tourStatsTitle,
+          body: l.tourStatsBody,
         ),
         CoachMark(
           targetKey: _tourCompareKey,
-          title: 'Compare caregivers',
-          body: 'Flip this to put caregivers side by side on every chart.',
+          title: l.tourCompareTitle,
+          body: l.tourCompareBody,
         ),
       ]);
     });
@@ -122,6 +123,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_stats == null) {
       if (_error) {
@@ -130,9 +132,9 @@ class _StatsScreenState extends State<StatsScreen> {
           _load();
         });
       }
-      return const Center(
-          child: Text('No stats available yet.',
-              style: TextStyle(color: AppColors.textSecondary)));
+      return Center(
+          child: Text(l.noStatsYet,
+              style: const TextStyle(color: AppColors.textSecondary)));
     }
 
     final wide = isWideLayout(context);
@@ -152,19 +154,18 @@ class _StatsScreenState extends State<StatsScreen> {
               Expanded(
                 child: PageHeading(
                     key: _tourHeadingKey,
-                    title: 'Performance Analytics',
-                    subtitle:
-                        'How care work and coins flow across the family.'),
+                    title: l.statsTitle,
+                    subtitle: l.statsSubtitle),
               ),
               if (_caregivers.length > 1)
                 Column(
                   key: _tourCompareKey,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text('COMPARE CAREGIVERS',
-                          style: TextStyle(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(l.compareCaregivers,
+                          style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1,
@@ -182,13 +183,13 @@ class _StatsScreenState extends State<StatsScreen> {
           const SizedBox(height: 8),
           if (wide) ...[
             ...overview,
-            _SectionDivider('Members'),
+            _SectionDivider(l.sectionMembers),
             ...members,
-            _SectionDivider('Coin Economy'),
+            _SectionDivider(l.sectionEconomy),
             ...economy,
           ] else ...[
             SegmentedTabs(
-              tabs: const ['Overview', 'Members', 'Economy'],
+              tabs: [l.tabOverview, l.sectionMembers, l.tabEconomy],
               selected: _tab,
               onChanged: (i) => setState(() => _tab = i),
             ),
@@ -205,11 +206,13 @@ class _StatsScreenState extends State<StatsScreen> {
   // ── Overview: KPIs, trend, category balance, task frequency ─────
 
   List<Widget> _buildOverview() {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final kpis = (_stats?['kpis'] as Map?)?.cast<String, dynamic>() ?? {};
     final trend = _listOf('trendByMonth');
     final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()
       ..sort();
-    final fmt = NumberFormat.decimalPattern();
+    final fmt = NumberFormat.decimalPattern(loc);
 
     return [
       LayoutBuilder(builder: (context, c) {
@@ -222,26 +225,26 @@ class _StatsScreenState extends State<StatsScreen> {
             SizedBox(
                 width: w,
                 child: KpiCard(
-                    label: 'Lifetime Coins',
+                    label: l.kpiLifetimeCoins,
                     value: fmt.format(toNum(kpis['total_lifetime_coins'])),
                     unit: 'cc')),
             SizedBox(
                 width: w,
                 child: KpiCard(
-                    label: 'Tasks Completed',
+                    label: l.kpiTasksCompleted,
                     accent: AppColors.success,
                     value: fmt.format(toNum(kpis['total_lifetime_tasks'])))),
             SizedBox(
                 width: w,
                 child: KpiCard(
-                    label: 'Bounties Offered',
+                    label: l.kpiBountiesOffered,
                     accent: AppColors.danger,
                     value:
                         fmt.format(toNum(kpis['total_bounties_offered'])))),
             SizedBox(
                 width: w,
                 child: KpiCard(
-                    label: 'Rewards Claimed',
+                    label: l.kpiRewardsClaimed,
                     accent: AppColors.warning,
                     value: fmt.format(toNum(kpis['total_rewards_claimed'])))),
           ],
@@ -250,7 +253,7 @@ class _StatsScreenState extends State<StatsScreen> {
       const SizedBox(height: 20),
       if (trendMonths.isNotEmpty)
         VCard(
-          title: 'Income Generation Trend',
+          title: l.chartIncomeTrend,
           child: _comparing
               ? MultiLineChart(
                   labels: trendMonths,
@@ -281,6 +284,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   List<Widget> _buildCategoryBalance() {
+    final l = AppLocalizations.of(context);
     final split = _listOf('categorySplit');
     if (split.isEmpty) return [];
     num sumFor(String category, [String? caregiver]) => split
@@ -291,13 +295,13 @@ class _StatsScreenState extends State<StatsScreen> {
 
     return [
       VCard(
-        title: 'Category Balance',
+        title: l.chartCategoryBalance,
         child: _comparing
             ? Column(
                 children: [
                   for (final (label, category) in [
-                    ('❤️ Care', 'care'),
-                    ('🍽️ Household', 'household')
+                    (l.catCareEmoji, 'care'),
+                    (l.catHouseholdEmoji, 'household')
                   ]) ...[
                     Align(
                       alignment: Alignment.centerLeft,
@@ -321,16 +325,17 @@ class _StatsScreenState extends State<StatsScreen> {
                 ],
               )
             : DonutChart(segments: [
-                DonutSegment(
-                    'Care', sumFor('care').toDouble(), AppColors.success),
-                DonutSegment('Household', sumFor('household').toDouble(),
-                    AppColors.warning),
+                DonutSegment(l.filterCare, sumFor('care').toDouble(),
+                    AppColors.success),
+                DonutSegment(l.filterHousehold,
+                    sumFor('household').toDouble(), AppColors.warning),
               ]),
       ),
     ];
   }
 
   List<Widget> _buildTaskFrequency() {
+    final l = AppLocalizations.of(context);
     final freq = _listOf('activityFrequency');
     if (freq.isEmpty) return [];
 
@@ -350,7 +355,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
     return [
       VCard(
-        title: 'Task Frequency',
+        title: l.chartTaskFrequency,
         child: Column(
           children: [
             if (_comparing)
@@ -392,6 +397,7 @@ class _StatsScreenState extends State<StatsScreen> {
   // ── Members: leaderboard, completion, bounty stats ───────────────
 
   List<Widget> _buildMembers() {
+    final l = AppLocalizations.of(context);
     final balances = _listOf('memberBalances');
     final completion = _listOf('completionRates');
     final bounties = _listOf('bountyStats');
@@ -399,12 +405,12 @@ class _StatsScreenState extends State<StatsScreen> {
     return [
       if (balances.isNotEmpty)
         VCard(
-          title: 'Coin Balance Leaderboard',
+          title: l.chartLeaderboard,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('🟡 Caregiver · 🔵 Member',
-                  style: TextStyle(
+              Text(l.legendRoles,
+                  style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
               const SizedBox(height: 12),
               for (final b in balances)
@@ -422,7 +428,7 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
       if (completion.isNotEmpty)
         VCard(
-          title: 'Completion Rate',
+          title: l.chartCompletionRate,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -451,7 +457,7 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
       if (bounties.isNotEmpty)
         VCard(
-          title: 'Bounties — Offered vs Earned vs Refunded',
+          title: l.chartBounties,
           child: Column(
             children: [
               for (final b in bounties) ...[
@@ -465,9 +471,9 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                 ),
                 for (final (label, key, color) in [
-                  ('Offered', 'offered', AppColors.danger),
-                  ('Earned', 'earned', AppColors.success),
-                  ('Refunded', 'refunded', Color(0xFF94A3B8)),
+                  (l.offered, 'offered', AppColors.danger),
+                  (l.earned, 'earned', AppColors.success),
+                  (l.refunded, 'refunded', const Color(0xFF94A3B8)),
                 ])
                   _BarRow(
                     label: label,
@@ -491,17 +497,18 @@ class _StatsScreenState extends State<StatsScreen> {
   // ── Economy: coin flow, marketplace, status distribution ─────────
 
   List<Widget> _buildEconomy() {
+    final l = AppLocalizations.of(context);
     final coinFlow = _listOf('coinFlowByReason');
     final rewardsByUser = _listOf('rewardsByUser');
     final topRewards = _listOf('topRewards');
     final statuses = _listOf('statusDistribution');
 
-    const flowMeta = [
-      ('activity_completed', 'Activities', AppColors.primary),
-      ('bounty_earned', 'Bounties Earned', AppColors.success),
-      ('bounty_escrow', 'Bounties Paid', AppColors.danger),
-      ('redeemed', 'Rewards Redeemed', AppColors.warning),
-      ('bounty_refunded', 'Bounties Refunded', Color(0xFF94A3B8)),
+    final flowMeta = [
+      ('activity_completed', l.flowActivities, AppColors.primary),
+      ('bounty_earned', l.flowBountiesEarned, AppColors.success),
+      ('bounty_escrow', l.flowBountiesPaid, AppColors.danger),
+      ('redeemed', l.flowRewardsRedeemed, AppColors.warning),
+      ('bounty_refunded', l.flowBountiesRefunded, const Color(0xFF94A3B8)),
     ];
     final flowMonths =
         coinFlow.map((d) => d['month'].toString()).toSet().toList()..sort();
@@ -518,23 +525,23 @@ class _StatsScreenState extends State<StatsScreen> {
           ]),
     ];
 
-    const statusMeta = {
-      'completed': ('Completed', AppColors.success),
-      'approved': ('Approved', AppColors.primary),
-      'pending': ('Pending', AppColors.warning),
-      'pending_validation': ('Pending Validation', AppColors.primary),
-      'rejected': ('Rejected', AppColors.danger),
+    final statusMeta = {
+      'completed': (l.statusCompleted, AppColors.success),
+      'approved': (l.statusApproved, AppColors.primary),
+      'pending': (l.statusPending, AppColors.warning),
+      'pending_validation': (l.statusPendingValidation, AppColors.primary),
+      'rejected': (l.statusRejected, AppColors.danger),
     };
 
     return [
       if (flowSeries.isNotEmpty)
         VCard(
-          title: 'Coin Flow by Reason',
+          title: l.chartCoinFlow,
           child: StackedBarChart(labels: flowMonths, series: flowSeries),
         ),
       if (rewardsByUser.isNotEmpty)
         VCard(
-          title: 'Rewards Claimed by Member',
+          title: l.chartRewardsByMember,
           child: Column(
             children: [
               for (final r in rewardsByUser)
@@ -551,7 +558,7 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
       if (topRewards.isNotEmpty)
         VCard(
-          title: 'Most Popular Rewards',
+          title: l.chartTopRewards,
           child: Column(
             children: [
               for (final r in topRewards)
@@ -567,7 +574,7 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
       if (statuses.isNotEmpty)
         VCard(
-          title: 'Activity Status Distribution',
+          title: l.chartStatusDist,
           child: DonutChart(segments: [
             for (final s in statuses)
               DonutSegment(

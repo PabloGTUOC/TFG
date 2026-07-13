@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/push_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -39,13 +40,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _email = TextEditingController();
   final _alias = TextEditingController();
 
-  static const _notifPrefDefs = [
-    ('activity_assigned', 'Activity assigned to me'),
-    ('activity_validated', 'Activity approved & coins earned'),
-    ('activity_completed', 'Family activity completed'),
-    ('bounty_offered', 'Bounty offered on a shift'),
-    ('family_events', 'Family management events'),
+  static const _notifPrefKeys = [
+    'activity_assigned',
+    'activity_validated',
+    'activity_completed',
+    'bounty_offered',
+    'family_events',
   ];
+
+  List<(String, String)> _notifPrefDefs(AppLocalizations l) => [
+        ('activity_assigned', l.notifActivityAssigned),
+        ('activity_validated', l.notifActivityValidated),
+        ('activity_completed', l.notifActivityCompleted),
+        ('bounty_offered', l.notifBountyOffered),
+        ('family_events', l.notifFamilyEvents),
+      ];
   Map<String, bool> _notifPrefs = {};
   bool _notifGranted = false;
 
@@ -78,13 +87,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.active) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'profile', [
         CoachMark(
           targetKey: _tourWalletKey,
-          title: 'Your wallet',
-          body: 'Every coin you\'ve earned and spent, month by month. '
-              'Caregivers can revert a mistaken validation from the '
-              'ledger below.',
+          title: l.tourWalletTitle,
+          body: l.tourWalletBody,
         ),
       ]);
     });
@@ -102,7 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     setState(() => _notifGranted = ok);
     if (ok) {
-      app.setSuccess('Notifications enabled!');
+      app.setSuccess(AppLocalizations.of(context).toastNotificationsEnabled);
       await _loadNotifPrefs();
     }
   }
@@ -156,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final data = await app.api.get('/api/me/notification-preferences');
       if (mounted && data is Map) {
         setState(() => _notifPrefs = {
-              for (final (key, _) in _notifPrefDefs) key: data[key] != false,
+              for (final key in _notifPrefKeys) key: data[key] != false,
             });
       }
     } catch (_) {}
@@ -167,7 +175,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await app.api.put('/api/me/notification-preferences', _notifPrefs);
     } catch (_) {
-      app.setError('Failed to save notification preferences.');
+      if (mounted) {
+        app.setError(AppLocalizations.of(context).errSaveNotifPrefs);
+      }
     }
   }
 
@@ -188,10 +198,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(AppLocalizations.of(ctx).cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text('Confirm',
+              child: Text(AppLocalizations.of(ctx).confirm,
                   style: TextStyle(
                       color: danger ? AppColors.danger : AppColors.primary))),
         ],
@@ -210,37 +220,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (app.familyId != 0) 'alias': _alias.text.trim(),
       });
       await app.fetchUserData();
-    }, 'Personal details updated successfully!');
+    }, AppLocalizations.of(context).toastProfileUpdated);
   }
 
   Future<void> _deleteAccount() async {
     final app = context.read<AppState>();
-    final ok = await _confirm(
-        'Delete account',
-        'Your profile will be anonymized and all your pending activities '
-            'deleted. This cannot be undone.',
-        danger: true);
+    final l = AppLocalizations.of(context);
+    final ok =
+        await _confirm(l.deleteAccountTitle, l.deleteAccountBody, danger: true);
     if (!ok) return;
     await app.runAction(() async {
       await app.api.delete('/api/me');
       await app.logout();
-    }, 'Account deleted.');
+    }, l.toastAccountDeleted);
   }
 
   Future<void> _deleteFamily() async {
     final app = context.read<AppState>();
-    final ok = await _confirm(
-        'Delete family',
-        'If there are other caregivers this sends them a deletion request. '
-            'All family data will be permanently removed.',
-        danger: true);
+    final l = AppLocalizations.of(context);
+    final ok =
+        await _confirm(l.deleteFamilyTitle, l.deleteFamilyBody, danger: true);
     if (!ok) return;
     await app.runAction(() async {
       final res = await app.api.delete('/api/families/${app.familyId}');
       if (res is Map && res['deleted'] == true) {
         await app.fetchUserData();
       } else if (res is Map && res['pendingApproval'] == true) {
-        app.setSuccess('Deletion request sent to other caregivers.');
+        app.setSuccess(l.toastDeletionRequestSent);
         await _loadDeletionRequests();
       }
     });
@@ -248,6 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _respondToDeletionRequest(dynamic reqId, String action) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     await app.runAction(() async {
       final res = await app.api.post(
           '/api/families/${app.familyId}/deletion-requests/$reqId/$action');
@@ -256,26 +263,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } else {
         await _loadDeletionRequests();
       }
-    }, 'Deletion request ${action}d.');
+    }, action == 'approve' ? l.toastDeletionApproved : l.toastDeletionRejected);
   }
 
   Future<void> _uncheckActivity(Map<String, dynamic> item) async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     final ok = await _confirm(
-        'Un-check activity',
-        'This will revert ${toNum(item['amount']).abs()} cc from your balance '
-            'for "${item['activity_title'] ?? 'this activity'}".');
+        l.uncheckTitle,
+        l.uncheckBody(
+            '${toNum(item['amount']).abs()}',
+            (item['activity_title'] ?? l.fallbackThisActivity).toString()));
     if (!ok) return;
     await app.runAction(() async {
       await app.api.post('/api/activities/${item['activity_id']}/revert');
       await app.fetchUserData();
       await _loadLedger();
-    }, 'Activity unchecked and balance reverted.');
+    }, l.toastUnchecked);
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final l = AppLocalizations.of(context);
     final family = app.family;
     final wide = isWideLayout(context);
 
@@ -303,7 +313,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           VButton(
               type: VButtonType.danger,
               onPressed: _deleteFamily,
-              child: const Text('Delete Family')),
+              child: Text(l.deleteFamilyBtn)),
         ],
       ],
     );
@@ -318,10 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 16, bottom: 40),
         children: [
-          const PageHeading(
-              title: 'Personal Area',
-              subtitle:
-                  'Manage your family profile and tracking preferences.'),
+          PageHeading(title: l.profileTitle, subtitle: l.profileSubtitle),
 
           // Family banner (gradient indigo → violet)
           if (family != null)
@@ -352,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                             (family['name'] ??
                                     family['family_name'] ??
-                                    'My Family')
+                                    l.fallbackMyFamily)
                                 .toString(),
                             style: const TextStyle(
                                 fontSize: 19,
@@ -360,7 +367,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 letterSpacing: -0.3,
                                 color: Colors.white)),
                         Text(
-                            'as ${family['alias'] ?? app.profile?['display_name'] ?? 'member'}',
+                            l.asAlias((family['alias'] ??
+                                    app.profile?['display_name'] ??
+                                    l.fallbackMember)
+                                .toString()),
                             style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -378,8 +388,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Text('FAMILY ID',
-                            style: TextStyle(
+                        Text(l.familyIdLabel,
+                            style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
@@ -410,14 +420,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('⚠️ Pending Family Deletion Request',
-                      style: TextStyle(
+                  Text(l.deletionBannerTitle,
+                      style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           color: AppColors.danger)),
                   const SizedBox(height: 8),
                   Text(
-                      '${req['requested_by_name'] ?? 'A caregiver'} has requested '
-                      'to permanently delete this family.',
+                      l.deletionBannerBody(
+                          (req['requested_by_name'] ?? l.fallbackACaregiver)
+                              .toString()),
                       style: const TextStyle(fontSize: 13.5)),
                   const SizedBox(height: 8),
                   for (final a in ((req['approvals'] as List?) ?? [])
@@ -440,13 +451,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           type: VButtonType.danger,
                           onPressed: () =>
                               _respondToDeletionRequest(req['id'], 'approve'),
-                          child: const Text('Approve Deletion')),
+                          child: Text(l.approveDeletion)),
                       const SizedBox(width: 10),
                       VButton(
                           type: VButtonType.outline,
                           onPressed: () =>
                               _respondToDeletionRequest(req['id'], 'reject'),
-                          child: const Text('Reject')),
+                          child: Text(l.reject)),
                     ],
                   ),
                 ],
@@ -471,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             )
           else ...[
             SegmentedTabs(
-              tabs: const ['My Profile', 'Family', 'Wallet'],
+              tabs: [l.tabMyProfile, l.tabFamily, l.tabWallet],
               selected: _tab,
               onChanged: (i) => setState(() => _tab = i),
             ),
@@ -486,21 +497,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAccountCard(AppState app, Map<String, dynamic>? family) {
+    final l = AppLocalizations.of(context);
     return VCard(
-      title: 'Account Settings',
+      title: l.accountSettings,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               Tooltip(
-                message: 'Tap to change photo',
+                message: l.tapChangePhoto,
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () async {
                     final ok = await pickAndUploadAvatar(
                         context, '/api/me/avatar',
-                        successMessage: 'Your avatar updated successfully!');
+                        successMessage: l.toastAvatarUpdated);
                     if (ok && context.mounted) {
                       await context.read<AppState>().fetchUserData();
                     }
@@ -539,7 +551,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        (app.profile?['display_name'] ?? 'Your Name')
+                        (app.profile?['display_name'] ?? l.fallbackYourName)
                             .toString(),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w800)),
@@ -566,12 +578,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 20),
           VInput(
               controller: _displayName,
-              label: 'Full Name',
-              placeholder: 'Your full name'),
+              label: l.fullNameLabel,
+              placeholder: l.fallbackYourName),
           const SizedBox(height: 12),
           VInput(
               controller: _email,
-              label: 'Email Address',
+              label: l.emailLabel,
               placeholder: 'your@email.com',
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email]),
@@ -579,8 +591,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             VInput(
                 controller: _alias,
-                label: 'Your Alias',
-                placeholder: 'e.g. Papa, Mama…'),
+                label: l.aliasLabel,
+                placeholder: l.aliasHint),
           ],
           const SizedBox(height: 16),
           Row(
@@ -589,19 +601,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: VButton(
                     onPressed: _updateProfile,
                     block: true,
-                    child: const Text('Update Profile')),
+                    child: Text(l.updateProfileBtn)),
               ),
               const SizedBox(width: 10),
               VButton(
                   type: VButtonType.outline,
                   onPressed: _deleteAccount,
-                  child: const Text('Delete Account',
-                      style: TextStyle(color: AppColors.danger))),
+                  child: Text(l.deleteAccountBtn,
+                      style: const TextStyle(color: AppColors.danger))),
             ],
           ),
           const Divider(height: 32),
-          const Text('Push Notifications',
-              style: TextStyle(
+          Text(l.pushNotifications,
+              style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary)),
@@ -610,21 +622,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             VButton(
                 type: VButtonType.secondary,
                 onPressed: _enableNotifications,
-                child: const Text('Enable Notifications'))
+                child: Text(l.enableNotifications))
           else ...[
             Row(
               children: [
-                const Expanded(
-                  child: Text('✓ Notifications enabled',
-                      style: TextStyle(
+                Expanded(
+                  child: Text(l.notificationsEnabled,
+                      style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: AppColors.success)),
                 ),
                 TextButton(
                     onPressed: _disableNotifications,
-                    child: const Text('Disable',
-                        style: TextStyle(
+                    child: Text(l.disableBtn,
+                        style: const TextStyle(
                             fontSize: 12.5,
                             color: AppColors.textSecondary,
                             decoration: TextDecoration.underline))),
@@ -639,7 +651,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  for (final (key, label) in _notifPrefDefs)
+                  for (final (key, label) in _notifPrefDefs(l))
                     SwitchListTile(
                       dense: true,
                       activeThumbColor: AppColors.primary,
@@ -659,6 +671,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const Divider(height: 32),
+          // Language picker (docs/i18n-plan.md §2). Language names stay in
+          // their own language on purpose; only "system" is translated.
+          Text(AppLocalizations.of(context).languageTitle,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: app.locale?.languageCode ?? 'system',
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(12),
+                style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary),
+                items: [
+                  DropdownMenuItem(
+                      value: 'system',
+                      child: Text(AppLocalizations.of(context).languageSystem)),
+                  const DropdownMenuItem(value: 'en', child: Text('English')),
+                  const DropdownMenuItem(value: 'es', child: Text('Español')),
+                  const DropdownMenuItem(value: 'fr', child: Text('Français')),
+                  const DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+                ],
+                onChanged: (v) => context.read<AppState>().setLocale(
+                    v == null || v == 'system' ? null : Locale(v)),
+              ),
+            ),
+          ),
+          const Divider(height: 32),
           // Help entry (docs/onboarding-help-plan.md Phase 1): same sheet
           // as the header's ? button, for people who look in settings.
           Tappable(
@@ -668,9 +719,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const Icon(Icons.help_outline_rounded,
                     size: 20, color: AppColors.primary),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Help & how CareCoins works',
-                      style: TextStyle(
+                Expanded(
+                  child: Text(l.helpEntry,
+                      style: const TextStyle(
                           fontSize: 13.5, fontWeight: FontWeight.w700)),
                 ),
                 const Icon(Icons.chevron_right_rounded,
@@ -682,7 +733,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           VButton(
             type: VButtonType.danger,
             onPressed: () => app.logout(),
-            child: const Text('Logout'),
+            child: Text(AppLocalizations.of(context).menuLogout),
           ),
         ],
       ),
@@ -716,57 +767,65 @@ class _WalletPanel extends StatelessWidget {
   });
 
   /// Port of formatLedgerLabel.
-  static String ledgerLabel(Map<String, dynamic> item) {
+  static String ledgerLabel(AppLocalizations l, Map<String, dynamic> item) {
     final title = item['activity_title']?.toString();
     switch (item['reason']?.toString()) {
       case 'activity_completed':
-        return title ?? 'Activity completed';
+        return title ?? l.ledgerActivityCompleted;
       case 'activity_reverted':
-        return title ?? 'Activity reverted';
+        return title ?? l.ledgerActivityReverted;
       case 'bounty_escrow':
       case 'bounty_paid':
-        return title != null ? 'You paid for not doing: $title' : 'Bounty paid';
+        return title != null ? l.ledgerPaidNotDoing(title) : l.ledgerBountyPaid;
       case 'bounty_earned':
-        return title != null ? 'Bounty earned: $title' : 'Bounty earned';
+        return title != null
+            ? l.ledgerBountyEarnedT(title)
+            : l.ledgerBountyEarned;
       case 'bounty_refunded':
-        return title != null ? 'Bounty refunded: $title' : 'Bounty refunded';
+        return title != null
+            ? l.ledgerBountyRefundedT(title)
+            : l.ledgerBountyRefunded;
       case 'bounty_reverted':
-        return title != null ? 'Bounty reverted: $title' : 'Bounty reverted';
+        return title != null
+            ? l.ledgerBountyRevertedT(title)
+            : l.ledgerBountyReverted;
       default:
-        return title ?? (item['reason']?.toString() ?? 'Movement');
+        return title ?? (item['reason']?.toString() ?? l.ledgerMovement);
     }
   }
 
   /// Port of formatLedgerDate (Today/Yesterday, HH:mm else short date).
-  static String ledgerDate(dynamic raw) {
+  static String ledgerDate(AppLocalizations l, String loc, dynamic raw) {
     final d = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
     if (d == null) return '';
     final now = DateTime.now();
     final days = DateTime(now.year, now.month, now.day)
         .difference(DateTime(d.year, d.month, d.day))
         .inDays;
-    if (days == 0) return 'Today, ${DateFormat('HH:mm').format(d)}';
-    if (days == 1) return 'Yesterday, ${DateFormat('HH:mm').format(d)}';
-    return DateFormat('MMM d, yyyy').format(d);
+    if (days == 0) return l.todayAt(DateFormat('HH:mm').format(d));
+    if (days == 1) return l.yesterdayAt(DateFormat('HH:mm').format(d));
+    return DateFormat('MMM d, yyyy', loc).format(d);
   }
 
   static bool _isReverted(Map<String, dynamic> item) =>
       item['reason'] == 'activity_reverted' ||
       item['reason'] == 'bounty_reverted';
 
-  ({String label, String icon}) get _coinTier {
-    if (balance >= 1000) return (label: 'Platinum Parent', icon: '🏆');
-    if (balance >= 500) return (label: 'Gold Caregiver', icon: '🥇');
-    if (balance >= 200) return (label: 'Silver Helper', icon: '🥈');
-    return (label: 'Bronze Starter', icon: '🥉');
+  ({String label, String icon}) _coinTier(AppLocalizations l) {
+    if (balance >= 1000) return (label: l.tierPlatinum, icon: '🏆');
+    if (balance >= 500) return (label: l.tierGold, icon: '🥇');
+    if (balance >= 200) return (label: l.tierSilver, icon: '🥈');
+    return (label: l.tierBronze, icon: '🥉');
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final preview = ledger.take(3).toList();
     final tasksThisMonth =
         ledger.where((i) => i['reason'] == 'activity_completed').length;
-    final tier = _coinTier;
+    final tier = _coinTier(l);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -781,8 +840,8 @@ class _WalletPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('TOTAL BALANCE',
-                  style: TextStyle(
+              Text(l.totalBalance,
+                  style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1,
@@ -792,15 +851,15 @@ class _WalletPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(NumberFormat.decimalPattern().format(balance),
+                  Text(NumberFormat.decimalPattern(loc).format(balance),
                       style: const TextStyle(
                           fontSize: 44.8,
                           fontWeight: FontWeight.w800,
                           height: 1,
                           color: Colors.white)),
                   const SizedBox(width: 6),
-                  const Text('COINS',
-                      style: TextStyle(
+                  Text(l.coinsUnit,
+                      style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppColors.gold)),
@@ -808,11 +867,11 @@ class _WalletPanel extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               if (preview.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(8),
+                Padding(
+                  padding: const EdgeInsets.all(8),
                   child: Center(
-                    child: Text('No activity this month.',
-                        style: TextStyle(
+                    child: Text(l.noActivityThisMonth,
+                        style: const TextStyle(
                             fontSize: 13.6, color: Color(0xFF475569))),
                   ),
                 )
@@ -832,7 +891,7 @@ class _WalletPanel extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(ledgerLabel(row),
+                              Text(ledgerLabel(l, row),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -848,7 +907,7 @@ class _WalletPanel extends StatelessWidget {
                                           : null,
                                       decorationColor:
                                           const Color(0xFFF1F5F9))),
-                              Text(ledgerDate(row['created_at']),
+                              Text(ledgerDate(l, loc, row['created_at']),
                                   style: const TextStyle(
                                       fontSize: 12, color: Color(0xFF64748B))),
                             ],
@@ -871,8 +930,7 @@ class _WalletPanel extends StatelessWidget {
                         borderRadius:
                             BorderRadius.circular(AppRadii.pill)),
                   ),
-                  child: Text(
-                      showFullLedger ? 'Hide Ledger' : 'View Full Ledger',
+                  child: Text(showFullLedger ? l.hideLedger : l.viewFullLedger,
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
@@ -894,34 +952,34 @@ class _WalletPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text('Monthly Ledger',
-                          style: TextStyle(fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(l.monthlyLedger,
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w800)),
                     ),
                     IconButton(
                         onPressed: onPrevMonth,
-                        tooltip: 'Previous month',
+                        tooltip: l.prevMonth,
                         icon: const Icon(Icons.chevron_left_rounded,
                             color: AppColors.textSecondary)),
-                    Text(DateFormat('MMM yyyy').format(month),
+                    Text(DateFormat('MMM yyyy', loc).format(month),
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w700)),
                     IconButton(
                         onPressed: onNextMonth,
-                        tooltip: 'Next month',
+                        tooltip: l.nextMonth,
                         icon: const Icon(Icons.chevron_right_rounded,
                             color: AppColors.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 if (ledger.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                        'No coins moved this month. Entries appear when a '
-                        'task is validated or a reward is redeemed.',
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(l.ledgerEmpty,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.textSecondary)),
+                        style:
+                            const TextStyle(color: AppColors.textSecondary)),
                   )
                 else
                   for (final row in ledger)
@@ -941,7 +999,7 @@ class _WalletPanel extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(ledgerLabel(row),
+                                Text(ledgerLabel(l, row),
                                     style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
@@ -953,7 +1011,7 @@ class _WalletPanel extends StatelessWidget {
                                         decoration: _isReverted(row)
                                             ? TextDecoration.lineThrough
                                             : null)),
-                                Text(ledgerDate(row['created_at']),
+                                Text(ledgerDate(l, loc, row['created_at']),
                                     style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary)),
@@ -985,8 +1043,8 @@ class _WalletPanel extends StatelessWidget {
                                         horizontal: 8),
                                     minimumSize: const Size(0, 28),
                                   ),
-                                  child: const Text('Un-check',
-                                      style: TextStyle(
+                                  child: Text(l.uncheckBtn,
+                                      style: const TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.danger)),
@@ -1012,21 +1070,22 @@ class _WalletPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Activity Insights',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text(l.activityInsights,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
               for (final (icon, bg, label, sub) in [
                 (
                   '✅',
                   AppColors.successSoft,
-                  'Tasks Mastered',
-                  '$tasksThisMonth this month'
+                  l.tasksMastered,
+                  l.nThisMonth('$tasksThisMonth')
                 ),
                 (
                   tier.icon,
                   AppColors.warningSoft,
-                  'Rank: ${tier.label}',
-                  '${NumberFormat.decimalPattern().format(balance)} cc total'
+                  l.rankLabel(tier.label),
+                  l.ccTotal(NumberFormat.decimalPattern(loc).format(balance))
                 ),
               ])
                 Padding(

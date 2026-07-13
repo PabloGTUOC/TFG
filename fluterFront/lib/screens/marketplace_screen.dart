@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/tour_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -64,13 +65,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   void _maybeTour() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.active || _loading) return;
+      final l = AppLocalizations.of(context);
       maybeShowTour(context, 'marketplace', [
         CoachMark(
           targetKey: _tourTabsKey,
-          title: 'Where coins get spent',
-          body: 'The Store holds rewards your family agreed on; History '
-              'shows every redemption. Caregivers stock the store from '
-              'Create.',
+          title: l.tourMktTitle,
+          body: l.tourMktBody,
         ),
       ]);
     });
@@ -130,13 +130,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     await app.runAction(() async {
       await app.api.post('/api/marketplace/rewards/${r['id']}/redeem');
       await Future.wait([_load(), app.fetchUserData()]);
-    }, 'Reward redeemed! Enjoy 🎉');
+    }, AppLocalizations.of(context).toastRewardRedeemed);
   }
 
   Future<void> _create() async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     if (_title.text.trim().isEmpty || _cost.text.trim().isEmpty) {
-      app.setError('Title and cost are required.');
+      app.setError(l.errTitleCostRequired);
       return;
     }
     final ok = await app.runAction(() async {
@@ -153,7 +154,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           'validUntil': _validUntil!.toUtc().toIso8601String(),
       });
       await _load();
-    }, 'Reward created!');
+    }, l.toastRewardCreated);
     if (ok) {
       _title.clear();
       _description.clear();
@@ -199,21 +200,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       });
     }
 
+    final l = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 16, bottom: 40),
         children: [
-          const PageHeading(
-              title: 'Marketplace',
-              subtitle:
-                  'Spend earned CareCoins on rewards the family agreed on.'),
+          PageHeading(title: l.navMarketplace, subtitle: l.mktSubtitle),
           SegmentedTabs(
             key: _tourTabsKey,
             tabs: app.isCaregiver
-                ? const ['Store', 'History', 'Create']
-                : const ['Store', 'History'],
+                ? [l.tabStore, l.tabHistory, l.tabCreate]
+                : [l.tabStore, l.tabHistory],
             selected: _tab,
             onChanged: (i) => setState(() => _tab = i),
           ),
@@ -229,15 +228,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Widget _buildStore() {
     if (_rewards.isEmpty) {
       final isCaregiver = context.read<AppState>().isCaregiver;
+      final l = AppLocalizations.of(context);
       return EmptyState(
         icon: Icons.storefront_rounded,
-        title: 'The reward store is empty',
-        body: isCaregiver
-            ? 'Rewards are what coins are for — anything your family agrees '
-                'is worth earning toward, from screen time to a day out.'
-            : 'A caregiver can stock the store with anything your family '
-                'agrees is worth earning toward.',
-        actionLabel: isCaregiver ? 'Create a reward' : null,
+        title: l.storeEmptyTitle,
+        body: isCaregiver ? l.storeEmptyBodyCaregiver : l.storeEmptyBodyMember,
+        actionLabel: isCaregiver ? l.createReward : null,
         onAction: isCaregiver ? () => setState(() => _tab = 2) : null,
       );
     }
@@ -261,13 +257,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   }
 
   Widget _buildHistory() {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     if (_claimed.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.history_rounded,
-        title: 'No rewards claimed yet',
-        body:
-            'When someone spends their coins in the store, the redemption '
-            'shows up here for the whole family to see.',
+        title: l.historyEmptyTitle,
+        body: l.historyEmptyBody,
       );
     }
     return Column(
@@ -292,9 +288,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text((cRow['buyer_name'] ?? 'Someone').toString(),
+                      Text((cRow['buyer_name'] ?? l.fallbackSomeone).toString(),
                           style: const TextStyle(fontWeight: FontWeight.w800)),
-                      Text('Redeemed "${cRow['title'] ?? 'a reward'}"',
+                      Text(
+                          l.redeemedQuoted(
+                              (cRow['title'] ?? l.fallbackAReward).toString()),
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                     ],
@@ -305,7 +303,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   children: [
                     if (cRow['redeemed_at'] != null)
                       Text(
-                          DateFormat('d MMM yyyy · HH:mm').format(
+                          DateFormat('d MMM yyyy · HH:mm', loc).format(
                               DateTime.tryParse(
                                           cRow['redeemed_at'].toString())
                                       ?.toLocal() ??
@@ -329,20 +327,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   }
 
   Widget _buildCreate() {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     return VCard(
-      title: 'Create a Reward',
+      title: l.createRewardTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           VInput(
               controller: _title,
-              label: 'Title',
-              placeholder: 'e.g. Movie night pick'),
+              label: l.fieldTitle,
+              placeholder: l.rewardTitleHint),
           const SizedBox(height: 14),
           VInput(
               controller: _description,
-              label: 'Description',
-              placeholder: 'What does the winner get?',
+              label: l.descriptionLabel,
+              placeholder: l.rewardDescHint,
               pill: false,
               maxLines: 3),
           const SizedBox(height: 14),
@@ -351,14 +351,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               Expanded(
                   child: VInput(
                       controller: _cost,
-                      label: 'Cost (cc)',
+                      label: l.costLabel,
                       placeholder: '50',
                       keyboardType: TextInputType.number)),
               const SizedBox(width: 12),
               Expanded(
                   child: VInput(
                       controller: _maxUses,
-                      label: 'Max uses (optional)',
+                      label: l.maxUsesLabel,
                       placeholder: '∞',
                       keyboardType: TextInputType.number)),
             ],
@@ -367,8 +367,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           Row(
             children: [
               for (final (label, from, value) in [
-                ('Valid From', true, _validFrom),
-                ('Valid Until', false, _validUntil),
+                (l.validFrom, true, _validFrom),
+                (l.validUntil, false, _validUntil),
               ])
                 Expanded(
                   child: Padding(
@@ -378,8 +378,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       icon: const Icon(Icons.event_rounded, size: 16),
                       label: Text(
                           value == null
-                              ? '$label (optional)'
-                              : '$label: ${DateFormat('d MMM HH:mm').format(value)}',
+                              ? l.fieldOptional(label)
+                              : l.fieldWithDate(label,
+                                  DateFormat('d MMM HH:mm', loc).format(value)),
                           style: const TextStyle(fontSize: 12.5)),
                     ),
                   ),
@@ -390,7 +391,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           VButton(
               onPressed: _create,
               block: true,
-              child: const Text('Create Reward')),
+              child: Text(l.createRewardBtn)),
         ],
       ),
     );
@@ -407,6 +408,8 @@ class _RewardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final loc = Localizations.localeOf(context).toString();
     final uses = toNum(r['uses']);
     final maxUses = toNumOrNull(r['max_uses']);
     final soldOut = maxUses != null && uses >= maxUses;
@@ -453,9 +456,7 @@ class _RewardCard extends StatelessWidget {
                     children: [
                       if (maxUses != null)
                         PillBadge(
-                            text: soldOut
-                                ? 'Sold out'
-                                : '${maxUses - uses} left',
+                            text: soldOut ? l.soldOut : l.nLeft(maxUses - uses),
                             color:
                                 soldOut ? AppColors.danger : AppColors.warning,
                             background: soldOut
@@ -464,8 +465,11 @@ class _RewardCard extends StatelessWidget {
                             fontSize: 11),
                       if (r['valid_until'] != null)
                         PillBadge(
-                            text:
-                                '⏳ Expires ${DateFormat('d MMM yyyy').format(DateTime.tryParse(r['valid_until'].toString())?.toLocal() ?? DateTime.now())}',
+                            text: l.expires(DateFormat('d MMM yyyy', loc)
+                                .format(DateTime.tryParse(
+                                            r['valid_until'].toString())
+                                        ?.toLocal() ??
+                                    DateTime.now())),
                             color: AppColors.danger,
                             background: AppColors.dangerSoft,
                             fontSize: 11),
@@ -496,8 +500,8 @@ class _RewardCard extends StatelessWidget {
                     VButton(
                         disabled: soldOut,
                         onPressed: onRedeem,
-                        child:
-                            const Text('Buy', style: TextStyle(fontSize: 14))),
+                        child: Text(l.buy,
+                            style: const TextStyle(fontSize: 14))),
                   ],
                 ),
               ],

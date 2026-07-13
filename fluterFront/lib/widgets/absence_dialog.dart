@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'ui.dart';
@@ -10,6 +11,8 @@ import 'ui.dart';
 /// modal). Returns true when an absence was created.
 Future<bool> showLogAbsenceDialog(BuildContext context,
     {required DateTime day}) async {
+  final l = AppLocalizations.of(context);
+  final loc = Localizations.localeOf(context).toString();
   final title = TextEditingController();
   var start = DateTime(day.year, day.month, day.day, 9);
   var end = DateTime(day.year, day.month, day.day, 17);
@@ -20,19 +23,19 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
       builder: (ctx, setLocal) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.lg)),
-        title: const Text('Log time off',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(l.absenceDialogTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             VInput(
                 controller: title,
-                label: 'Title',
-                placeholder: 'e.g. Business trip'),
+                label: l.fieldTitle,
+                placeholder: l.absenceHint),
             const SizedBox(height: 12),
             for (final (label, get, set) in [
-              ('From', () => start, (DateTime d) => start = d),
-              ('To', () => end, (DateTime d) => end = d),
+              (l.fromLabel, () => start, (DateTime d) => start = d),
+              (l.toLabel, () => end, (DateTime d) => end = d),
             ])
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -52,8 +55,8 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
                         set(DateTime(d.year, d.month, d.day, t.hour, t.minute)));
                   },
                   icon: const Icon(Icons.schedule_rounded, size: 18),
-                  label:
-                      Text('$label: ${DateFormat('d MMM HH:mm').format(get())}'),
+                  label: Text(
+                      '$label: ${DateFormat('d MMM HH:mm', loc).format(get())}'),
                 ),
               ),
           ],
@@ -61,10 +64,10 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Log')),
+              child: Text(l.logAction)),
         ],
       ),
     ),
@@ -73,7 +76,7 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
 
   final app = context.read<AppState>();
   if (title.text.trim().isEmpty) {
-    app.setError('Please fill in all fields.');
+    app.setError(l.errFillAllFields);
     return false;
   }
   return app.runAction(() async {
@@ -83,5 +86,5 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
       'startTime': start.toUtc().toIso8601String(),
       'endTime': end.toUtc().toIso8601String(),
     });
-  }, 'Time off logged successfully!');
+  }, l.toastTimeOffLogged);
 }

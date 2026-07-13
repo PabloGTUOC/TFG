@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -589,12 +590,12 @@ class EmptyState extends StatelessWidget {
 /// empty states on flaky connections.
 class LoadErrorState extends StatelessWidget {
   final VoidCallback onRetry;
-  final String message;
+  final String? message;
 
   const LoadErrorState({
     super.key,
     required this.onRetry,
-    this.message = 'Couldn\'t load data.\nCheck your connection and try again.',
+    this.message,
   });
 
   @override
@@ -608,7 +609,7 @@ class LoadErrorState extends StatelessWidget {
             const Icon(Icons.wifi_off_rounded,
                 size: 36, color: AppColors.textSecondary),
             const SizedBox(height: 14),
-            Text(message,
+            Text(message ?? AppLocalizations.of(context).loadErrorMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -618,7 +619,7 @@ class LoadErrorState extends StatelessWidget {
             VButton(
                 type: VButtonType.outline,
                 onPressed: onRetry,
-                child: const Text('Retry')),
+                child: Text(AppLocalizations.of(context).retry)),
           ],
         ),
       ),

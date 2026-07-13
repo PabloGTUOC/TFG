@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui.dart';
 
@@ -12,32 +13,32 @@ class LandingScreen extends StatelessWidget {
 
   const LandingScreen({super.key, required this.onSignIn});
 
-  static const _steps = [
-    (
-      'Define tasks',
-      'Create templates for care and household work. Set a coin value and duration for each one.',
-      AppColors.primary,
-      AppColors.primarySoft,
-    ),
-    (
-      'Schedule routines',
-      'Place tasks on a shared daily timeline. Set up recurring assignments across caregivers.',
-      AppColors.success,
-      AppColors.successSoft,
-    ),
-    (
-      'Complete and earn',
-      'Members check off tasks. Caregivers validate with a tap — coins land immediately in the earner\'s account.',
-      AppColors.warning,
-      AppColors.warningSoft,
-    ),
-    (
-      'Spend on rewards',
-      'Your family\'s private store holds whatever you decide is worth earning toward. Coins spent, rewards given.',
-      AppColors.danger,
-      AppColors.dangerSoft,
-    ),
-  ];
+  List<(String, String, Color, Color)> _steps(AppLocalizations l) => [
+        (
+          l.landStep1Title,
+          l.landStep1Body,
+          AppColors.primary,
+          AppColors.primarySoft,
+        ),
+        (
+          l.landStep2Title,
+          l.landStep2Body,
+          AppColors.success,
+          AppColors.successSoft,
+        ),
+        (
+          l.landStep3Title,
+          l.landStep3Body,
+          AppColors.warning,
+          AppColors.warningSoft,
+        ),
+        (
+          l.landStep4Title,
+          l.landStep4Body,
+          AppColors.danger,
+          AppColors.dangerSoft,
+        ),
+      ];
 
   static const _ledgerRows = [
     ('Today', 'Mama', 'Redeemed: Coffee Treat', '-30 cc', AppColors.danger),
@@ -55,6 +56,7 @@ class LandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wide = isWideLayout(context);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -69,10 +71,9 @@ class LandingScreen extends StatelessWidget {
               background: AppColors.surface,
               child: Column(
                 children: [
-                  const _Reveal(
-                      child: _SectionHead(
-                          'How it works', 'Four steps, one shared ledger.')),
-                  _StepsGrid(steps: _steps),
+                  _Reveal(
+                      child: _SectionHead(l.landHowTitle, l.landHowSub)),
+                  _StepsGrid(steps: _steps(l)),
                 ],
               ),
             ),
@@ -82,9 +83,8 @@ class LandingScreen extends StatelessWidget {
               background: AppColors.bg,
               child: Column(
                 children: [
-                  const _Reveal(
-                      child: _SectionHead('See it in action',
-                          'A preview of what your family sees every day.')),
+                  _Reveal(
+                      child: _SectionHead(l.landSeeTitle, l.landSeeSub)),
                   const _Reveal(delayMs: 90, child: _DemoSection()),
                 ],
               ),
@@ -99,18 +99,14 @@ class LandingScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Fairness, not guesswork',
-                          style: TextStyle(
+                      Text(l.landFairTitle,
+                          style: const TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.5)),
                       const SizedBox(height: 14),
-                      const Text(
-                          'Chore charts get ignored because they carry no '
-                          'weight. CareCoins puts a real value on caregiving '
-                          'work — tracked, validated, and paid out from a '
-                          'budget the whole family can see.',
-                          style: TextStyle(
+                      Text(l.landFairBody,
+                          style: const TextStyle(
                               fontSize: 15,
                               height: 1.65,
                               color: AppColors.textSecondary)),
@@ -118,15 +114,13 @@ class LandingScreen extends StatelessWidget {
                       for (final (icon, title, body) in [
                         (
                           Icons.trending_up_rounded,
-                          'Contribution history at a glance',
-                          'See who did what this month, this year, and since '
-                              'you started. Charts by category, person, and trend.'
+                          l.landFair1Title,
+                          l.landFair1Body
                         ),
                         (
                           Icons.verified_user_rounded,
-                          'One family, one ledger',
-                          'Every coin earned and spent is recorded. Caregivers '
-                              'approve tasks; the ledger does not lie.'
+                          l.landFair2Title,
+                          l.landFair2Body
                         ),
                       ])
                         Padding(
@@ -183,20 +177,18 @@ class LandingScreen extends StatelessWidget {
               child: _Reveal(
                 child: Column(
                   children: [
-                    const Text(
-                        'Your family\'s shared economy, starting today.',
+                    Text(l.landCtaTitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
                             color: Colors.white)),
                     const SizedBox(height: 12),
-                    const Text(
-                        'Five minutes to set up. No subscriptions, no algorithms.',
+                    Text(l.landCtaSub,
                         textAlign: TextAlign.center,
-                        style:
-                            TextStyle(fontSize: 15, color: Color(0xBFFFFFFF))),
+                        style: const TextStyle(
+                            fontSize: 15, color: Color(0xBFFFFFFF))),
                     const SizedBox(height: 28),
                     FilledButton(
                       onPressed: onSignIn,
@@ -209,8 +201,8 @@ class LandingScreen extends StatelessWidget {
                             borderRadius:
                                 BorderRadius.circular(AppRadii.pill)),
                       ),
-                      child: const Text('Create your family  →',
-                          style: TextStyle(
+                      child: Text(l.landCreateFamily,
+                          style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 15)),
                     ),
                   ],
@@ -231,16 +223,16 @@ class LandingScreen extends StatelessWidget {
                       const Text('CareCoins',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                       const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text('© 2026. All rights reserved.',
-                            style: TextStyle(
+                      Expanded(
+                        child: Text(l.landCopyright,
+                            style: const TextStyle(
                                 fontSize: 12.5,
                                 color: AppColors.textSecondary)),
                       ),
                       TextButton(
-                          onPressed: onSignIn, child: const Text('Log in')),
+                          onPressed: onSignIn, child: Text(l.landLogIn)),
                       TextButton(
-                          onPressed: onSignIn, child: const Text('Register')),
+                          onPressed: onSignIn, child: Text(l.landRegister)),
                     ],
                   ),
                 ),
@@ -253,6 +245,7 @@ class LandingScreen extends StatelessWidget {
   }
 
   Widget _buildHero(BuildContext context, bool wide) {
+    final l = AppLocalizations.of(context);
     final heroText = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -263,8 +256,8 @@ class LandingScreen extends StatelessWidget {
               border: Border.all(color: const Color(0x24FFFFFF)),
               borderRadius: BorderRadius.circular(AppRadii.pill),
             ),
-            child: const Text('For families',
-                style: TextStyle(
+            child: Text(l.landForFamilies,
+                style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: Color(0xBFFFFFFF))),
@@ -274,11 +267,11 @@ class LandingScreen extends StatelessWidget {
         _Entrance(
           delayMs: 80,
           child: Text.rich(
-            const TextSpan(children: [
-              TextSpan(text: 'Every caregiver counted.\n'),
+            TextSpan(children: [
+              TextSpan(text: '${l.landHeroLine1}\n'),
               TextSpan(
-                  text: 'Every task rewarded.',
-                  style: TextStyle(color: Color(0xFF93C5FD))),
+                  text: l.landHeroLine2,
+                  style: const TextStyle(color: Color(0xFF93C5FD))),
             ]),
             style: TextStyle(
                 fontSize: wide ? 56 : 34,
@@ -289,16 +282,13 @@ class LandingScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const _Entrance(
+        _Entrance(
           delayMs: 160,
           child: SizedBox(
             width: 560,
             child: Text(
-              'CareCoins tracks who does what in your household, '
-              'pays out coins from a shared monthly budget, and '
-              'lets your family spend earnings in a private '
-              'rewards store.',
-              style: TextStyle(
+              l.landHeroSubtitle,
+              style: const TextStyle(
                   fontSize: 16, height: 1.65, color: Color(0xBFFFFFFF)),
             ),
           ),
@@ -319,9 +309,9 @@ class LandingScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadii.pill)),
                 ),
-                child: const Text('Get started free  →',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                child: Text(l.landGetStarted,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 15)),
               ),
               OutlinedButton(
                 onPressed: onSignIn,
@@ -333,9 +323,9 @@ class LandingScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadii.pill)),
                 ),
-                child: const Text('Sign in',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                child: Text(l.signInPlain,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15)),
               ),
             ],
           ),
@@ -387,8 +377,8 @@ class LandingScreen extends StatelessWidget {
                   const Spacer(),
                   TextButton(
                     onPressed: onSignIn,
-                    child: const Text('Sign in',
-                        style: TextStyle(
+                    child: Text(l.signInPlain,
+                        style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700)),
                   ),
