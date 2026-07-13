@@ -99,6 +99,94 @@ describe('createFamily', () => {
   });
 });
 
+// ─── createFamily — starter tasks (family-setup-questionnaire-plan) ─────────
+
+describe('createFamily starterTasks', () => {
+  const baseUser = { id: 1, display_name: 'Alice', email: 'alice@test.com' };
+
+  // Captures every INSERT INTO activities call while answering all other
+  // queries generically, so we can assert on what gets seeded.
+  function seedCapturingClient() {
+    const activityInserts = [];
+    return {
+      activityInserts,
+      async query(sql, params) {
+        if (sql.includes('INSERT INTO activities')) activityInserts.push({ sql, params });
+        if (sql.includes('INSERT INTO families')) {
+          return { rows: [{ id: 10, name: 'F', monthly_coin_budget: params[1] }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    };
+  }
+
+  test('inserts provided tasks verbatim with budget-based coin values', async () => {
+    const client = seedCapturingClient();
+    await createFamily(client, baseUser, {
+      name: 'Familia',
+      caretakers: [],
+      objectsOfCare: [{ name: 'Bebé', type: 'child', careTime: 'full_time' }], // budget 720 → 1 cc/hr
+      starterTasks: [
+        { title: 'Preparar la cena', category: 'household', durationMinutes: 60, isRecurrent: true },
+        { title: 'Hora del baño', category: 'care', durationMinutes: 30, isRecurrent: true },
+      ],
+    });
+    assert.equal(client.activityInserts.length, 1);
+    const params = client.activityInserts[0].params;
+    // 7 params per row: familyId, creatorId, title, category, duration, coinValue, recurrent
+    assert.equal(params.length, 14);
+    assert.equal(params[2], 'Preparar la cena');
+    assert.equal(params[3], 'household');
+    assert.equal(params[5], 1);  // 60 min at 720/720 = 1 cc/hr
+    assert.equal(params[9], 'Hora del baño');
+    assert.equal(params[12], 1); // 30 min rounds up to the 1 cc minimum
+  });
+
+  test('empty starterTasks array seeds nothing (start-empty choice)', async () => {
+    const client = seedCapturingClient();
+    await createFamily(client, baseUser, {
+      name: 'Familia',
+      caretakers: [],
+      objectsOfCare: [],
+      starterTasks: [],
+    });
+    assert.equal(client.activityInserts.length, 0);
+  });
+
+  test('absent starterTasks falls back to legacy English defaults', async () => {
+    const client = seedCapturingClient();
+    await createFamily(client, baseUser, {
+      name: 'Family',
+      caretakers: [],
+      objectsOfCare: [{ name: 'Rex', type: 'pet', careTime: 'part_time' }],
+    });
+    assert.equal(client.activityInserts.length, 1);
+    const params = client.activityInserts[0].params;
+    assert.ok(params.includes('Breakfast prep'), 'legacy defaults should be seeded');
+    assert.ok(params.includes('Pet feeding'), 'pet pack included for pet dependents');
+  });
+
+  test('drops invalid entries and clamps out-of-range values', async () => {
+    const client = seedCapturingClient();
+    await createFamily(client, baseUser, {
+      name: 'Familia',
+      caretakers: [],
+      objectsOfCare: [],
+      starterTasks: [
+        { title: '   ', category: 'care', durationMinutes: 30 },              // dropped: blank title
+        null,                                                                  // dropped
+        { title: 'Ok', category: 'bogus', durationMinutes: 9999 },             // category → household, duration → 480
+      ],
+    });
+    assert.equal(client.activityInserts.length, 1);
+    const params = client.activityInserts[0].params;
+    assert.equal(params.length, 7); // only one valid row survived
+    assert.equal(params[2], 'Ok');
+    assert.equal(params[3], 'household');
+    assert.equal(params[4], 480);
+  });
+});
+
 // ─── deleteFamily ────────────────────────────────────────────────────────────
 
 describe('deleteFamily', () => {

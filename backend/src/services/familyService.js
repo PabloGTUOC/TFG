@@ -1,5 +1,5 @@
 import { assertActiveMember } from '../db/users.js';
-import { insertDefaultActivities } from '../db/defaultActivities.js';
+import { insertDefaultActivities, insertStarterTasks } from '../db/defaultActivities.js';
 
 export async function listFamilies(client, userId) {
   const { rows } = await client.query(
@@ -38,7 +38,7 @@ export async function getFamilyBudget(client, userId, familyId) {
   };
 }
 
-export async function createFamily(client, user, { name, mainCaretakerName, alias, caretakers = [], objectsOfCare = [] }) {
+export async function createFamily(client, user, { name, mainCaretakerName, alias, caretakers = [], objectsOfCare = [], starterTasks }) {
   let monthlyCoinBudget = objectsOfCare.reduce((sum, obj) => {
     return sum + (obj.careTime === 'full_time' ? 720 : 360);
   }, 0);
@@ -86,7 +86,14 @@ export async function createFamily(client, user, { name, mainCaretakerName, alia
     }
   }
 
-  await insertDefaultActivities(client, famId, user.id, objectsOfCare);
+  // New clients send localized starter tasks chosen in the setup wizard
+  // (an empty array means "start empty"); older clients omit the field and
+  // get the legacy English defaults derived from dependent types.
+  if (Array.isArray(starterTasks)) {
+    await insertStarterTasks(client, famId, user.id, starterTasks, monthlyCoinBudget);
+  } else {
+    await insertDefaultActivities(client, famId, user.id, objectsOfCare);
+  }
   return { data: famRows[0] };
 }
 

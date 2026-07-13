@@ -73,12 +73,15 @@ familiesRouter.post('/', validateBody({
   mainCaretakerName: [string(1, 100)],
   alias: [string(1, 50)],
 }), async (req, res) => {
-  const { name, mainCaretakerName, caretakers, objectsOfCare, alias } = req.body;
+  const { name, mainCaretakerName, caretakers, objectsOfCare, alias, starterTasks } = req.body;
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required.' });
+  if (starterTasks !== undefined && !Array.isArray(starterTasks)) {
+    return res.status(400).json({ error: 'starterTasks must be an array.' });
+  }
   try {
     const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      return familyService.createFamily(client, user, { name, mainCaretakerName, alias, caretakers, objectsOfCare });
+      return familyService.createFamily(client, user, { name, mainCaretakerName, alias, caretakers, objectsOfCare, starterTasks });
     });
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
     return res.status(201).json({ family: result.data });

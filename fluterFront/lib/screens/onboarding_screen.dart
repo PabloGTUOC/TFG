@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/starter_packs.dart';
 import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -90,10 +91,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _createFamily() async {
     final app = context.read<AppState>();
+    final l = AppLocalizations.of(context);
     if (_familyName.text.trim().isEmpty) {
-      app.setError(AppLocalizations.of(context).errFamilyNameRequired);
+      app.setError(l.errFamilyNameRequired);
       return;
     }
+    final dependents = [
+      for (final o in _careObjects)
+        if (o.name.text.trim().isNotEmpty) o.type,
+    ];
     await app.runAction(() async {
       await app.api.post('/api/families', {
         'name': _familyName.text.trim(),
@@ -113,9 +119,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 'careTime': o.careTime,
               },
         ],
+        // Localized starter catalogue in the user's app language; the
+        // backend inserts these instead of its legacy English defaults
+        // (docs/family-setup-questionnaire-plan.md). Until the phase-2
+        // questionnaire ships, the areas come from the dependents above.
+        'starterTasks':
+            buildStarterTasksPayload(l, areasForDependents(dependents)),
       });
       await app.fetchUserData();
-    }, AppLocalizations.of(context).toastFamilyCreated);
+    }, l.toastFamilyCreated);
   }
 
   Future<void> _joinByToken() async {

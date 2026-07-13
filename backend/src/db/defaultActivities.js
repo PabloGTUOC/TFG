@@ -31,6 +31,50 @@ export const GENERIC_CARE_ACTIVITIES = [
   { title: 'Medication reminder', category: 'care', duration: 30, recurrent: true },
 ];
 
+/**
+ * Inserts client-provided starter tasks (docs/family-setup-questionnaire-plan.md).
+ * The app sends titles already localized in the user's app language; invalid
+ * entries are dropped rather than failing family creation. Coin values use the
+ * same budget rate as user-created tasks (monthly budget / 720 hours) instead
+ * of the legacy flat 2 cc/hr, so the starter catalogue is consistent with the
+ * suggestions users see when creating their own templates.
+ */
+export async function insertStarterTasks(client, familyId, creatorId, tasks, monthlyCoinBudget) {
+  const ratePerHour = monthlyCoinBudget / 720;
+  const valid = (Array.isArray(tasks) ? tasks : [])
+    .filter(t => t && typeof t.title === 'string' && t.title.trim().length > 0)
+    .slice(0, 100)
+    .map(t => ({
+      title: t.title.trim().slice(0, 100),
+      category: t.category === 'care' ? 'care' : 'household',
+      duration: Math.min(480, Math.max(15, Math.round(Number(t.durationMinutes) || 30))),
+      recurrent: t.isRecurrent === true,
+    }));
+  if (valid.length === 0) return;
+
+  const values = [];
+  const params = [];
+  let paramIndex = 1;
+  for (const act of valid) {
+    values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 'approved', true)`);
+    params.push(
+      familyId,
+      creatorId,
+      act.title,
+      act.category,
+      act.duration,
+      Math.max(1, Math.round((act.duration / 60) * ratePerHour)),
+      act.recurrent
+    );
+  }
+
+  await client.query(`
+    INSERT INTO activities (
+      family_id, created_by, title, category, duration_minutes, coin_value, is_recurrent, status, is_template
+    ) VALUES ${values.join(', ')}
+  `, params);
+}
+
 export async function insertDefaultActivities(client, familyId, creatorId, objectsOfCare) {
   // Always include household and generic care
   const activitiesToInsert = [...HOUSEHOLD_ACTIVITIES, ...GENERIC_CARE_ACTIVITIES];
