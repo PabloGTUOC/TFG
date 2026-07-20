@@ -273,6 +273,9 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _unschedule(dynamic id, {required bool series}) async {
+    // Reached after the awaited remove-confirmation dialog; the State may be
+    // gone (session expiry, family switch) by the time the user confirms.
+    if (!mounted) return;
     final app = context.read<AppState>();
     final l = AppLocalizations.of(context);
     await app.runAction(() async {
@@ -675,6 +678,9 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _confirmSchedule(dynamic activityId, DateTime startsAt) async {
+    // Reached after the awaited schedule dialog; guard against the State being
+    // disposed while it was open (matches the other post-dialog flows here).
+    if (!mounted) return;
     final app = context.read<AppState>();
     // Same guard as the Vue app: block scheduling inside your own absence.
     final activityEnd = startsAt.add(const Duration(hours: 1));

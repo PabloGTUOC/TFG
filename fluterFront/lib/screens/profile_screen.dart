@@ -688,7 +688,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: app.locale?.languageCode ?? 'system',
+                // Clamp to a known item: a stale/unsupported stored code must
+                // fall back to "system" rather than trip DropdownButton's
+                // "exactly one item with [value]" assertion.
+                value: AppState.supportedLanguageCodes
+                        .contains(app.locale?.languageCode)
+                    ? app.locale!.languageCode
+                    : 'system',
                 isExpanded: true,
                 borderRadius: BorderRadius.circular(12),
                 style: const TextStyle(

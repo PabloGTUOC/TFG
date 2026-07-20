@@ -52,10 +52,34 @@ class AppState extends ChangeNotifier {
   // ── Locale (user-selectable language, docs/i18n-plan.md) ────────
 
   static const String _localePrefKey = 'app_locale';
+
+  /// Languages the app actually ships (must match the generated
+  /// AppLocalizations.supportedLocales / the app_*.arb files). Used to reject
+  /// any stale or corrupt stored code so it never reaches the language picker.
+  static const Set<String> supportedLanguageCodes = {'en', 'es', 'fr', 'de'};
+
   Locale? _locale;
 
   /// The user-chosen app language; null follows the device language.
   Locale? get locale => _locale;
+
+  /// Reads the persisted language before runApp, validating it against the
+  /// supported set so an unrecognized stored code falls back to the device
+  /// locale instead of crashing the picker or shipping an untranslated UI.
+  static Future<Locale?> loadPersistedLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString(_localePrefKey);
+    if (code != null && supportedLanguageCodes.contains(code)) {
+      return Locale(code);
+    }
+    return null;
+  }
+
+  /// Sets the initial locale at construction time, before the first frame,
+  /// without notifying (no listeners exist yet).
+  void seedLocale(Locale? value) {
+    _locale = value;
+  }
 
   Future<void> setLocale(Locale? value) async {
     _locale = value;
@@ -68,17 +92,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreLocale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final code = prefs.getString(_localePrefKey);
-    if (code != null && code.isNotEmpty) {
-      _locale = Locale(code);
-      notifyListeners();
-    }
-  }
-
   void init() {
-    _restoreLocale();
     if (!firebaseAvailable) {
       authReady = true;
       notifyListeners();

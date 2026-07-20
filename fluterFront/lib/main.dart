@@ -17,6 +17,11 @@ import 'theme/app_theme.dart';
 ///   flutter run --dart-define=AUTH_EMULATOR=localhost:9099
 const String _kAuthEmulator = String.fromEnvironment('AUTH_EMULATOR');
 
+/// Built once and reused across rebuilds — buildAppTheme() constructs a full
+/// ThemeData (ColorScheme.fromSeed + GoogleFonts), which must not run on every
+/// AppState change. Lazily initialized on first access.
+final ThemeData _appTheme = buildAppTheme();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -35,26 +40,37 @@ Future<void> main() async {
     debugPrint('Firebase init failed (run flutterfire configure): $e');
   }
 
-  runApp(CareCoinsApp(firebaseAvailable: firebaseAvailable));
+  // Read the persisted language before the first frame so the UI never paints
+  // in the device locale and then visibly snaps to the chosen one.
+  final initialLocale = await AppState.loadPersistedLocale();
+
+  runApp(CareCoinsApp(
+      firebaseAvailable: firebaseAvailable, initialLocale: initialLocale));
 }
 
 class CareCoinsApp extends StatelessWidget {
   final bool firebaseAvailable;
-  const CareCoinsApp({super.key, required this.firebaseAvailable});
+  final Locale? initialLocale;
+  const CareCoinsApp(
+      {super.key, required this.firebaseAvailable, this.initialLocale});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState()
         ..firebaseAvailable = firebaseAvailable
+        ..seedLocale(initialLocale)
         ..init(),
-      child: Consumer<AppState>(
-        builder: (context, app, _) => MaterialApp(
+      // Select only the locale: unrelated AppState changes (toasts, auth,
+      // profile refreshes) must not rebuild MaterialApp or its theme.
+      child: Selector<AppState, Locale?>(
+        selector: (_, app) => app.locale,
+        builder: (context, locale, _) => MaterialApp(
           title: 'CareCoins',
           debugShowCheckedModeBanner: false,
-          theme: buildAppTheme(),
+          theme: _appTheme,
           // User-chosen language (persisted); null follows the device.
-          locale: app.locale,
+          locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           // Fixed-height chrome (bottom tabs, timeline chips) breaks beyond
