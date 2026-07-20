@@ -581,5 +581,22 @@
   "step3Desc": "Um wen oder was kümmerst du dich? Das bestimmt das tägliche CareCoin-Budget deiner Familie.",
   "careObjectNameHint": "Name (z. B. Tommy)",
   "addSomeoneToCareFor": "+ Jemanden zum Umsorgen hinzufügen",
-  "completeSetup": "Einrichtung abschließen"
+  "completeSetup": "Einrichtung abschließen",
+  "errTimeout": "Zeitüberschreitung — überprüfe deine Verbindung.",
+  "errNetwork": "Netzwerkfehler — überprüfe deine Verbindung.",
+  "errRequestFailed": "Anfrage fehlgeschlagen ({code})",
+  "errUploadTimeout": "Zeitüberschreitung beim Hochladen",
+  "errUploadFailed": "Hochladen fehlgeschlagen ({code})",
+  "toastLoggedIn": "Erfolgreich angemeldet!",
+  "toastAccountCreated": "Konto erfolgreich erstellt!",
+  "toastLoggedInGoogle": "Erfolgreich mit Google angemeldet!",
+  "toastResetEmailSent": "E-Mail zum Zurücksetzen an {email} gesendet.",
+  "errAuthInvalidCredentials": "Falsche E-Mail oder falsches Passwort.",
+  "errAuthEmailInUse": "Diese E-Mail ist bereits registriert.",
+  "errAuthInvalidEmail": "Diese E-Mail-Adresse scheint ungültig zu sein.",
+  "errAuthWeakPassword": "Das Passwort muss mindestens 6 Zeichen lang sein.",
+  "errAuthTooManyRequests": "Zu viele Versuche. Bitte versuche es später erneut.",
+  "errAuthGeneric": "Authentifizierung fehlgeschlagen. Bitte versuche es erneut.",
+  "errPushUnavailable": "Push ist nicht verfügbar, bis Firebase konfiguriert ist.",
+  "errPushEnableFailed": "Benachrichtigungen konnten nicht aktiviert werden: {error}"
 }

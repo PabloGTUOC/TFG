@@ -3,11 +3,40 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+/// Categorizes a client-side request failure so the message can be localized
+/// at the display boundary (AppState holds the current AppLocalizations).
+/// [server] carries a backend-authored message, which is passed through as-is.
+enum ApiErrorKind {
+  timeout,
+  network,
+  requestFailed,
+  uploadTimeout,
+  uploadFailed,
+  server,
+}
+
 class ApiException implements Exception {
-  final String message;
-  ApiException(this.message);
+  final ApiErrorKind kind;
+  final int? statusCode;
+
+  /// Backend-provided message (already human-readable); only set for
+  /// [ApiErrorKind.server]. Not localizable client-side.
+  final String? serverMessage;
+
+  ApiException(this.kind, {this.statusCode, this.serverMessage});
+
+  /// English fallback for logs and any caller without an AppLocalizations.
   @override
-  String toString() => message;
+  String toString() =>
+      serverMessage ??
+      switch (kind) {
+        ApiErrorKind.timeout => 'Request timed out — check your connection.',
+        ApiErrorKind.network => 'Network error — check your connection.',
+        ApiErrorKind.requestFailed => 'Request failed (${statusCode ?? 0})',
+        ApiErrorKind.uploadTimeout => 'Upload timed out',
+        ApiErrorKind.uploadFailed => 'Upload failed (${statusCode ?? 0})',
+        ApiErrorKind.server => 'Request failed',
+      };
 }
 
 /// Thin REST client mirroring stores/auth.js `request()` in the Vue app:
@@ -37,11 +66,11 @@ class ApiClient {
           await client.send(req).timeout(const Duration(seconds: 20));
       res = await http.Response.fromStream(streamed);
     } on TimeoutException {
-      throw ApiException('Request timed out — check your connection.');
+      throw ApiException(ApiErrorKind.timeout);
     } on http.ClientException {
       // http wraps SocketException & co.; surface a human message instead
       // of "ClientException with SocketException: Failed host lookup…".
-      throw ApiException('Network error — check your connection.');
+      throw ApiException(ApiErrorKind.network);
     } finally {
       client.close();
     }
@@ -53,10 +82,11 @@ class ApiClient {
       data = <String, dynamic>{};
     }
     if (res.statusCode >= 400) {
-      final msg = (data is Map && data['error'] != null)
-          ? data['error'].toString()
-          : 'Request failed (${res.statusCode})';
-      throw ApiException(msg);
+      if (data is Map && data['error'] != null) {
+        throw ApiException(ApiErrorKind.server,
+            serverMessage: data['error'].toString());
+      }
+      throw ApiException(ApiErrorKind.requestFailed, statusCode: res.statusCode);
     }
     return data;
   }
@@ -76,7 +106,7 @@ class ApiClient {
       final streamed = await req.send().timeout(const Duration(seconds: 30));
       res = await http.Response.fromStream(streamed);
     } on TimeoutException {
-      throw ApiException('Upload timed out');
+      throw ApiException(ApiErrorKind.uploadTimeout);
     }
     dynamic data;
     try {
@@ -85,10 +115,11 @@ class ApiClient {
       data = <String, dynamic>{};
     }
     if (res.statusCode >= 400) {
-      final msg = (data is Map && data['error'] != null)
-          ? data['error'].toString()
-          : 'Upload failed (${res.statusCode})';
-      throw ApiException(msg);
+      if (data is Map && data['error'] != null) {
+        throw ApiException(ApiErrorKind.server,
+            serverMessage: data['error'].toString());
+      }
+      throw ApiException(ApiErrorKind.uploadFailed, statusCode: res.statusCode);
     }
     return data;
   }

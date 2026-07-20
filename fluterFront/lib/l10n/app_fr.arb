@@ -581,5 +581,22 @@
   "step3Desc": "De qui ou de quoi prenez-vous soin ? Cela définit le budget quotidien de CareCoins de votre famille.",
   "careObjectNameHint": "Nom (ex. Tommy)",
   "addSomeoneToCareFor": "+ Ajouter une personne à charge",
-  "completeSetup": "Terminer la configuration"
+  "completeSetup": "Terminer la configuration",
+  "errTimeout": "Délai d'attente dépassé — vérifiez votre connexion.",
+  "errNetwork": "Erreur réseau — vérifiez votre connexion.",
+  "errRequestFailed": "Échec de la requête ({code})",
+  "errUploadTimeout": "Délai d'envoi dépassé",
+  "errUploadFailed": "Échec de l'envoi ({code})",
+  "toastLoggedIn": "Connexion réussie !",
+  "toastAccountCreated": "Compte créé avec succès !",
+  "toastLoggedInGoogle": "Connexion avec Google réussie !",
+  "toastResetEmailSent": "E-mail de réinitialisation envoyé à {email}.",
+  "errAuthInvalidCredentials": "E-mail ou mot de passe incorrect.",
+  "errAuthEmailInUse": "Cet e-mail est déjà enregistré.",
+  "errAuthInvalidEmail": "Cette adresse e-mail semble invalide.",
+  "errAuthWeakPassword": "Le mot de passe doit comporter au moins 6 caractères.",
+  "errAuthTooManyRequests": "Trop de tentatives. Réessayez plus tard.",
+  "errAuthGeneric": "Échec de l'authentification. Réessayez.",
+  "errPushUnavailable": "Les notifications sont indisponibles tant que Firebase n'est pas configuré.",
+  "errPushEnableFailed": "Impossible d'activer les notifications : {error}"
 }

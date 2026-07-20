@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/api_client.dart';
 import '../services/telemetry.dart';
 import '../utils/json.dart';
@@ -32,6 +33,12 @@ class AppState extends ChangeNotifier {
   String success = '';
   String error = '';
   Timer? _dismissTimer;
+
+  /// The current localizations, kept up to date by the widget tree (see
+  /// _ToastListener in main.dart). Lets context-less layers — auth actions,
+  /// the API client, push — produce localized toasts. Null only before the
+  /// first frame; callers fall back to English.
+  AppLocalizations? l10n;
 
   Map<String, dynamic>? get family => families.isNotEmpty
       ? Map<String, dynamic>.from(families.first as Map)
@@ -142,7 +149,7 @@ class AppState extends ChangeNotifier {
       final cred = await fb.FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
       await _afterSignIn(cred.user!);
-      setSuccess('Logged in successfully!');
+      setSuccess(l10n?.toastLoggedIn ?? 'Logged in successfully!');
     } catch (e) {
       setError(_authMessage(e));
       rethrow;
@@ -155,7 +162,7 @@ class AppState extends ChangeNotifier {
       final cred = await fb.FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
       await _afterSignIn(cred.user!);
-      setSuccess('Account created successfully!');
+      setSuccess(l10n?.toastAccountCreated ?? 'Account created successfully!');
     } catch (e) {
       setError(_authMessage(e));
       rethrow;
@@ -181,7 +188,8 @@ class AppState extends ChangeNotifier {
         );
       }
       await _afterSignIn(cred.user!);
-      setSuccess('Logged in with Google successfully!');
+      setSuccess(
+          l10n?.toastLoggedInGoogle ?? 'Logged in with Google successfully!');
     } catch (e) {
       setError(_authMessage(e));
       rethrow;
@@ -193,7 +201,8 @@ class AppState extends ChangeNotifier {
     try {
       await fb.FirebaseAuth.instance
           .sendPasswordResetEmail(email: email.trim());
-      setSuccess('Password reset email sent to ${email.trim()}.');
+      setSuccess(l10n?.toastResetEmailSent(email.trim()) ??
+          'Password reset email sent to ${email.trim()}.');
     } catch (e) {
       setError(_authMessage(e));
     }
@@ -219,8 +228,59 @@ class AppState extends ChangeNotifier {
     await fb.FirebaseAuth.instance.signOut();
   }
 
-  String _authMessage(Object e) =>
-      e is fb.FirebaseAuthException ? (e.message ?? e.code) : e.toString();
+  String _authMessage(Object e) {
+    final l = l10n;
+    if (l == null) {
+      return e is fb.FirebaseAuthException ? (e.message ?? e.code) : e.toString();
+    }
+    if (e is fb.FirebaseAuthException) {
+      switch (e.code) {
+        case 'invalid-credential':
+        case 'invalid-login-credentials':
+        case 'wrong-password':
+        case 'user-not-found':
+          return l.errAuthInvalidCredentials;
+        case 'email-already-in-use':
+          return l.errAuthEmailInUse;
+        case 'invalid-email':
+          return l.errAuthInvalidEmail;
+        case 'weak-password':
+          return l.errAuthWeakPassword;
+        case 'too-many-requests':
+          return l.errAuthTooManyRequests;
+        case 'network-request-failed':
+          return l.errNetwork;
+        default:
+          return l.errAuthGeneric;
+      }
+    }
+    return l.errAuthGeneric;
+  }
+
+  /// Turns any thrown error into a display string, localizing the API client's
+  /// categorized failures; backend-authored messages pass through unchanged.
+  String _localizeError(Object e) {
+    final l = l10n;
+    if (e is ApiException) {
+      if (e.serverMessage != null) return e.serverMessage!;
+      if (l == null) return e.toString();
+      switch (e.kind) {
+        case ApiErrorKind.timeout:
+          return l.errTimeout;
+        case ApiErrorKind.network:
+          return l.errNetwork;
+        case ApiErrorKind.requestFailed:
+          return l.errRequestFailed(e.statusCode ?? 0);
+        case ApiErrorKind.uploadTimeout:
+          return l.errUploadTimeout;
+        case ApiErrorKind.uploadFailed:
+          return l.errUploadFailed(e.statusCode ?? 0);
+        case ApiErrorKind.server:
+          return e.toString();
+      }
+    }
+    return e.toString();
+  }
 
   // ── Toast messages (mirrors setSuccess / setError / runAction) ──
 
@@ -232,7 +292,7 @@ class AppState extends ChangeNotifier {
       if (okMessage != null) setSuccess(okMessage);
       return true;
     } catch (e) {
-      setError(e.toString());
+      setError(_localizeError(e));
       return false;
     }
   }

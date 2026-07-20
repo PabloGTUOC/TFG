@@ -47,7 +47,8 @@ class PushService {
   /// Returns true when permission ended up granted.
   static Future<bool> enable(AppState app) async {
     if (!app.firebaseAvailable) {
-      app.setError('Push is unavailable until Firebase is configured.');
+      app.setError(app.l10n?.errPushUnavailable ??
+          'Push is unavailable until Firebase is configured.');
       return false;
     }
     try {
@@ -60,7 +61,8 @@ class PushService {
       return true;
     } catch (e) {
       debugPrint('FCM token error: $e');
-      app.setError('Could not enable notifications: $e');
+      app.setError(app.l10n?.errPushEnableFailed('$e') ??
+          'Could not enable notifications: $e');
       return false;
     }
   }

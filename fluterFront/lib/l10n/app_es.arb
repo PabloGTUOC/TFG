@@ -581,5 +581,22 @@
   "step3Desc": "¿A quién o qué cuidas? Esto define el presupuesto diario de CareCoins de tu familia.",
   "careObjectNameHint": "Nombre (p. ej. Tomás)",
   "addSomeoneToCareFor": "+ Añadir a alguien a quien cuidar",
-  "completeSetup": "Completar configuración"
+  "completeSetup": "Completar configuración",
+  "errTimeout": "Se agotó el tiempo de espera — comprueba tu conexión.",
+  "errNetwork": "Error de red — comprueba tu conexión.",
+  "errRequestFailed": "La solicitud falló ({code})",
+  "errUploadTimeout": "Se agotó el tiempo de la subida",
+  "errUploadFailed": "La subida falló ({code})",
+  "toastLoggedIn": "¡Sesión iniciada correctamente!",
+  "toastAccountCreated": "¡Cuenta creada correctamente!",
+  "toastLoggedInGoogle": "¡Sesión iniciada con Google correctamente!",
+  "toastResetEmailSent": "Correo de restablecimiento enviado a {email}.",
+  "errAuthInvalidCredentials": "Correo o contraseña incorrectos.",
+  "errAuthEmailInUse": "Ese correo ya está registrado.",
+  "errAuthInvalidEmail": "Esa dirección de correo no es válida.",
+  "errAuthWeakPassword": "La contraseña debe tener al menos 6 caracteres.",
+  "errAuthTooManyRequests": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+  "errAuthGeneric": "Error de autenticación. Inténtalo de nuevo.",
+  "errPushUnavailable": "Las notificaciones no están disponibles hasta configurar Firebase.",
+  "errPushEnableFailed": "No se pudieron activar las notificaciones: {error}"
 }

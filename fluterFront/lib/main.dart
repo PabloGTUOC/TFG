@@ -106,6 +106,10 @@ class _ToastListenerState extends State<_ToastListener> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    // Keep AppState's localizations current so context-less layers (auth,
+    // API client, push) can localize their toasts. This widget sits under
+    // MaterialApp and rebuilds on locale change, so l10n stays fresh.
+    app.l10n = AppLocalizations.of(context);
     final msg = app.error.isNotEmpty ? app.error : app.success;
     if (msg.isEmpty) {
       _lastToast = '';
