@@ -137,7 +137,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     final h = mins ~/ 60, m = mins % 60;
     if (h == 0) return l.durMins('$m');
     if (m == 0) return l.durHours(h);
-    return '${h}h ${m}m';
+    return l.durHoursMins(h, m);
   }
 
   Future<void> _create() async {

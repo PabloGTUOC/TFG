@@ -30,11 +30,14 @@ const int kStartHour = 6;
 const int kTotalHours = 18;
 const double kGridHeight = 18 * 64.0;
 
-String formatGap(int minutes) {
-  if (minutes < 60) return '${minutes}min';
+/// Localized free-time gap between timeline cards. Reuses the duration keys so
+/// gaps read the same way as activity durations across the app.
+String formatGap(AppLocalizations l, int minutes) {
   final h = minutes ~/ 60;
   final m = minutes % 60;
-  return m > 0 ? '${h}h ${m}min' : '${h}h';
+  if (h == 0) return l.durMins('$m');
+  if (m == 0) return l.durHours(h);
+  return l.durHoursMins(h, m);
 }
 
 bool get _isTouchDevice =>
@@ -1151,6 +1154,7 @@ class _DailyScreenState extends State<DailyScreen> {
   // ── Narrow: timeline list with gaps + swipe ─────────────────────
 
   Widget _buildNarrow(List<Map<String, dynamic>> items) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
@@ -1220,7 +1224,7 @@ class _DailyScreenState extends State<DailyScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
-                            formatGap((a['_gapBeforeMinutes'] as int?) ?? 0),
+                            formatGap(l, (a['_gapBeforeMinutes'] as int?) ?? 0),
                             style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,

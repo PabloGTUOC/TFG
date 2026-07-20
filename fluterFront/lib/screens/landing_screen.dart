@@ -40,18 +40,18 @@ class LandingScreen extends StatelessWidget {
         ),
       ];
 
-  static const _ledgerRows = [
-    ('Today', 'Mama', 'Redeemed: Coffee Treat', '-30 cc', AppColors.danger),
-    ('Today', 'Papa', 'Completed: Feed Pet (Fido)', '+10 cc', AppColors.success),
-    (
-      'Yesterday',
-      'Mama',
-      'Completed: Clean Room (Sofia)',
-      '+20 cc',
-      AppColors.success
-    ),
-    ('Yesterday', 'System', 'Budget allocation', '+500 cc', AppColors.success),
-  ];
+  List<(String, String, String, String, Color)> _ledgerRows(
+          AppLocalizations l) =>
+      [
+        (l.dayToday, l.landSimMama, l.landSimLedgerRedeemedCoffee, '-30 cc',
+            AppColors.danger),
+        (l.dayToday, l.landSimPapa, l.landSimLedgerCompletedFeedPet, '+10 cc',
+            AppColors.success),
+        (l.landSimYesterday, l.landSimMama, l.landSimLedgerCompletedCleanRoom,
+            '+20 cc', AppColors.success),
+        (l.landSimYesterday, l.landSimSystem, l.landSimLedgerBudget, '+500 cc',
+            AppColors.success),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -153,8 +153,8 @@ class LandingScreen extends StatelessWidget {
                     ],
                   ),
                 );
-                final ledger =
-                    _Reveal(delayMs: 120, child: _LedgerCard(rows: _ledgerRows));
+                final ledger = _Reveal(
+                    delayMs: 120, child: _LedgerCard(rows: _ledgerRows(l)));
                 return isWide
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -537,6 +537,7 @@ class _PhoneMockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       width: 210,
       padding: const EdgeInsets.all(10),
@@ -595,7 +596,7 @@ class _PhoneMockup extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Mon, Jun 2',
+                        Text(l.landSimDate,
                             style: TextStyle(
                                 fontSize: 11, fontWeight: FontWeight.w800)),
                         Container(
@@ -631,7 +632,7 @@ class _PhoneMockup extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 7),
-                        const Text('2/5 done',
+                        Text(l.landSimTasksDone('2/5'),
                             style: TextStyle(
                                 fontSize: 7.5,
                                 fontWeight: FontWeight.w700,
@@ -643,20 +644,20 @@ class _PhoneMockup extends StatelessWidget {
                     child: Column(
                       children: [
                         const SizedBox(height: 4),
-                        const _PsRow('8:00', 'School run (Leo)',
+                        _PsRow('8:00', l.landSimTaskSchoolRun,
                             '30m · 🪙 15cc ✓', AppColors.primary),
                         const _PsNow(),
-                        const _PsRow('14:00', 'Walk the dog', '30m · 🪙 10cc',
+                        _PsRow('14:00', l.landSimTaskWalkDog, '30m · 🪙 10cc',
                             AppColors.success),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 1),
-                          child: Text('1h free',
-                              style: TextStyle(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1),
+                          child: Text(l.landSimHourFree,
+                              style: const TextStyle(
                                   fontSize: 7.5,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textSecondary)),
                         ),
-                        const _PsRow('18:00', 'Dinner prep', '45m · 🪙 20cc',
+                        _PsRow('18:00', l.landSimTaskDinnerPrep, '45m · 🪙 20cc',
                             AppColors.warning),
                       ],
                     ),
@@ -668,14 +669,14 @@ class _PhoneMockup extends StatelessWidget {
                       border:
                           Border(top: BorderSide(color: AppColors.border)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _PsNavItem('📅', 'Today', active: true),
-                        _PsNavItem('🏠', 'Hub'),
-                        _PsNavItem('🏆', 'Rewards'),
-                        _PsNavItem('📊', 'Stats'),
-                        _PsNavItem('👤', 'Me'),
+                        _PsNavItem('📅', l.dayToday, active: true),
+                        _PsNavItem('🏠', l.landSimNavHub),
+                        _PsNavItem('🏆', l.tabRewards),
+                        _PsNavItem('📊', l.tabStats),
+                        _PsNavItem('👤', l.tabMe),
                       ],
                     ),
                   ),
@@ -754,10 +755,10 @@ class _PsNow extends StatelessWidget {
       child: Row(
         children: [
           const Expanded(child: Divider(color: AppColors.danger, height: 1)),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 5),
-            child: Text('NOW',
-                style: TextStyle(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: Text(AppLocalizations.of(context).landSimNow,
+                style: const TextStyle(
                     fontSize: 6.5,
                     fontWeight: FontWeight.w800,
                     color: AppColors.danger)),
@@ -936,6 +937,7 @@ class _DemoSectionState extends State<_DemoSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 920),
       child: Column(
@@ -950,9 +952,9 @@ class _DemoSectionState extends State<_DemoSection> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _demoTab(0, Icons.verified_user_rounded, 'Family Dashboard'),
+                _demoTab(0, Icons.verified_user_rounded, l.landDemoTabDashboard),
                 const SizedBox(width: 6),
-                _demoTab(1, Icons.shopping_bag_rounded, 'Activities & Rewards'),
+                _demoTab(1, Icons.shopping_bag_rounded, l.landDemoTabRewards),
               ],
             ),
           ),
@@ -1026,29 +1028,38 @@ class _DemoSectionState extends State<_DemoSection> {
 class _DashboardSim extends StatelessWidget {
   const _DashboardSim({super.key});
 
-  static const _members = [
-    ('👩🏽', 'Mama', '120', AppColors.primary, AppColors.primarySoft),
-    ('👨🏽', 'Papa', '340', AppColors.success, AppColors.successSoft),
-    ('👶🏽', 'Leo', '80', AppColors.warning, AppColors.warningSoft),
-    ('👧🏽', 'Sofia', '160', AppColors.danger, AppColors.dangerSoft),
-  ];
+  List<(String, String, String, Color, Color)> _members(AppLocalizations l) => [
+        ('👩🏽', l.landSimMama, '120', AppColors.primary, AppColors.primarySoft),
+        ('👨🏽', l.landSimPapa, '340', AppColors.success, AppColors.successSoft),
+        ('👶🏽', 'Leo', '80', AppColors.warning, AppColors.warningSoft),
+        ('👧🏽', 'Sofia', '160', AppColors.danger, AppColors.dangerSoft),
+      ];
 
-  static const _feed = [
-    ('✓', AppColors.primary, AppColors.primarySoft, 'Mama completed ',
-        'Clean Room (Sofia)', '2 mins ago', '+20 cc', AppColors.success),
-    ('✓', AppColors.primary, AppColors.primarySoft, 'Papa completed ',
-        'Feed Pet (Fido)', '1 hour ago', '+10 cc', AppColors.success),
-    ('🛍️', AppColors.danger, AppColors.dangerSoft, 'Mama redeemed ',
-        'Coffee Treat', '3 hours ago', '-30 cc', AppColors.danger),
-  ];
+  List<(String, Color, Color, String, String, String, String, Color)> _feed(
+          AppLocalizations l) =>
+      [
+        ('✓', AppColors.primary, AppColors.primarySoft,
+            l.landSimFeedCompleted(l.landSimMama),
+            l.landSimSubjectCleanRoom, l.landSimTime2Min, '+20 cc',
+            AppColors.success),
+        ('✓', AppColors.primary, AppColors.primarySoft,
+            l.landSimFeedCompleted(l.landSimPapa),
+            l.landSimSubjectFeedPet, l.landSimTime1Hour, '+10 cc',
+            AppColors.success),
+        ('🛍️', AppColors.danger, AppColors.dangerSoft,
+            l.landSimFeedRedeemed(l.landSimMama),
+            l.landSimSubjectCoffee, l.landSimTime3Hours, '-30 cc',
+            AppColors.danger),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('ACTIVE FAMILY MEMBERS',
-            style: TextStyle(
+        Text(l.landSimActiveMembers,
+            style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1,
@@ -1058,7 +1069,7 @@ class _DashboardSim extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            for (final (emoji, name, coins, accent, soft) in _members)
+            for (final (emoji, name, coins, accent, soft) in _members(l))
               Container(
                 width: 92,
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1087,14 +1098,14 @@ class _DashboardSim extends StatelessWidget {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: const [
-            _SimKpi('FAMILY BALANCE', '460', 'cc', 'across 4 members',
+          children: [
+            _SimKpi(l.landSimKpiBalance, '460', 'cc', l.landSimKpiBalanceSub,
                 AppColors.primary, null),
-            _SimKpi('TASKS TODAY', '2/5', null, '2 awaiting validation',
+            _SimKpi(l.landSimKpiTasks, '2/5', null, l.landSimKpiTasksSub,
                 AppColors.success, 0.4),
-            _SimKpi('OPEN BOUNTIES', '1', null, '15 cc up for grabs',
+            _SimKpi(l.landSimKpiBounties, '1', null, l.landSimKpiBountiesSub,
                 AppColors.warning, null),
-            _SimKpi('RECENT ACTIVITY', '3', null, 'completed recently',
+            _SimKpi(l.landSimKpiActivity, '3', null, l.landSimKpiActivitySub,
                 AppColors.textPrimary, null),
           ],
         ),
@@ -1104,10 +1115,11 @@ class _DashboardSim extends StatelessWidget {
     final right = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Recent Activity',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        Text(l.landSimRecentActivity,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        for (final (icon, fg, bg, verb, subject, time, amt, amtColor) in _feed)
+        for (final (icon, fg, bg, verb, subject, time, amt, amtColor)
+            in _feed(l))
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(
@@ -1164,30 +1176,12 @@ class _DashboardSim extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Family Hub',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(l.landSimFamilyHub,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          const Text.rich(
-            TextSpan(children: [
-              TextSpan(text: 'Good morning, Mama! Your family has earned '),
-              TextSpan(
-                  text: '460 cc',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              TextSpan(text: ' today. '),
-              TextSpan(
-                  text: '2 tasks',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              TextSpan(text: ' are waiting for validation.'),
-            ]),
-            style: TextStyle(
-                fontSize: 13,
-                height: 1.5,
-                color: AppColors.textSecondary),
-          ),
+          Text(l.landSimGreeting(l.landSimMama),
+              style: const TextStyle(
+                  fontSize: 13, height: 1.5, color: AppColors.textSecondary)),
           const SizedBox(height: 18),
           if (isWide)
             Row(
@@ -1288,15 +1282,18 @@ class _MarketplaceSim extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final templates = _simCard('Task Templates', const [
-      ('📚', AppColors.primary, 'Do Homework', 'Care · 60 min', '+15 cc'),
-      ('🌱', AppColors.success, 'Walk the Dog', 'Household · 30 min',
+    final l = AppLocalizations.of(context);
+    final templates = _simCard(l, l.landSimTaskTemplates, [
+      ('📚', AppColors.primary, l.landSimTemplHomework,
+          l.landSimTemplHomeworkSub, '+15 cc'),
+      ('🌱', AppColors.success, l.landSimTemplWalkDog, l.landSimTemplWalkDogSub,
           '+10 cc'),
     ]);
-    final rewards = _simCard('Rewards Store', const [
-      ('🎮', AppColors.warning, '1 Hour Video Games', 'Cost: 50 cc · 3 left',
-          'Redeem'),
-      ('🍦', AppColors.danger, 'Ice Cream Treat', 'Cost: 30 cc', 'Redeem'),
+    final rewards = _simCard(l, l.landSimRewardsStore, [
+      ('🎮', AppColors.warning, l.landSimRewardGames, l.landSimRewardGamesSub,
+          l.landSimRedeem),
+      ('🍦', AppColors.danger, l.landSimRewardIceCream,
+          l.landSimRewardIceCreamSub, l.landSimRedeem),
     ]);
 
     return LayoutBuilder(builder: (context, c) {
@@ -1306,10 +1303,10 @@ class _MarketplaceSim extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text('Activities & Rewards Store',
-                    style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Expanded(
+                child: Text(l.landDemoRewardsTitle,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w800)),
               ),
               Container(
                 padding:
@@ -1319,15 +1316,15 @@ class _MarketplaceSim extends StatelessWidget {
                   border: Border.all(color: AppColors.border),
                   borderRadius: BorderRadius.circular(AppRadii.pill),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('🪙 ', style: TextStyle(fontSize: 12)),
-                    Text('460',
+                    const Text('🪙 ', style: TextStyle(fontSize: 12)),
+                    const Text('460',
                         style: TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w800)),
-                    Text('  Family Pool',
-                        style: TextStyle(
+                    Text('  ${l.landSimFamilyPool}',
+                        style: const TextStyle(
                             fontSize: 11, color: AppColors.textSecondary)),
                   ],
                 ),
@@ -1354,8 +1351,8 @@ class _MarketplaceSim extends StatelessWidget {
     });
   }
 
-  Widget _simCard(
-      String title, List<(String, Color, String, String, String)> items) {
+  Widget _simCard(AppLocalizations l, String title,
+      List<(String, Color, String, String, String)> items) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1404,9 +1401,9 @@ class _MarketplaceSim extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  badge == 'Redeem'
-                      ? const PillBadge(
-                          text: 'Redeem',
+                  badge == l.landSimRedeem
+                      ? PillBadge(
+                          text: badge,
                           fontSize: 11,
                           color: Colors.white,
                           background: AppColors.primary)
@@ -1482,6 +1479,7 @@ class _LedgerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -1498,12 +1496,12 @@ class _LedgerCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text('Recent transactions',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
+              Expanded(
+                child: Text(l.landSimRecentTransactions,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
               PillBadge(
-                  text: 'Verified',
+                  text: l.landSimVerified,
                   color: AppColors.success,
                   background: AppColors.successSoft,
                   fontSize: 11),
