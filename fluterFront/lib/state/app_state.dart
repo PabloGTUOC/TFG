@@ -60,10 +60,11 @@ class AppState extends ChangeNotifier {
 
   static const String _localePrefKey = 'app_locale';
 
-  /// Languages the app actually ships (must match the generated
-  /// AppLocalizations.supportedLocales / the app_*.arb files). Used to reject
+  /// Language codes the app actually ships, derived from the generated
+  /// localizations (the app_*.arb files are the single source). Used to reject
   /// any stale or corrupt stored code so it never reaches the language picker.
-  static const Set<String> supportedLanguageCodes = {'en', 'es', 'fr', 'de'};
+  static Set<String> get supportedLanguageCodes =>
+      AppLocalizations.supportedLocales.map((l) => l.languageCode).toSet();
 
   Locale? _locale;
 

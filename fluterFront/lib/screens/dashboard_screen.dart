@@ -381,7 +381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final app = context.watch<AppState>();
     final wide = isWideLayout(context);
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final active = _members.where((m) => m['status'] != 'pending').toList();
     final pending = _members.where((m) => m['status'] == 'pending').toList();
     final objects = _asMaps(_dashboard['objectsOfCare']);
@@ -1029,28 +1029,7 @@ class _DayColumn extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Column(
-                  children: [
-                    Text(
-                        DateFormat('EEE',
-                                Localizations.localeOf(context).toString())
-                            .format(day),
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                            color: isToday
-                                ? AppColors.primary
-                                : AppColors.textSecondary)),
-                    Text('${day.day}',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: isToday
-                                ? AppColors.primary
-                                : AppColors.textPrimary)),
-                  ],
-                ),
+                _DayHeader(day: day, isToday: isToday),
                 if (hasAbsence)
                   const Positioned(
                       top: -2,
@@ -1064,6 +1043,40 @@ class _DayColumn extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Weekday abbreviation + day number, shared by the wide week grid and the
+/// narrow rolling-day strip. [todayLabel], when given, replaces the weekday
+/// abbreviation on the current day (rendered slightly smaller to fit).
+class _DayHeader extends StatelessWidget {
+  final DateTime day;
+  final bool isToday;
+  final String? todayLabel;
+
+  const _DayHeader(
+      {required this.day, required this.isToday, this.todayLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final showToday = isToday && todayLabel != null;
+    return Column(
+      children: [
+        Text(
+            showToday ? todayLabel! : DateFormat('EEE', l.localeName).format(day),
+            style: TextStyle(
+                fontSize: showToday ? 9 : 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: isToday ? AppColors.primary : AppColors.textSecondary)),
+        Text('${day.day}',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isToday ? AppColors.primary : AppColors.textPrimary)),
+      ],
     );
   }
 }
@@ -1156,30 +1169,10 @@ class _DayRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 44,
-              child: Column(
-                children: [
-                  Text(
-                      isToday
-                          ? AppLocalizations.of(context).dayToday
-                          : DateFormat('EEE',
-                                  Localizations.localeOf(context).toString())
-                              .format(day),
-                      style: TextStyle(
-                          fontSize: isToday ? 9 : 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                          color: isToday
-                              ? AppColors.primary
-                              : AppColors.textSecondary)),
-                  Text('${day.day}',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: isToday
-                              ? AppColors.primary
-                              : AppColors.textPrimary)),
-                ],
-              ),
+              child: _DayHeader(
+                  day: day,
+                  isToday: isToday,
+                  todayLabel: AppLocalizations.of(context).dayToday),
             ),
             const SizedBox(width: 10),
             Expanded(

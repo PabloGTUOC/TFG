@@ -249,8 +249,6 @@
   "newActivityIntro": "Definiere eine wiederverwendbare Aufgabenvorlage. Nach der Freigabe kann sie beliebig oft im Tagesplan eingeplant werden.",
   "activityTitleHint": "Parkbesuch, Abendroutine…",
   "categoryLabel": "Kategorie",
-  "chipCare": "❤️ Fürsorge",
-  "chipHousehold": "🍽️ Haushalt",
   "durationFieldLabel": "Dauer",
   "recurringCheckbox": "🔁 Dies ist eine wiederkehrende Aufgabe",
   "coinValueLabel": "Münzwert (cc)",
@@ -500,7 +498,6 @@
 
   "skipTour": "Tour überspringen",
   "next": "Weiter",
-  "coachStepLabel": "{current} von {total}",
 
   "helpTitle": "So funktioniert CareCoins",
   "closeHelp": "Hilfe schließen",

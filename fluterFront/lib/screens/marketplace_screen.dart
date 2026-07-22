@@ -258,7 +258,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 
   Widget _buildHistory() {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     if (_claimed.isEmpty) {
       return EmptyState(
         icon: Icons.history_rounded,
@@ -328,7 +328,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 
   Widget _buildCreate() {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     return VCard(
       title: l.createRewardTitle,
       child: Column(
@@ -409,7 +409,7 @@ class _RewardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final uses = toNum(r['uses']);
     final maxUses = toNumOrNull(r['max_uses']);
     final soldOut = maxUses != null && uses >= maxUses;

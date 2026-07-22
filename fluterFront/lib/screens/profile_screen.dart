@@ -14,6 +14,16 @@ import '../widgets/family_circle.dart';
 import '../widgets/help_sheet.dart';
 import '../widgets/ui.dart';
 
+/// Native display name per shipped language code (each shown in its own
+/// language, so these are intentionally not localized). Add a new entry when
+/// adding an app_*.arb; the language picker falls back to the raw code.
+const kLanguageNativeNames = {
+  'en': 'English',
+  'es': 'Español',
+  'fr': 'Français',
+  'de': 'Deutsch',
+};
+
 /// Port of views/ProfileView.vue: family banner, deletion-request banner,
 /// account settings (name/email/alias, notification prefs, delete account),
 /// Family Circle with delete-family, and the wallet panel with humanised
@@ -40,6 +50,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _email = TextEditingController();
   final _alias = TextEditingController();
 
+  // Single source of truth for notification preferences: this list drives
+  // loading, saving and rendering, so a new pref only has to be added here
+  // (plus its label in _notifPrefLabel).
   static const _notifPrefKeys = [
     'activity_assigned',
     'activity_validated',
@@ -48,13 +61,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'family_events',
   ];
 
-  List<(String, String)> _notifPrefDefs(AppLocalizations l) => [
-        ('activity_assigned', l.notifActivityAssigned),
-        ('activity_validated', l.notifActivityValidated),
-        ('activity_completed', l.notifActivityCompleted),
-        ('bounty_offered', l.notifBountyOffered),
-        ('family_events', l.notifFamilyEvents),
-      ];
+  String _notifPrefLabel(AppLocalizations l, String key) => switch (key) {
+        'activity_assigned' => l.notifActivityAssigned,
+        'activity_validated' => l.notifActivityValidated,
+        'activity_completed' => l.notifActivityCompleted,
+        'bounty_offered' => l.notifBountyOffered,
+        'family_events' => l.notifFamilyEvents,
+        _ => key,
+      };
   Map<String, bool> _notifPrefs = {};
   bool _notifGranted = false;
 
@@ -651,13 +665,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  for (final (key, label) in _notifPrefDefs(l))
+                  for (final key in _notifPrefKeys)
                     SwitchListTile(
                       dense: true,
                       activeThumbColor: AppColors.primary,
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 14),
-                      title: Text(label,
+                      title: Text(_notifPrefLabel(l, key),
                           style: const TextStyle(
                               fontSize: 13.5, fontWeight: FontWeight.w600)),
                       value: _notifPrefs[key] ?? true,
@@ -705,10 +719,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   DropdownMenuItem(
                       value: 'system',
                       child: Text(AppLocalizations.of(context).languageSystem)),
-                  const DropdownMenuItem(value: 'en', child: Text('English')),
-                  const DropdownMenuItem(value: 'es', child: Text('Español')),
-                  const DropdownMenuItem(value: 'fr', child: Text('Français')),
-                  const DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+                  // Built from the shipped locales so a new app_*.arb surfaces
+                  // in the picker automatically (just add its native name).
+                  for (final loc in AppLocalizations.supportedLocales)
+                    DropdownMenuItem(
+                        value: loc.languageCode,
+                        child: Text(kLanguageNativeNames[loc.languageCode] ??
+                            loc.languageCode)),
                 ],
                 onChanged: (v) => context.read<AppState>().setLocale(
                     v == null || v == 'system' ? null : Locale(v)),
@@ -827,7 +844,7 @@ class _WalletPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final preview = ledger.take(3).toList();
     final tasksThisMonth =
         ledger.where((i) => i['reason'] == 'activity_completed').length;

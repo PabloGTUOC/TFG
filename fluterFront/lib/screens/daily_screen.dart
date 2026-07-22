@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
+import '../widgets/absence_dialog.dart';
 import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 
@@ -418,7 +419,7 @@ class _DailyScreenState extends State<DailyScreen> {
 
   Future<void> _openRecurrenceDialog(Map<String, dynamic> a) async {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     var frequency = 'daily';
     DateTime? until = _day.add(const Duration(days: 1));
     final confirmed = await showDialog<bool>(
@@ -493,89 +494,13 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _openAbsenceDialog() async {
-    final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
-    final title = TextEditingController();
-    var start = DateTime(_day.year, _day.month, _day.day, 9);
-    var end = DateTime(_day.year, _day.month, _day.day, 17);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.lg)),
-          title: Text(l.absenceDialogTitle,
-              style: const TextStyle(fontWeight: FontWeight.w800)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              VInput(
-                  controller: title,
-                  label: l.fieldTitle,
-                  placeholder: l.absenceHint),
-              const SizedBox(height: 12),
-              for (final (label, get, set) in [
-                (l.fromLabel, () => start, (DateTime d) => start = d),
-                (l.toLabel, () => end, (DateTime d) => end = d),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final d = await showDatePicker(
-                          context: ctx,
-                          initialDate: get(),
-                          firstDate:
-                              DateTime.now().subtract(const Duration(days: 365)),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)));
-                      if (d == null || !ctx.mounted) return;
-                      final t = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay.fromDateTime(get()));
-                      if (t == null) return;
-                      setLocal(() => set(
-                          DateTime(d.year, d.month, d.day, t.hour, t.minute)));
-                    },
-                    icon: const Icon(Icons.schedule_rounded, size: 18),
-                    label: Text(
-                        '$label: ${DateFormat('d MMM HH:mm', loc).format(get())}'),
-                  ),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l.cancel)),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(l.logAction)),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true) return;
-    if (!mounted) return;
-    final app = context.read<AppState>();
-    if (title.text.trim().isEmpty) {
-      app.setError(l.errFillAllFields);
-      return;
-    }
-    await app.runAction(() async {
-      await app.api.post('/api/absences', {
-        'familyId': app.familyId,
-        'title': title.text.trim(),
-        'startTime': start.toUtc().toIso8601String(),
-        'endTime': end.toUtc().toIso8601String(),
-      });
-      await _load();
-    }, l.toastTimeOffLogged);
+    final created = await showLogAbsenceDialog(context, day: _day);
+    if (created && mounted) await _load();
   }
 
   Future<void> _absenceDetail(Map<String, dynamic> abs) async {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final delete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -612,7 +537,7 @@ class _DailyScreenState extends State<DailyScreen> {
   Future<void> _openScheduleDialog(Map<String, dynamic> activity,
       {int? hour, int? minute}) async {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     var h = (hour ?? DateTime.now().hour).clamp(kStartHour, 23);
     var m = (minute ?? (DateTime.now().minute >= 30 ? 30 : 0)) >= 30 ? 30 : 0;
 
@@ -741,7 +666,7 @@ class _DailyScreenState extends State<DailyScreen> {
   Widget build(BuildContext context) {
     final wide = isWideLayout(context);
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final items = _scheduledToday;
     final done = _completedToday.length;
 

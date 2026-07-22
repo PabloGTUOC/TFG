@@ -249,8 +249,6 @@
   "newActivityIntro": "Define una plantilla de actividad reutilizable. Una vez aprobada, se puede programar desde la agenda diaria tantas veces como quieras.",
   "activityTitleHint": "Visita al parque, Rutina de dormir…",
   "categoryLabel": "Categoría",
-  "chipCare": "❤️ Cuidado",
-  "chipHousehold": "🍽️ Hogar",
   "durationFieldLabel": "Duración",
   "recurringCheckbox": "🔁 Es una actividad recurrente",
   "coinValueLabel": "Recompensa en monedas (cc)",
@@ -500,7 +498,6 @@
 
   "skipTour": "Saltar el tour",
   "next": "Siguiente",
-  "coachStepLabel": "{current} de {total}",
 
   "helpTitle": "Cómo funciona CareCoins",
   "closeHelp": "Cerrar ayuda",

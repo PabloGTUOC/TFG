@@ -404,8 +404,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
           Row(
             children: [
               for (final (value, label) in [
-                ('care', l.chipCare),
-                ('household', l.chipHousehold)
+                ('care', l.catCareEmoji),
+                ('household', l.catHouseholdEmoji)
               ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

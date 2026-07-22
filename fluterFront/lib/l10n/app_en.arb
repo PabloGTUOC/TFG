@@ -588,10 +588,6 @@
   "@activityTitleHint": { "description": "Template title input hint" },
   "categoryLabel": "Category",
   "@categoryLabel": { "description": "Category chips label" },
-  "chipCare": "❤️ Care / Nurture",
-  "@chipCare": { "description": "Care category chip" },
-  "chipHousehold": "🍽️ Household",
-  "@chipHousehold": { "description": "Household category chip" },
   "durationFieldLabel": "Duration",
   "@durationFieldLabel": { "description": "Duration dropdown label" },
   "recurringCheckbox": "🔁 This is a recurring activity",
@@ -1102,11 +1098,6 @@
   "@skipTour": { "description": "Coach-mark button to end the tour" },
   "next": "Next",
   "@next": { "description": "Coach-mark button to advance" },
-  "coachStepLabel": "{current} of {total}",
-  "@coachStepLabel": {
-    "description": "Coach-mark step counter, e.g. '2 of 3'",
-    "placeholders": { "current": {}, "total": {} }
-  },
 
   "helpTitle": "How CareCoins works",
   "@helpTitle": { "description": "Help sheet title" },

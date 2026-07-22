@@ -12,7 +12,7 @@ import 'ui.dart';
 Future<bool> showLogAbsenceDialog(BuildContext context,
     {required DateTime day}) async {
   final l = AppLocalizations.of(context);
-  final loc = Localizations.localeOf(context).toString();
+  final loc = l.localeName;
   final title = TextEditingController();
   var start = DateTime(day.year, day.month, day.day, 9);
   var end = DateTime(day.year, day.month, day.day, 17);

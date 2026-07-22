@@ -207,7 +207,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   List<Widget> _buildOverview() {
     final l = AppLocalizations.of(context);
-    final loc = Localizations.localeOf(context).toString();
+    final loc = l.localeName;
     final kpis = (_stats?['kpis'] as Map?)?.cast<String, dynamic>() ?? {};
     final trend = _listOf('trendByMonth');
     final trendMonths = trend.map((t) => t['month'].toString()).toSet().toList()
