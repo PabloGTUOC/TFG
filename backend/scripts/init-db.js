@@ -32,6 +32,10 @@ async function main() {
   await pool.query(await fs.readFile(platformAdminPath, 'utf8'));
   console.log('Platform admin role and audit log ready.');
 
+  const heartbeatPath = path.join(__dirname, 'migrate-heartbeat.sql');
+  await pool.query(await fs.readFile(heartbeatPath, 'utf8'));
+  console.log('Family heartbeat column ready.');
+
   await pool.end();
 }
 
