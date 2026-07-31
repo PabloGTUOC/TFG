@@ -1,143 +1,329 @@
-# Platform Admin & Family Management — Gap Analysis and Plan
+# Platform Admin, Family Registry & Subscriptions — Plan
 
-> Status: proposal. Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
+> Status: agreed design, pending implementation.
+> Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
+>
+> Decisions locked in this revision:
+> 1. **Privacy boundary** — the platform admin never sees or touches family internals
+>    (members' identities, activities, coins, rewards). Admin scope = family *registry*
+>    (is it alive?) + *subscription* (what plan, is it paid?).
+> 2. **Payment provider** — **RevenueCat** for App Store + Google Play, kept behind our
+>    own webhook boundary so the provider is swappable (Adapty/Qonversion/DIY/Stripe-web
+>    later) without touching the data model, admin area, or enforcement.
 
 ---
 
-## 1. Current status
+## 1. Current state and gap
 
-### What exists today
+All management in CareCoins today is family-scoped self-service: caregivers invite
+members, approve joins, change roles, manage actors, and delete their family via
+unanimous approval. There is **no platform-level admin at any layer**:
 
-All management functionality in CareCoins is **family-scoped and self-service**:
+- `users` has no global role; the only roles are `caregiver`/`member` in
+  `family_members`. Every "admin" string in the codebase is the `firebase-admin` SDK.
+- No code path crosses families — every route resolves through the requester's own
+  membership.
+- No `/api/admin/*` router, no admin UI in the Flutter app.
+- No plan/subscription/payment concept anywhere. `families.monthly_coin_budget` is the
+  only plan-like config, derived from actors and read-only via API.
 
-| Area | Current capability | Who can do it |
+Assets that make this cheap to close: the service-layer pattern
+(`familyService`/`memberService`), the `requireRole` middleware to mirror,
+`validateBody/Params`, the `scripts/migrate-*.sql` convention, vitest service tests,
+and per-user rate limiting already wired in `app.js`.
+
+---
+
+## 2. Design principles
+
+**Admin is the landlord, not a housemate.** Families are tenants; what happens inside
+is theirs. The admin's two legitimate interests:
+
+1. **Operational** — is this family alive, or abandoned data to eventually clean up?
+2. **Commercial** — what plan is the family on, is it paid, what is it entitled to?
+
+Both are served with **aggregates and lifecycle state only**:
+
+- Admin sees per family: id, name, created date, member *count*, heartbeat bucket,
+  plan/subscription state. Never member identities, activities, balances, or rewards.
+- Admin never deletes family data. Strongest admin power is **suspension**
+  (read-only mode); deletion stays exclusively with caregivers via the existing
+  unanimous flow. Dormant-family cleanup is a *process* admin triggers (notice →
+  waiting period → automated retention deletion), not a button that reads or removes
+  data directly.
+- The boundary is technical, not aspirational: the admin service queries an explicit
+  allowlist of columns, and a CI test asserts admin responses contain no member/content
+  fields.
+
+**The backend is the single source of truth for entitlements.** Subscriptions are
+per-*family*, but stores sell to a *person* (Apple ID / Google account). The only way
+an Android caregiver benefits from an iOS purchase is if clients always ask *our* API
+"what plan is my family on?" — never the store, never the RevenueCat SDK cache.
+Clients never write entitlements; purchases are evidence the backend verifies
+server-side (via RevenueCat) before anything changes.
+
+---
+
+## 3. Target architecture
+
+### 3.1 Platform admin identity
+
+- `users.platform_role` (`'user'` default, `'admin'`), promoted **only** via a CLI
+  script — never self-service, never from the client.
+- `requireAdmin` middleware in `src/middleware/rbac.js`, same shape as `requireRole`,
+  checking the DB (authoritative; Firebase custom claims optional later as
+  defense-in-depth).
+- Mounted as `app.use('/api/admin', requireAuth, requireAdmin, adminLimiter, adminRouter)`
+  with a stricter rate limit than user routes.
+- `admin_audit_log` — one row per mutating admin call, written in the same transaction.
+
+### 3.2 Family heartbeat ("is it active?")
+
+Explicit heartbeat column rather than derived queries, so the admin API physically
+never touches content tables:
+
+- `families.last_active_at TIMESTAMPTZ` — touched by a tiny middleware on any
+  authenticated family-scoped request, throttled to at most one write per family per
+  hour. Backfilled once at migration time from existing timestamps, then never derived
+  again.
+- Server-side buckets: **active** (≤ 30 days), **dormant** (30–90), **inactive** (> 90,
+  retention candidate).
+
+### 3.3 Subscription data model
+
+```sql
+CREATE TABLE plans (
+  code TEXT PRIMARY KEY,               -- 'free', 'plus', …
+  name TEXT NOT NULL,
+  price_cents INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  billing_period TEXT NOT NULL DEFAULT 'monthly',
+  limits JSONB NOT NULL DEFAULT '{}',  -- max_members, max_actors, max_active_rewards…
+  features JSONB NOT NULL DEFAULT '{}',
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  active BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE TABLE family_plans (
+  family_id BIGINT PRIMARY KEY REFERENCES families(id) ON DELETE CASCADE,
+  plan_code TEXT NOT NULL REFERENCES plans(code),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN
+    ('trialing','active','in_grace','past_due','paused','canceled','expired')),
+  current_period_end TIMESTAMPTZ,
+  platform TEXT,                       -- 'app_store' | 'play' | (future: 'stripe')
+  provider TEXT,                       -- 'revenuecat' | 'admin' | (future others)
+  provider_subscription_id TEXT,       -- RC subscriber / store transaction reference
+  billing_owner_user_id BIGINT REFERENCES users(id),  -- whose store account pays
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE billing_events (          -- raw webhook log: idempotency + debugging
+  id BIGSERIAL PRIMARY KEY,
+  provider TEXT NOT NULL,
+  event_id TEXT UNIQUE,                -- provider's id, dedupes replays
+  event_type TEXT NOT NULL,
+  family_id BIGINT REFERENCES families(id) ON DELETE SET NULL,
+  payload JSONB NOT NULL,
+  processed BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE admin_grants (            -- comps/trials: separate from store truth
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  plan_code TEXT NOT NULL REFERENCES plans(code),
+  granted_by BIGINT NOT NULL REFERENCES users(id),
+  reason TEXT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+- Every family gets the seeded `free` plan on creation (backfill existing families).
+- **Effective entitlement = most generous of (store subscription, active admin grant).**
+  Store truth and admin truth never overwrite each other: an admin comp is not a fake
+  subscription, and an `EXPIRATION` webhook can't wipe a comp.
+
+### 3.4 Purchase & lifecycle flow (RevenueCat)
+
+Store rule that shapes everything: digital-feature subscriptions **must** go through
+StoreKit / Play Billing inside the apps. RevenueCat sits on top of both and gives us
+one SDK + one normalized webhook stream.
+
+**Purchase (happy path):**
+
+1. Caregiver taps *Upgrade* in the Flutter app. App asks the backend to mint a
+   **purchase intent** (UUID → `{user_id, family_id}`), solving family attribution —
+   a user may belong to several families.
+2. App configures the RevenueCat SDK (`purchases_flutter`) with
+   `appUserID = <backend user id>` and attaches the intent UUID as a subscriber
+   attribute, then launches the native purchase.
+3. RevenueCat validates the receipt with Apple/Google and fires our webhook.
+   The handler resolves intent → family, writes `billing_events`, then upserts
+   `family_plans` (`active`, period end, platform, billing owner).
+4. Every member on every platform gets the entitlement from our API on the next
+   request. As immediate UX feedback the app may also POST the RC customer-info to a
+   `/api/billing/sync` endpoint, but the webhook remains authoritative.
+
+**Lifecycle:** renewals, cancellations, refunds, billing issues all happen *without
+the app* — RevenueCat webhooks (`INITIAL_PURCHASE`, `RENEWAL`, `CANCELLATION`,
+`EXPIRATION`, `BILLING_ISSUE`, `PRODUCT_CHANGE`, `TRANSFER`) arrive at
+`/api/billing/webhook` (shared-secret header auth), are logged idempotently in
+`billing_events` (webhooks can duplicate or arrive out of order), and are mapped to
+our status vocabulary. Grace periods (`in_grace`, Android `paused`) do **not** cut
+access.
+
+**Enforcement (system, never admin):**
+
+- `getFamilyEntitlements(client, familyId)` merges plan limits; called at the natural
+  choke points: member approve/join, actor add, reward create. Rollout: soft warnings
+  first (like the existing `budget_exceeded` pattern), hard limits once plans are live.
+- Lapsed subscription ⇒ family enters **read-only mode**: a gate on family-scoped
+  write routes returns a clear "subscription inactive" error. Data untouched;
+  reactivation instantly restores function.
+- Double-purchase guard: if a family already has an active subscription bought on the
+  other platform, the app shows "already subscribed via <store> — manage it there"
+  instead of a second checkout. Only our backend can know this; the stores can't.
+
+**Admin's role in billing:** view plan, status, platform, renewal date, and
+`billing_events` history per family; CRUD the plan catalog; issue/revoke
+`admin_grants`. Admin **cannot** cancel or refund store subscriptions — that
+relationship belongs to the user and Apple/Google; refunds made in App Store
+Connect / Play Console flow back as ordinary webhook events. The console deep-links
+to the store consoles rather than pretending to own that lever.
+
+**Provider swappability:** the Flutter purchase trigger and the webhook consumer are
+the only RevenueCat-aware components. `family_plans`/`billing_events`/entitlements/
+admin area are provider-neutral (`provider` is a column). RevenueCat is free below
+$2.5K monthly tracked revenue, then 1% of gross MTR — acceptable at this project's
+scale, and revisitable precisely because of this boundary. A future web checkout
+(Stripe) becomes a third writer into the same tables; store rules only constrain
+purchases inside the apps.
+
+---
+
+## 4. Development phases
+
+### Phase 1 — Platform admin foundation (backend) · S (1–2 days)
+
+**Deliverables**
+- `scripts/migrate-platform-admin.sql`: `users.platform_role` + `admin_audit_log`;
+  mirror into `schema.sql`.
+- `scripts/promote-admin.js <email>` promotion script.
+- `requireAdmin` in `src/middleware/rbac.js`; `/api/admin` mount in `app.js` with
+  dedicated stricter rate limiter; empty `src/routes/admin.js` +
+  `src/services/adminService.js` skeleton.
+- Audit helper: one `admin_audit_log` row per mutating admin call, same transaction.
+
+**Acceptance**
+- Non-admin (and unauthenticated) requests to any `/api/admin/*` route → 403/401,
+  covered by tests. Promotion works only via script.
+
+### Phase 2 — Family registry & heartbeat · M (2–3 days)
+
+**Deliverables**
+- `scripts/migrate-heartbeat.sql`: `families.last_active_at` + one-time backfill from
+  existing timestamps.
+- Heartbeat middleware on family-scoped routes (throttled ≥ 1 h per family).
+- `GET /api/admin/families?search=&status=&page=` — id, name, created_at, member
+  count, heartbeat bucket, plan summary. Paged.
+- `GET /api/admin/families/:id` — same fields + plan/billing history. **No member
+  identities, no content.**
+- `POST /api/admin/families/:id/notify-inactive` — sends the inactivity notice through
+  existing notify/mailer utilities without exposing addresses to the admin; audited.
+- **Leak-prevention test**: asserts registry responses contain only the allowlisted
+  fields (fails CI if someone joins content tables later).
+
+**Acceptance**
+- Admin can answer "which families are active/dormant/inactive?" with zero access to
+  family internals; heartbeat updates cost ≤ 1 write/family/hour.
+
+### Phase 3 — Plans & entitlements (provider-agnostic core) · M (3–4 days)
+
+**Deliverables**
+- `scripts/migrate-plans.sql`: `plans`, `family_plans`, `billing_events`,
+  `admin_grants`; seed `free` default; assign in `familyService.createFamily`;
+  backfill existing families.
+- `getFamilyEntitlements` helper + soft enforcement at member approve/join, actor
+  add, reward create (warning payloads, `budget_exceeded`-style).
+- Read-only suspension gate for lapsed families on family-scoped write routes.
+- Admin API: `GET/POST/PATCH /api/admin/plans`, `GET /api/admin/families/:id/billing`,
+  `POST/DELETE /api/admin/families/:id/grants`.
+- Tests: entitlement merge (store vs grant, most generous wins), suspension gate,
+  plan CRUD, grants.
+
+**Acceptance**
+- System is fully plan-aware with zero payment code; a comp'd family and a free
+  family behave per their limits; suspended family is read-only and instantly
+  restorable.
+
+### Phase 4 — RevenueCat integration · M (3–5 days + store admin lead time)
+
+**Deliverables**
+- Store setup (external to repo, start early — review/config lead time):
+  subscription products in App Store Connect + Play Console, RevenueCat project,
+  entitlement (`premium`), offerings, webhook + shared secret.
+- Backend: `POST /api/billing/webhook` (secret-header auth, idempotent via
+  `billing_events.event_id`, event→status mapping incl. grace/paused);
+  `POST /api/billing/purchase-intent`; optional `POST /api/billing/sync`.
+- Flutter: `purchases_flutter` SDK; upgrade/paywall flow on the family screen
+  (caregivers only); `appUserID` = backend user id + intent attribute;
+  double-purchase guard; "manage subscription" deep links to store subscription
+  settings; l10n via existing `.arb` files.
+- Entitlement enforcement flips from soft to hard for store-driven plans.
+- Sandbox test matrix: purchase, renewal, cancel, expiration, billing issue/grace,
+  cross-platform visibility (buy on iOS sandbox → Android member sees premium).
+
+**Acceptance**
+- One caregiver's purchase upgrades the whole family on both platforms within one
+  webhook delivery; cancellation downgrades at period end, not immediately; replayed
+  webhooks are no-ops.
+
+### Phase 5 — Admin UI (Flutter) · M (3–4 days)
+
+**Deliverables**
+- `/api/me` returns `platformRole`; Admin entry in shell/profile only for admins
+  (server still enforces; UI gating is convenience).
+- Screens: `admin_families_screen` (search + status chips active/dormant/inactive +
+  plan badges) → `admin_family_detail_screen` (registry fields, billing history,
+  grant/revoke, notify-inactive) → `admin_plans_screen` (catalog CRUD).
+- Strings through existing l10n `.arb` files.
+
+**Acceptance**
+- Admin can run registry + billing oversight entirely from the app; no screen renders
+  family internals.
+
+### Phase 6 — Hardening, retention, docs & store readiness · S (1–2 days)
+
+**Deliverables**
+- Retention policy for `inactive` families: notice → waiting period → automated
+  deletion job (admin triggers the process, system touches the data).
+- Consider recent re-auth (Firebase `auth_time`) for destructive admin actions.
+- Docs: update `backend.md` (RBAC §, admin router, billing webhook),
+  `database-schema.md`, `PRODUCT.md`; `QA.md` entries (403 matrix, leak-prevention,
+  entitlement/suspension, webhook idempotency).
+- Store-release checklist additions (`docs/store-release-checklist.md`): IAP review
+  requirements, subscription disclosures, restore-purchases flow (Apple requires it —
+  ours is trivial: entitlements come from the backend).
+
+**Dependencies & sequencing**
+
+| Phase | Depends on | Note |
 |---|---|---|
-| Roles | `caregiver` > `member`, stored per-family in `family_members.role` | — |
-| Membership | Invite by email, invite links, approve join requests, change roles | Caregivers of that family |
-| Actors | Add/remove objects of care, upload avatars | Caregivers of that family |
-| Family lifecycle | Create; delete only via unanimous caregiver approval flow | Caregivers of that family |
-| Budget | `families.monthly_coin_budget` (default 1000, ±720/±360 per full/part-time actor). **Read-only API** (`GET /api/families/:id/budget`) — no endpoint edits it directly | Nobody (derived only) |
-| Audit | `login_history` only | — |
-
-### The gap
-
-There is **no platform-level administrator** concept at any layer:
-
-1. **Identity**: the `users` table has no global role column. The only "admin" strings in the codebase are the `firebase-admin` SDK (`src/middleware/auth.js`, `src/utils/notify.js`).
-2. **Authorization**: `src/middleware/rbac.js` only knows family-scoped roles. Every route resolves data through the *requester's own membership* (`upsertUserFromAuth` + membership check) — there is no code path that can see across families.
-3. **API**: no `/api/admin/*` router; no cross-family listing, search, or intervention endpoints (e.g. fix a family whose only caregiver left, remove abusive content, adjust a budget).
-4. **UI**: the Flutter app (`fluterFront/lib/screens/`) has only end-user screens; nothing role-gated beyond caregiver/member.
-5. **Monetization**: no plan/subscription/payment concept anywhere — no tables, no provider integration, no feature limits to attach a paid tier to. `monthly_coin_budget` is the only plan-like config and it is not directly editable.
-
-### Assets that make closing the gap cheap
-
-- Clean service layer (`familyService`, `memberService`) an admin API can reuse.
-- Established patterns: `requireRole` middleware to mirror, `validateBody/Params`, `scripts/migrate-*.sql` migration convention, vitest service tests, per-user rate limiting already in `app.js`.
-- Firebase auth already verifies identity server-side; custom claims are available for defense-in-depth.
+| 1 Foundation | — | |
+| 2 Registry | 1 | Closes the operational gap on its own |
+| 3 Plans core | 1 | Can run parallel to 2 |
+| 4 RevenueCat | 3 | Start store/RC console setup during 3 |
+| 5 Admin UI | 2, 3 | Billing panels grow in 4 |
+| 6 Hardening | rolling | |
 
 ---
 
-## 2. Plan
+## 5. Out of scope / related product task
 
-### Phase 1 — Platform admin foundation (backend)
-
-1. **Schema** (new `scripts/migrate-platform-role.sql` + `schema.sql` update):
-   ```sql
-   ALTER TABLE users ADD COLUMN platform_role TEXT NOT NULL DEFAULT 'user'
-     CHECK (platform_role IN ('user', 'admin'));
-
-   CREATE TABLE admin_audit_log (
-     id BIGSERIAL PRIMARY KEY,
-     admin_id BIGINT NOT NULL REFERENCES users(id),
-     action TEXT NOT NULL,
-     target_type TEXT NOT NULL,
-     target_id TEXT,
-     payload JSONB,
-     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-   );
-   ```
-2. **Promotion path**: small script (`scripts/promote-admin.js <email>`) — admins are never self-service.
-3. **Middleware**: `requireAdmin` in `src/middleware/rbac.js`, same shape as `requireRole` but checking `users.platform_role = 'admin'`. Optionally mirror the flag into a Firebase custom claim later; the DB check is authoritative.
-4. **Mounting**: `app.use('/api/admin', requireAuth, requireAdmin, adminLimiter, adminRouter)` — stricter rate limit than user routes.
-5. **Audit**: every mutating admin call writes one `admin_audit_log` row inside the same transaction.
-
-### Phase 2 — Admin family management API
-
-New `src/routes/admin.js` + `src/services/adminService.js` (reusing family/member services where possible):
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/admin/families?search=&page=` | Paged list: id, name, created_at, member count, budget, coins used this month |
-| `GET /api/admin/families/:id` | Detail: members + roles + status, actors, invitations, invite links, budget usage |
-| `PATCH /api/admin/families/:id` | Rename; **set `monthly_coin_budget` explicitly** (first real budget override) |
-| `DELETE /api/admin/families/:id` | Direct deletion (bypasses the unanimous-approval flow; audited) |
-| `PATCH /api/admin/families/:id/members/:userId` | Change role / deactivate — recovery for "orphaned" families with no active caregiver |
-| `DELETE /api/admin/families/:id/invite-links/:linkId` | Revoke abusive/leaked links |
-| `GET /api/admin/users?search=` | User lookup with memberships and soft-delete state |
-
-Tests: `backend/tests/adminService.test.js` following the existing vitest pattern (including 403 coverage for non-admins on every route).
-
-### Phase 3 — Admin UI (Flutter)
-
-Smallest surface that works, consistent with the existing app:
-
-1. `GET /api/me` additionally returns `platformRole`.
-2. Shell/profile shows an **Admin** entry only when `platformRole == 'admin'` (server still enforces; UI gating is convenience only).
-3. Screens: `admin_families_screen.dart` (searchable list) → `admin_family_detail_screen.dart` (members, actors, budget edit, delete) → `admin_users_screen.dart`. Strings go through the existing `l10n/*.arb` files.
-
-A separate web admin panel is deliberately out of scope for now — one client, one design system, and the API is the reusable part if a web panel is wanted later.
-
-### Phase 4 — Plan/entitlement model (payment-plan-ready, no payments yet)
-
-Make the system *plan-aware* first; the payment provider becomes a bolt-on later.
-
-1. **Schema**:
-   ```sql
-   CREATE TABLE plans (
-     code TEXT PRIMARY KEY,            -- 'free', 'plus', …
-     name TEXT NOT NULL,
-     price_cents INTEGER NOT NULL DEFAULT 0,
-     currency TEXT NOT NULL DEFAULT 'EUR',
-     billing_period TEXT NOT NULL DEFAULT 'monthly',
-     limits JSONB NOT NULL DEFAULT '{}',    -- max_members, max_actors, max_active_rewards, …
-     features JSONB NOT NULL DEFAULT '{}',
-     is_default BOOLEAN NOT NULL DEFAULT false,
-     active BOOLEAN NOT NULL DEFAULT true
-   );
-
-   CREATE TABLE family_plans (
-     family_id BIGINT PRIMARY KEY REFERENCES families(id) ON DELETE CASCADE,
-     plan_code TEXT NOT NULL REFERENCES plans(code),
-     status TEXT NOT NULL DEFAULT 'active'
-       CHECK (status IN ('trialing', 'active', 'past_due', 'canceled')),
-     current_period_end TIMESTAMPTZ,
-     provider TEXT,                    -- future: 'stripe'
-     provider_customer_id TEXT,
-     provider_subscription_id TEXT,
-     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-   );
-   ```
-2. Seed a `free` default plan; assign it in `familyService.createFamily`; backfill existing families in the migration.
-3. **Admin API**: CRUD on `plans`; `PUT /api/admin/families/:id/plan` to assign/override (comp accounts, trials).
-4. **Entitlement helper**: `getFamilyEntitlements(client, familyId)` returning merged plan limits; called at the natural enforcement points (member join/approve, actor add, reward create). Start with soft warnings (like the existing `budget_exceeded` pattern in `activityService`), tighten to hard limits once plans are real.
-5. **Deferred on purpose**: Stripe (or other) integration — checkout, webhooks (`family_plans.status` transitions), customer portal. The provider columns above keep that a contained follow-up.
-
-### Phase 5 — Hardening & docs
-
-- Update `docs/backend.md` (§RBAC, new router), `docs/database-schema.md`, `docs/PRODUCT.md`.
-- QA entries in `QA.md`: non-admin gets 403 on every admin route; admin actions appear in `admin_audit_log`; plan limits enforced.
-- Consider requiring recent re-auth (Firebase `auth_time`) for destructive admin actions.
-
----
-
-## 3. Sequencing and effort (rough)
-
-| Phase | Size | Depends on |
-|---|---|---|
-| 1 Foundation | S (1–2 days) | — |
-| 2 Admin family API | M (2–4 days) | 1 |
-| 3 Flutter admin UI | M (3–5 days) | 2 |
-| 4 Plans/entitlements | M (3–4 days) | 1 (API), 2 (admin UI hooks) |
-| 5 Hardening/docs | S (1 day) | rolling |
-
-Phases 1+2 alone already close the operational gap (support/recovery/oversight). Phase 4 can proceed in parallel after Phase 1 if monetization design is the priority.
+- **Orphaned families** (sole caregiver leaves/demotes): under the privacy boundary
+  admin cannot fix this by editing roles. Solve it inside the product instead — block
+  the last active caregiver from leaving or demoting without first transferring the
+  role. Small, independent task; recommended before or alongside Phase 2.
+- Web checkout (Stripe), Firebase custom-claim mirroring, separate web admin panel:
+  all deliberately deferred; the data model already leaves room for each.
