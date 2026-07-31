@@ -28,6 +28,10 @@ async function main() {
   await pool.query(await fs.readFile(notifPrefsPath, 'utf8'));
   console.log('Notification preferences table ready.');
 
+  const platformAdminPath = path.join(__dirname, 'migrate-platform-admin.sql');
+  await pool.query(await fs.readFile(platformAdminPath, 'utf8'));
+  console.log('Platform admin role and audit log ready.');
+
   await pool.end();
 }
 

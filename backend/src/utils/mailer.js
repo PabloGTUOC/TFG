@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy: the Resend constructor throws without an API key, and keyless
+// environments (tests, local dev) must still be able to import this module
+// and hit the mock path below.
+let resend;
+const getResend = () => (resend ??= new Resend(process.env.RESEND_API_KEY));
 const FROM = process.env.EMAIL_FROM || 'CareCoins <noreply@mycarecoins.app>';
 const APP_URL = process.env.APP_URL || 'https://mycarecoins.app';
 
@@ -12,7 +16,7 @@ export async function sendInvitationEmail({ toEmail, toName, inviterName, family
 
   const greeting = toName ? `Hi ${toName},` : 'Hi,';
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: toEmail,
     subject: `You've been invited to join ${familyName} on CareCoins`,

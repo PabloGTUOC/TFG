@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT,
   avatar_url TEXT,
   is_deleted BOOLEAN NOT NULL DEFAULT false,
+  platform_role TEXT NOT NULL DEFAULT 'user' CHECK (platform_role IN ('user', 'admin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -183,6 +184,21 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   bounty_offered     BOOLEAN NOT NULL DEFAULT true,
   family_events      BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Platform admin audit trail (docs/admin-family-management-plan.md Phase 1):
+-- one row per mutating admin action, written in the same transaction.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  admin_id BIGINT NOT NULL REFERENCES users(id),
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT,
+  payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_admin_time
+  ON admin_audit_log (admin_id, created_at);
 
 -- Onboarding instrumentation (docs/onboarding-help-plan.md Phase 4):
 -- one row per guided-tour / checklist event, for the activation analysis.

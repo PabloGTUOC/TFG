@@ -16,6 +16,18 @@
  *     Example (inside withTransaction):
  *       const rbacErr = await assertMemberRole(client, user.id, act.family_id, 'caregiver');
  *       if (rbacErr) return rbacErr;
+ *
+ * Platform admin (docs/admin-family-management-plan.md) is a separate, global
+ * axis stored in users.platform_role — deliberately NOT part of the family
+ * role hierarchy, so an admin gains no implicit rights inside any family:
+ *
+ *   requireAdmin
+ *     Express middleware for /api/admin routes. The DB is authoritative;
+ *     nothing from the client is trusted. Sets req.adminUser on success.
+ *
+ *   checkPlatformAdmin(client, auth)
+ *     In-transaction helper behind requireAdmin.
+ *     Returns { user } on success, { error: { code, message } } on failure.
  */
 
 import { pool } from '../db/pool.js';
@@ -55,6 +67,40 @@ export function requireRole(role, getFamilyId) {
       client.release();
     }
   };
+}
+
+// ─── Platform admin ───────────────────────────────────────────────────────────
+
+export async function checkPlatformAdmin(client, auth) {
+  const user = await upsertUserFromAuth(client, auth);
+  const { rows } = await client.query(
+    `SELECT platform_role FROM users WHERE id = $1 AND is_deleted = false`,
+    [user.id]
+  );
+
+  if (!rows.length || rows[0].platform_role !== 'admin') {
+    return { error: { code: 403, message: 'Requires platform admin.' } };
+  }
+
+  return { user };
+}
+
+export function requireAdmin(req, res, next) {
+  (async () => {
+    const client = await pool.connect();
+    try {
+      const result = await checkPlatformAdmin(client, req.auth);
+      if (result.error) {
+        return res.status(result.error.code).json({ error: result.error.message });
+      }
+      req.adminUser = result.user;
+      next();
+    } catch {
+      return res.status(500).json({ error: 'Authorization check failed.' });
+    } finally {
+      client.release();
+    }
+  })();
 }
 
 // ─── In-transaction helper ────────────────────────────────────────────────────

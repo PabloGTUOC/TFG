@@ -4,7 +4,9 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { requireAuth } from './middleware/auth.js';
 import { logLoginHistory } from './middleware/audit.js';
+import { requireAdmin } from './middleware/rbac.js';
 import { familiesRouter } from './routes/families.js';
+import { adminRouter } from './routes/admin.js';
 import { activitiesRouter } from './routes/activities.js';
 import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
@@ -58,12 +60,23 @@ const perUserLimiter = rateLimit({
   keyGenerator: (req) => req.auth.uid, // auth is guaranteed set by this point
 });
 
+// Admin routes get a much tighter budget than regular user traffic.
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+  keyGenerator: (req) => req.auth.uid,
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+app.use('/api/admin', requireAuth, adminLimiter, requireAdmin, adminRouter);
 app.use('/api/me', requireAuth, perUserLimiter, meRouter);
 app.use('/api/families', requireAuth, perUserLimiter, familiesRouter);
 app.use('/api/activities', requireAuth, perUserLimiter, activitiesRouter);
