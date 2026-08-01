@@ -1,7 +1,7 @@
 # Platform Admin, Family Registry & Subscriptions — Plan
 
-> **Status: Phases 1–3 implemented** (see §6 Implementation log). Phase 4
-> (RevenueCat) and Phase 5 (Flutter admin UI) pending; Phase 6 rolling.
+> **Status: Phases 1–3 and 5 implemented** (see §5 Implementation log).
+> Phase 4 (RevenueCat) pending; Phase 6 rolling.
 > Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
 >
 > Decisions locked in this revision:
@@ -280,7 +280,7 @@ purchases inside the apps.
   webhook delivery; cancellation downgrades at period end, not immediately; replayed
   webhooks are no-ops.
 
-### Phase 5 — Admin UI (Flutter) · M (3–4 days)
+### Phase 5 — Admin UI (Flutter) · M (3–4 days) · ✅ DONE
 
 **Deliverables**
 - `/api/me` returns `platformRole`; Admin entry in shell/profile only for admins
@@ -406,12 +406,28 @@ Decisions taken during implementation:
   suspension is deferred to Phase 4 hardening, when `past_due` can
   actually occur (nothing sets it until webhooks exist).
 
+### Phase 5 — Flutter admin UI
+
+| Piece | Where |
+|---|---|
+| `platform_role` in `/api/me` | `upsertUserFromAuth` RETURNING clauses (`src/db/users.js`) — flows through automatically |
+| Gated entry | Profile → Account Settings shows an "Admin console" row only when `AppState.isPlatformAdmin`; UI gating only, server re-checks every call |
+| Console | `fluterFront/lib/screens/admin_screen.dart`: `AdminScreen` (Families / Plans tabs), `AdminFamilyDetailScreen` |
+| Families tab | search, status filter (all/active/dormant/inactive), status + plan pills, pagination ("load more") |
+| Family detail | registry card (created, heartbeat, counts, notify-inactive with confirm), billing card, grants card (grant dialog: plan dropdown + reason + expiry-in-days; revoke), billing-event metadata list |
+| Plans tab | catalog list with default/inactive badges, create/edit dialog (name, price cents, period, per-key limits where empty = unlimited, default/active switches) |
+| l10n | 58 keys added to all four `.arb` files (en/es/fr/de) |
+| Registry API addition | list/detail now also return `planCode` + `subscriptionStatus` (registry-safe) for the plan badges; leak-test allowlist updated |
+
+The console renders registry and billing state only — there is deliberately
+no screen that shows members, tasks or coins, mirroring the API boundary.
+
 ### Still pending
 
 - **Phase 4**: RevenueCat SDK + purchase-intent endpoint + webhook consumer
   (writes `billing_events`, flips `family_plans.status`), double-purchase
-  guard, hard limits.
-- **Phase 5**: Flutter admin UI (registry, plan catalog, billing/grants).
+  guard, hard limits. Store-console setup (App Store Connect, Play Console,
+  RevenueCat project) has external lead time — start early.
 - **Phase 6**: retention job, re-auth for destructive admin actions,
   `backend.md`/`database-schema.md`/`QA.md` updates, store-release
   checklist additions.

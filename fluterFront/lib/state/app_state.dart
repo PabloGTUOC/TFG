@@ -56,6 +56,11 @@ class AppState extends ChangeNotifier {
   /// Backend user id (from /api/me), used to tell "my" tasks from others'.
   dynamic get userId => profile?['id'];
 
+  /// Platform-level admin (users.platform_role). Gates the Admin entry in
+  /// the profile screen only — every /api/admin call is re-checked
+  /// server-side, so this is convenience, not authorization.
+  bool get isPlatformAdmin => profile?['platform_role'] == 'admin';
+
   // ── Locale (user-selectable language, docs/i18n-plan.md) ────────
 
   static const String _localePrefKey = 'app_locale';

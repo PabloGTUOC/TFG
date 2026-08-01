@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../utils/avatar_upload.dart';
 import '../utils/json.dart';
 import '../services/tour_service.dart';
+import 'admin_screen.dart';
 import '../widgets/coach_marks.dart';
 import '../widgets/family_circle.dart';
 import '../widgets/help_sheet.dart';
@@ -752,6 +753,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
+          // Platform admin console (docs/admin-family-management-plan.md
+          // Phase 5). UI gating only — every /api/admin call re-checks the
+          // role server-side.
+          if (app.isPlatformAdmin) ...[
+            const Divider(height: 32),
+            Tappable(
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdminScreen())),
+              child: Row(
+                children: [
+                  const Icon(Icons.admin_panel_settings_outlined,
+                      size: 20, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(l.adminEntry,
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  ),
+                  const Icon(Icons.chevron_right_rounded,
+                      size: 18, color: AppColors.textSecondary),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           VButton(
             type: VButtonType.danger,
