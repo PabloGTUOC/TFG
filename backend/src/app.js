@@ -4,7 +4,10 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { requireAuth } from './middleware/auth.js';
 import { logLoginHistory } from './middleware/audit.js';
+import { requireAdmin } from './middleware/rbac.js';
+import { familyHeartbeat } from './middleware/heartbeat.js';
 import { familiesRouter } from './routes/families.js';
+import { adminRouter } from './routes/admin.js';
 import { activitiesRouter } from './routes/activities.js';
 import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
@@ -58,20 +61,31 @@ const perUserLimiter = rateLimit({
   keyGenerator: (req) => req.auth.uid, // auth is guaranteed set by this point
 });
 
+// Admin routes get a much tighter budget than regular user traffic.
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+  keyGenerator: (req) => req.auth.uid,
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'carecoins-backend' });
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+app.use('/api/admin', requireAuth, adminLimiter, requireAdmin, adminRouter);
 app.use('/api/me', requireAuth, perUserLimiter, meRouter);
-app.use('/api/families', requireAuth, perUserLimiter, familiesRouter);
-app.use('/api/activities', requireAuth, perUserLimiter, activitiesRouter);
-app.use('/api/dashboard', requireAuth, perUserLimiter, dashboardRouter);
-app.use('/api/marketplace', requireAuth, perUserLimiter, marketplaceRouter);
-app.use('/api/stats', requireAuth, perUserLimiter, statsRouter);
-app.use('/api/absences', requireAuth, perUserLimiter, absencesRouter);
-app.use('/api/events', requireAuth, perUserLimiter, eventsRouter);
+app.use('/api/families', requireAuth, perUserLimiter, familyHeartbeat, familiesRouter);
+app.use('/api/activities', requireAuth, perUserLimiter, familyHeartbeat, activitiesRouter);
+app.use('/api/dashboard', requireAuth, perUserLimiter, familyHeartbeat, dashboardRouter);
+app.use('/api/marketplace', requireAuth, perUserLimiter, familyHeartbeat, marketplaceRouter);
+app.use('/api/stats', requireAuth, perUserLimiter, familyHeartbeat, statsRouter);
+app.use('/api/absences', requireAuth, perUserLimiter, familyHeartbeat, absencesRouter);
+app.use('/api/events', requireAuth, perUserLimiter, familyHeartbeat, eventsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

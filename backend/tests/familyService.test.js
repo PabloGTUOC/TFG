@@ -243,16 +243,32 @@ describe('joinByInvitation', () => {
 // ─── approveMember ───────────────────────────────────────────────────────────
 
 describe('approveMember', () => {
+  const freePlan = () => ok([{ code: 'free', limits: {}, features: {}, status: null, source: 'default' }]);
+
   test('returns 404 when pending member not found', async () => {
-    const client = mockClient([{ rows: [], rowCount: 0 }]);
+    const client = mockClient([
+      empty(),                     // assertFamilyWritable — no family_plans row
+      { rows: [], rowCount: 0 },   // UPDATE family_members
+    ]);
     const result = await approveMember(client, 10, 99);
     assert.equal(result.error.code, 404);
   });
 
   test('returns success when member approved', async () => {
-    const client = mockClient([{ rows: [], rowCount: 1 }]);
+    const client = mockClient([
+      empty(),                     // assertFamilyWritable
+      { rows: [], rowCount: 1 },   // UPDATE family_members
+      freePlan(),                  // getFamilyEntitlements — unlimited, no count query
+    ]);
     const result = await approveMember(client, 10, 5);
     assert.equal(result.data.success, true);
+    assert.equal(result.data.warning, undefined);
+  });
+
+  test('returns 402 when the family subscription is past due', async () => {
+    const client = mockClient([ok([{ status: 'past_due' }])]);
+    const result = await approveMember(client, 10, 5);
+    assert.equal(result.error.code, 402);
   });
 });
 

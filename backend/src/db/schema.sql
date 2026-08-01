@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT,
   avatar_url TEXT,
   is_deleted BOOLEAN NOT NULL DEFAULT false,
+  platform_role TEXT NOT NULL DEFAULT 'user' CHECK (platform_role IN ('user', 'admin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -16,8 +17,11 @@ CREATE TABLE IF NOT EXISTS families (
   monthly_coin_budget INTEGER NOT NULL DEFAULT 1000 CHECK (monthly_coin_budget > 0),
   last_coin_distribution_month VARCHAR(7),
   created_by BIGINT NOT NULL REFERENCES users(id),
+  last_active_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_families_last_active ON families (last_active_at);
 
 CREATE TABLE IF NOT EXISTS family_members (
   id BIGSERIAL PRIMARY KEY,
@@ -183,6 +187,74 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   bounty_offered     BOOLEAN NOT NULL DEFAULT true,
   family_events      BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Plan / entitlement model (docs/admin-family-management-plan.md Phase 3):
+-- provider-agnostic subscription state; see scripts/migrate-plans.sql.
+CREATE TABLE IF NOT EXISTS plans (
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price_cents INTEGER NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  billing_period TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_period IN ('monthly', 'yearly')),
+  limits JSONB NOT NULL DEFAULT '{}',
+  features JSONB NOT NULL DEFAULT '{}',
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  active BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE TABLE IF NOT EXISTS family_plans (
+  family_id BIGINT PRIMARY KEY REFERENCES families(id) ON DELETE CASCADE,
+  plan_code TEXT NOT NULL REFERENCES plans(code),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN
+    ('trialing', 'active', 'in_grace', 'past_due', 'paused', 'canceled', 'expired')),
+  current_period_end TIMESTAMPTZ,
+  platform TEXT,
+  provider TEXT,
+  provider_subscription_id TEXT,
+  billing_owner_user_id BIGINT REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS billing_events (
+  id BIGSERIAL PRIMARY KEY,
+  provider TEXT NOT NULL,
+  event_id TEXT UNIQUE,
+  event_type TEXT NOT NULL,
+  family_id BIGINT REFERENCES families(id) ON DELETE SET NULL,
+  payload JSONB NOT NULL,
+  processed BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_events_family ON billing_events (family_id, created_at);
+
+CREATE TABLE IF NOT EXISTS admin_grants (
+  id BIGSERIAL PRIMARY KEY,
+  family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  plan_code TEXT NOT NULL REFERENCES plans(code),
+  granted_by BIGINT NOT NULL REFERENCES users(id),
+  reason TEXT,
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_grants_family ON admin_grants (family_id);
+
+-- Platform admin audit trail (docs/admin-family-management-plan.md Phase 1):
+-- one row per mutating admin action, written in the same transaction.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  admin_id BIGINT NOT NULL REFERENCES users(id),
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT,
+  payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_admin_time
+  ON admin_audit_log (admin_id, created_at);
 
 -- Onboarding instrumentation (docs/onboarding-help-plan.md Phase 4):
 -- one row per guided-tour / checklist event, for the activation analysis.
