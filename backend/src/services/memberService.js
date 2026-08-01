@@ -1,4 +1,18 @@
 import { assertActiveMember } from '../db/users.js';
+import { getFamilyEntitlements, limitWarning, assertFamilyWritable } from './entitlementService.js';
+
+// Soft enforcement (plan §3.4): computed after the admission so the count
+// reflects the result; the count query is skipped while the limit is
+// unbounded (the free default), which is the common case.
+async function memberLimitWarning(client, familyId) {
+  const entitlements = await getFamilyEntitlements(client, familyId);
+  if (entitlements.limits.max_members == null) return null;
+  const { rows } = await client.query(
+    `SELECT COUNT(*)::int AS n FROM family_members WHERE family_id = $1 AND status = 'active'`,
+    [familyId]
+  );
+  return limitWarning(entitlements, 'max_members', rows[0].n, 'member_limit_exceeded');
+}
 
 export async function listMembers(client, userId, familyId) {
   if (!await assertActiveMember(client, familyId, userId)) {
@@ -44,13 +58,18 @@ export async function createInvitation(client, user, familyId, { email, name }) 
 }
 
 export async function approveMember(client, familyId, userId) {
+  const gate = await assertFamilyWritable(client, familyId);
+  if (gate) return gate;
+
   const { rowCount } = await client.query(
     `UPDATE family_members SET status = 'active', role = 'caregiver'
      WHERE family_id = $1 AND user_id = $2 AND status = 'pending'`,
     [familyId, userId]
   );
   if (rowCount === 0) return { error: { code: 404, message: 'Pending member not found.' } };
-  return { data: { success: true } };
+
+  const warning = await memberLimitWarning(client, familyId);
+  return { data: { success: true, ...(warning && { warning }) } };
 }
 
 export async function updateMemberRole(client, familyId, userId, role) {
@@ -74,6 +93,9 @@ export async function joinByInvitation(client, user, { familyId, alias }) {
   if (!invRows.length) {
     return { error: { code: 403, message: 'No pending invitation found for your email address.' } };
   }
+  const gate = await assertFamilyWritable(client, familyId);
+  if (gate) return gate;
+
   await client.query(
     `INSERT INTO family_members (family_id, user_id, role, status, alias)
      VALUES ($1, $2, 'caregiver', 'active', $3)
@@ -87,7 +109,11 @@ export async function joinByInvitation(client, user, { familyId, alias }) {
      VALUES ($1, $2, 'person', $3) ON CONFLICT (family_id, user_id) DO NOTHING`,
     [familyId, user.id, user.display_name || user.email]
   );
-  return { data: { success: true, status: 'active' }, userId: user.id, familyId, displayName: user.display_name || user.email };
+  const warning = await memberLimitWarning(client, familyId);
+  return {
+    data: { success: true, status: 'active', ...(warning && { warning }) },
+    userId: user.id, familyId, displayName: user.display_name || user.email,
+  };
 }
 
 export async function joinByToken(client, user, { token, alias }) {
@@ -111,6 +137,9 @@ export async function joinByToken(client, user, { token, alias }) {
   if (existing.length && existing[0].status === 'active') {
     return { error: { code: 409, message: 'You are already an active member of this family.' } };
   }
+  const gate = await assertFamilyWritable(client, link.family_id);
+  if (gate) return gate;
+
   await client.query(
     `INSERT INTO family_members (family_id, user_id, role, status, alias)
      VALUES ($1, $2, 'caregiver', 'active', $3)
@@ -124,14 +153,18 @@ export async function joinByToken(client, user, { token, alias }) {
     [link.family_id, user.id, user.display_name || user.email]
   );
   await client.query(`UPDATE invite_links SET uses = uses + 1 WHERE id = $1`, [link.id]);
+  const warning = await memberLimitWarning(client, link.family_id);
   return {
-    data: { success: true, familyId: link.family_id },
+    data: { success: true, familyId: link.family_id, ...(warning && { warning }) },
     userId: user.id, familyId: link.family_id,
     displayName: user.display_name || user.email,
   };
 }
 
 export async function addActor(client, familyId, { name, actorType, careTime }) {
+  const gate = await assertFamilyWritable(client, familyId);
+  if (gate) return gate;
+
   const type = ['child', 'pet', 'elderly', 'person'].includes(actorType) ? actorType : 'child';
   const time = ['full_time', 'part_time'].includes(careTime) ? careTime : 'full_time';
   const budgetIncrease = time === 'full_time' ? 720 : 360;
@@ -144,7 +177,17 @@ export async function addActor(client, familyId, { name, actorType, careTime }) 
     `UPDATE families SET monthly_coin_budget = monthly_coin_budget + $1 WHERE id = $2`,
     [budgetIncrease, familyId]
   );
-  return { data: rows[0] };
+
+  const entitlements = await getFamilyEntitlements(client, familyId);
+  let warning = null;
+  if (entitlements.limits.max_actors != null) {
+    const { rows: countRows } = await client.query(
+      `SELECT COUNT(*)::int AS n FROM actors WHERE family_id = $1 AND user_id IS NULL`,
+      [familyId]
+    );
+    warning = limitWarning(entitlements, 'max_actors', countRows[0].n, 'actor_limit_exceeded');
+  }
+  return { data: { ...rows[0], ...(warning && { warning }) } };
 }
 
 export async function removeActor(client, familyId, actorId) {

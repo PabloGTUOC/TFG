@@ -1,6 +1,7 @@
 # Platform Admin, Family Registry & Subscriptions — Plan
 
-> Status: agreed design, pending implementation.
+> **Status: Phases 1–3 implemented** (see §6 Implementation log). Phase 4
+> (RevenueCat) and Phase 5 (Flutter admin UI) pending; Phase 6 rolling.
 > Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
 >
 > Decisions locked in this revision:
@@ -204,7 +205,7 @@ purchases inside the apps.
 
 ## 4. Development phases
 
-### Phase 1 — Platform admin foundation (backend) · S (1–2 days)
+### Phase 1 — Platform admin foundation (backend) · S (1–2 days) · ✅ DONE
 
 **Deliverables**
 - `scripts/migrate-platform-admin.sql`: `users.platform_role` + `admin_audit_log`;
@@ -219,7 +220,7 @@ purchases inside the apps.
 - Non-admin (and unauthenticated) requests to any `/api/admin/*` route → 403/401,
   covered by tests. Promotion works only via script.
 
-### Phase 2 — Family registry & heartbeat · M (2–3 days)
+### Phase 2 — Family registry & heartbeat · M (2–3 days) · ✅ DONE
 
 **Deliverables**
 - `scripts/migrate-heartbeat.sql`: `families.last_active_at` + one-time backfill from
@@ -238,7 +239,7 @@ purchases inside the apps.
 - Admin can answer "which families are active/dormant/inactive?" with zero access to
   family internals; heartbeat updates cost ≤ 1 write/family/hour.
 
-### Phase 3 — Plans & entitlements (provider-agnostic core) · M (3–4 days)
+### Phase 3 — Plans & entitlements (provider-agnostic core) · M (3–4 days) · ✅ DONE
 
 **Deliverables**
 - `scripts/migrate-plans.sql`: `plans`, `family_plans`, `billing_events`,
@@ -319,7 +320,105 @@ purchases inside the apps.
 
 ---
 
-## 5. Out of scope / related product task
+## 5. Implementation log (Phases 1–3)
+
+Everything below is implemented on the backend, with the full test suite green
+(91 tests). Endpoints all live under `/api/admin` behind
+`requireAuth → adminLimiter (100 req/15 min) → requireAdmin`.
+
+### Phase 1 — Platform admin foundation
+
+| Piece | Where |
+|---|---|
+| `users.platform_role` (`'user'`/`'admin'`) + `admin_audit_log` | `scripts/migrate-platform-admin.sql`, mirrored in `src/db/schema.sql`, chained in `scripts/init-db.js` |
+| CLI-only promotion | `node scripts/promote-admin.js <email> [--demote]` — no API path to become admin exists |
+| `requireAdmin` middleware + `checkPlatformAdmin` helper | `src/middleware/rbac.js` — DB is authoritative, mirrors `requireRole`'s shape |
+| `/api/admin` mount + self-check `GET /api/admin/status` | `src/app.js`, `src/routes/admin.js` |
+| `logAdminAction` audit helper | `src/services/adminService.js` — one row per mutating admin call, same transaction |
+
+Design note: platform admin is a **separate axis** from family roles — an
+admin gains zero implicit rights inside any family. This is the technical
+root of the privacy boundary.
+
+Drive-by fix: `src/utils/mailer.js` constructed the Resend client eagerly at
+import, crashing any keyless environment despite having a mock path for
+exactly that case. The client is now lazy.
+
+### Phase 2 — Family registry & heartbeat
+
+| Piece | Where |
+|---|---|
+| `families.last_active_at` + one-time backfill + index | `scripts/migrate-heartbeat.sql` (backfill = greatest of creation, latest activity, ledger entry, member join; then `NOT NULL DEFAULT NOW()`) |
+| Heartbeat middleware | `src/middleware/heartbeat.js`, mounted on all family-scoped routers in `app.js` |
+| `GET /api/admin/families?search=&status=&page=&pageSize=` | paged registry: id, name, createdAt, lastActiveAt, memberCount, status bucket |
+| `GET /api/admin/families/:id` | registry fields + pendingMemberCount + actorCount |
+| `POST /api/admin/families/:id/notify-inactive` | nudges caregivers via the existing push utility (`family_events` pref); audited |
+
+Decisions taken during implementation:
+
+- **Success-only heartbeat**: the middleware touches the timestamp on the
+  response `finish` event and only for `< 400` status codes — an
+  unauthorized probe cannot keep a family looking alive. Throttled
+  in-memory to one write per family per hour. Deliberately not mounted on
+  `/api/admin`: admin oversight is not family activity.
+- Buckets computed server-side: **active** ≤ 30 days, **dormant** 30–90,
+  **inactive** > 90.
+- **Leak barrier is tested**: `adminService` maps rows through an explicit
+  field allowlist, and `tests/adminRegistry.test.js` feeds it rows
+  contaminated with emails/aliases/activity titles and asserts only
+  registry fields surface. A future query that joins content tables fails CI.
+
+### Phase 3 — Plans & entitlements
+
+| Piece | Where |
+|---|---|
+| `plans`, `family_plans`, `billing_events`, `admin_grants` + `free` seed + backfill | `scripts/migrate-plans.sql`, mirrored in `schema.sql` |
+| Default plan assigned at family creation | `familyService.createFamily` |
+| `getFamilyEntitlements` / `limitWarning` / `assertFamilyWritable` | `src/services/entitlementService.js` |
+| Soft enforcement choke points | `memberService.approveMember`, `joinByInvitation`, `joinByToken` (`member_limit_exceeded`), `memberService.addActor` (`actor_limit_exceeded`), marketplace reward creation (`reward_limit_exceeded`) |
+| Plan catalog API | `GET/POST /api/admin/plans`, `PATCH /api/admin/plans/:code` (audited) |
+| Family billing view | `GET /api/admin/families/:id/billing` — subscription state, grants, and event **metadata only** (id/provider/type/processed/time — never raw provider payloads) |
+| Grants API | `POST /api/admin/families/:id/grants`, `DELETE …/grants/:grantId` (revocation = `revoked_at` timestamp, never a hard delete; audited) |
+
+Decisions taken during implementation:
+
+- **Entitlement merge, most generous wins**, across three sources: default
+  plan (always), subscription plan (only in good standing:
+  `trialing`/`active`/`in_grace`), unrevoked+unexpired admin grants.
+  Limits: absent key = unlimited for that source, and unlimited from any
+  source wins. Features: opposite polarity — ON if any source grants it.
+- **Suspension is `past_due` only.** `canceled`/`expired`/`paused`
+  subscriptions downgrade gracefully to the default plan — the family
+  keeps working at free-tier entitlements. Only unpaid-but-owed
+  (`past_due`, i.e. beyond the store grace window) triggers
+  `assertFamilyWritable`'s 402 read-only gate, which is called **before**
+  mutations at every choke point (`withTransaction` only rolls back on
+  throw, so a post-write gate would not undo anything).
+- **Soft rollout as planned**: limit breaches attach a `warning` field to
+  otherwise-successful responses (`budget_exceeded` pattern). Warnings use
+  post-operation counts and fire only strictly over the limit. Hardening
+  to rejections is a Phase 4 flip.
+- The seeded `free` plan ships with `limits = {}` (= everything
+  unlimited), so rollout changes nothing for existing families. Limits
+  become real the moment the catalog is edited via
+  `PATCH /api/admin/plans/free` — no code change needed.
+- Gating the marketplace *redeem* route and activity writes under
+  suspension is deferred to Phase 4 hardening, when `past_due` can
+  actually occur (nothing sets it until webhooks exist).
+
+### Still pending
+
+- **Phase 4**: RevenueCat SDK + purchase-intent endpoint + webhook consumer
+  (writes `billing_events`, flips `family_plans.status`), double-purchase
+  guard, hard limits.
+- **Phase 5**: Flutter admin UI (registry, plan catalog, billing/grants).
+- **Phase 6**: retention job, re-auth for destructive admin actions,
+  `backend.md`/`database-schema.md`/`QA.md` updates, store-release
+  checklist additions.
+
+---
+
+## 6. Out of scope / related product task
 
 - **Orphaned families** (sole caregiver leaves/demotes): under the privacy boundary
   admin cannot fix this by editing roles. Solve it inside the product instead — block

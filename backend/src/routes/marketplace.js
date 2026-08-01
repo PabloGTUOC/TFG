@@ -3,6 +3,7 @@ import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, required, string, positiveInt, isoDate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/rbac.js';
+import { getFamilyEntitlements, limitWarning, assertFamilyWritable } from '../services/entitlementService.js';
 
 export const marketplaceRouter = Router();
 
@@ -68,8 +69,12 @@ marketplaceRouter.post('/rewards',
     if (!familyId || !title || !cost) return res.status(400).json({ error: 'familyId, title and cost are required.' });
 
     try {
-      const reward = await withTransaction(async (client) => {
+      const result = await withTransaction(async (client) => {
         const me = await upsertUserFromAuth(client, req.auth);
+
+        const gate = await assertFamilyWritable(client, familyId);
+        if (gate) return gate;
+
         const { rows } = await client.query(
           `INSERT INTO marketplace_rewards (family_id, creator_id, title, description, cost, max_uses, valid_from, valid_until)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -81,10 +86,21 @@ marketplaceRouter.post('/rewards',
             validUntil ? new Date(validUntil) : null
           ]
         );
-        return rows[0];
+
+        const entitlements = await getFamilyEntitlements(client, familyId);
+        let warning = null;
+        if (entitlements.limits.max_active_rewards != null) {
+          const { rows: countRows } = await client.query(
+            `SELECT COUNT(*)::int AS n FROM marketplace_rewards WHERE family_id = $1 AND status = 'active'`,
+            [familyId]
+          );
+          warning = limitWarning(entitlements, 'max_active_rewards', countRows[0].n, 'reward_limit_exceeded');
+        }
+        return { reward: rows[0], warning };
       });
 
-      return res.status(201).json({ reward });
+      if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+      return res.status(201).json({ reward: result.reward, ...(result.warning && { warning: result.warning }) });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Failed to create reward.' });

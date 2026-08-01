@@ -36,6 +36,10 @@ async function main() {
   await pool.query(await fs.readFile(heartbeatPath, 'utf8'));
   console.log('Family heartbeat column ready.');
 
+  const plansPath = path.join(__dirname, 'migrate-plans.sql');
+  await pool.query(await fs.readFile(plansPath, 'utf8'));
+  console.log('Plans, subscriptions and grants ready.');
+
   await pool.end();
 }
 

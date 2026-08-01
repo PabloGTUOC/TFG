@@ -57,6 +57,14 @@ export async function createFamily(client, user, { name, mainCaretakerName, alia
   );
   const famId = famRows[0].id;
 
+  // Every family starts on the default plan (no-op if none is seeded yet).
+  await client.query(
+    `INSERT INTO family_plans (family_id, plan_code, provider)
+     SELECT $1, code, 'system' FROM plans WHERE is_default = true LIMIT 1
+     ON CONFLICT (family_id) DO NOTHING`,
+    [famId]
+  );
+
   await client.query(
     `INSERT INTO family_members (family_id, user_id, role, status, alias)
      VALUES ($1, $2, 'caregiver', 'active', $3)`,
