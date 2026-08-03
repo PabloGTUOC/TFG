@@ -23,6 +23,7 @@ CareCoins backend is a **Node.js REST API** built with Express, connected to Pos
 15. [Background Jobs](#15-background-jobs)
 16. [Infrastructure & Docker](#16-infrastructure--docker)
 17. [Testing](#17-testing)
+18. [Platform Admin, Registry & Subscriptions](#18-platform-admin-registry--subscriptions)
 
 ---
 
@@ -685,3 +686,81 @@ Playwright E2E tests in `frontend/e2e/` exercise the full stack end-to-end:
 - A real PostgreSQL test database (separate from production)
 
 Test setup (`global.setup.js`) creates 3 test users, seeds the shared family/activities/rewards, and saves 3 auth state files (`auth.state.json`, `auth2.state.json`, `onboarding.state.json`). Individual tests load these states to skip the login flow. `auth.setup.js` is a shared helper module with page-navigation utilities used by spec files.
+
+---
+
+## 18. Platform Admin, Registry & Subscriptions
+
+Added per `docs/admin-family-management-plan.md` (Phases 1–3, 5, 6). Full
+design rationale and implementation log live in that document; this section
+is the operational reference.
+
+### Identity & authorization
+
+- `users.platform_role` (`'user'` | `'admin'`) is a **global axis, separate
+  from family roles** — an admin gains no rights inside any family.
+  Promotion is CLI-only: `node scripts/promote-admin.js <email> [--demote]`.
+- `requireAdmin` (in `src/middleware/rbac.js`) guards `/api/admin`, mounted
+  as `requireAuth → adminLimiter (100 req/15 min per UID) → requireAdmin`.
+  The DB is authoritative; nothing client-side is trusted.
+- Every mutating admin call writes one `admin_audit_log` row in the same
+  transaction (`logAdminAction` in `src/services/adminService.js`).
+
+### Privacy boundary
+
+Admin endpoints expose **registry aggregates and billing state only** —
+never member identities, activities, coins or rewards, and never raw
+billing-provider payloads. `adminService` maps rows through explicit field
+allowlists, and `tests/adminRegistry.test.js` feeds contaminated rows to
+assert nothing else can leak (CI fails otherwise).
+
+### Family heartbeat
+
+`families.last_active_at` is touched by the `familyHeartbeat` middleware
+(`src/middleware/heartbeat.js`) on **successful** family-scoped responses
+only, throttled in-memory to one write per family per hour, and not mounted
+on `/api/admin`. Buckets: active ≤ 30 days, dormant 30–90, inactive > 90.
+
+### Admin endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/admin/status` | Self-check for the Flutter admin console gate |
+| `GET /api/admin/families?search=&status=&page=&pageSize=` | Paged registry (name/ID search, heartbeat-bucket filter) |
+| `GET /api/admin/families/:id` | Registry detail + pending/actor counts |
+| `POST /api/admin/families/:id/notify-inactive` | Push nudge to caregivers via `notifyFamilyCaregivers` (identities never shown to the admin); audited |
+| `GET /api/admin/plans` · `POST /api/admin/plans` · `PATCH /api/admin/plans/:code` | Plan catalog CRUD; audited |
+| `GET /api/admin/families/:id/billing` | Subscription state + grants + billing-event metadata |
+| `POST /api/admin/families/:id/grants` · `DELETE …/grants/:grantId` | Comp/trial grants; revocation stamps `revoked_at`; audited |
+
+### Entitlements
+
+`src/services/entitlementService.js`:
+
+- `getFamilyEntitlements(client, familyId)` merges the default plan, the
+  subscription (only while `trialing`/`active`/`in_grace`) and unrevoked,
+  unexpired admin grants — **most generous wins** (absent limit key =
+  unlimited; features are ON if any source grants them).
+- `limitWarning(...)` implements the soft rollout: choke points
+  (member approve/join, actor add, reward create) attach
+  `member_limit_exceeded` / `actor_limit_exceeded` /
+  `reward_limit_exceeded` warnings to successful responses.
+- `assertFamilyWritable(client, familyId)` returns a 402 error object when
+  `family_plans.status = 'past_due'`; called **before** mutations
+  (`withTransaction` only rolls back on throw). Other lapsed statuses
+  downgrade gracefully to the default plan instead of blocking writes.
+
+### Retention sweep
+
+`node scripts/retention-sweep.js [--apply] [--inactive-days=365] [--notice-days=30]`
+— deletes families that are both long-inactive **and** were sent an
+inactivity notice that went unanswered. Dry-run by default; the DELETE
+re-verifies inactivity so a family that returned is skipped; the audit row
+is attributed to the admin whose notice started the process
+(`src/services/retentionService.js`, `tests/retention.test.js`).
+
+### Tests
+
+`tests/adminFoundation.test.js`, `tests/adminRegistry.test.js`,
+`tests/entitlements.test.js`, `tests/retention.test.js` — mock-client style,
+same as the rest of the suite.

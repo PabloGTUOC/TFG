@@ -168,7 +168,17 @@ Real-time web push via **Firebase Cloud Messaging**. Notifications are sent serv
 | New member joined | All family caregivers |
 | Family deletion requested | All family caregivers |
 
-### 13. Progressive Web App (PWA)
+### 13. Platform Administration & Plans
+
+A platform-level **admin** role (separate from family roles, CLI-promoted only) operates a registry-and-billing console inside the app:
+- **Family registry**: liveness only — each family's heartbeat bucket (active ≤ 30 days / dormant 30–90 / inactive > 90), member counts, and plan badge. A strict privacy boundary applies: the admin never sees a family's members, tasks, coins, or rewards; the API physically cannot return them, and a CI test enforces it.
+- **Inactivity flow**: the admin can nudge a quiet family (push notice sent to its caregivers without revealing identities), and a retention sweep later deletes families that were noticed and stayed silent — the admin triggers the process, the system touches the data.
+- **Plan catalog & subscriptions**: plans carry price, billing period, and per-key limits (members, objects of care, active rewards; empty = unlimited). Every family starts on the free default plan; entitlements merge the default plan, a good-standing store subscription, and any admin grants (comps/trials) — most generous wins. Only a payment-owed subscription (`past_due`) makes a family read-only; cancellations downgrade gracefully. Store billing (RevenueCat → App Store / Google Play) is the pending integration; the backend model is provider-ready.
+- Every admin mutation is written to an audit log in the same transaction.
+
+See `docs/admin-family-management-plan.md` for the full design and implementation log.
+
+### 14. Progressive Web App (PWA)
 
 CareCoins is installable as a PWA on iOS (Add to Home Screen) and Android (install prompt). Features:
 - `manifest.webmanifest` with name, icons (192 × 192, 512 × 512), standalone display mode, and brand colours.
