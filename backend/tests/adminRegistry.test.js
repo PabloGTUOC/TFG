@@ -122,7 +122,7 @@ describe('familyHeartbeat middleware', () => {
 
 // ─── registry: listFamilies ─────────────────────────────────────────────────
 
-const REGISTRY_KEYS = ['createdAt', 'id', 'lastActiveAt', 'memberCount', 'name', 'status'];
+const REGISTRY_KEYS = ['createdAt', 'id', 'lastActiveAt', 'memberCount', 'name', 'planCode', 'status', 'subscriptionStatus'];
 
 describe('listFamilies', () => {
   test('maps rows to allowlisted registry fields only', async () => {

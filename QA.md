@@ -664,3 +664,54 @@ Casting to Number and back to String turns any non-numeric input into `"NaN"`, w
 ### 30-second tribunal version
 
 > "All database queries use `pg`'s parameterised query API — user values go in the params array, never in the SQL string, so Postgres receives them as data and never interprets them as syntax. The one dynamic SQL fragment in the codebase is `prefClause` in `notify.js`, which interpolates a column name — but it's guarded by a whitelist Set before interpolation, and the value never comes from a user request anyway. There is no injection surface."
+
+---
+
+## 12. Platform admin, privacy boundary & subscriptions (added 2026-08)
+
+New surface since the deep-dive: a platform-level admin console and a
+plan/entitlement model (`docs/admin-family-management-plan.md`). Likely
+questions and the verified answers:
+
+- **"You added a superuser. Can the admin read a family's tasks or coins?"**
+  — No, by construction at three layers: (1) `platform_role` is a separate
+  axis from family roles, so `requireAdmin` grants nothing inside any
+  family-scoped route; (2) the admin service maps every query through an
+  explicit field allowlist (registry aggregates + billing state only); (3) a
+  CI test feeds rows contaminated with emails/aliases/activity titles and
+  fails if anything beyond the allowlist surfaces. There is no admin
+  endpoint that joins content tables.
+
+- **"How do you know a family is active without reading their data?"** — An
+  explicit heartbeat: `families.last_active_at`, touched by middleware on
+  successful family-scoped responses only (a probe that gets 403 can't keep
+  a family alive), throttled to one write per family per hour. The admin
+  registry reads that one column — never activities or logins — and buckets
+  it: active ≤ 30 d, dormant 30–90 d, inactive > 90 d.
+
+- **"How would deleting abandoned data work under GDPR storage limitation?"**
+  — As a process, not a button: the admin sends an audited inactivity
+  notice (push to caregivers, identities never shown), and
+  `scripts/retention-sweep.js` later deletes families that stayed silent
+  past the waiting period. Dry-run by default, the DELETE re-verifies
+  inactivity, and the deletion is audited.
+
+- **"Why is the backend the source of truth for subscriptions instead of
+  the app stores?"** — Subscriptions are per-family but stores sell to a
+  person; the other caregiver on the other platform has no purchase on
+  their device. So clients always ask our API, and store webhooks (via
+  RevenueCat, pending) write into `family_plans`. Admin comps live in a
+  separate `admin_grants` table so store truth and admin truth never
+  overwrite each other; effective entitlement is the most generous merge.
+
+- **"What happens when a subscription lapses?"** — Graceful by default:
+  `canceled`/`expired`/`paused` just drop the family to the default plan's
+  entitlements. Only `past_due` (payment owed beyond the store's grace
+  window) makes the family read-only via a 402 gate that runs *before*
+  mutations — placed there because `withTransaction` only rolls back on
+  throw, so a post-write check couldn't undo anything.
+
+- **"Why can't an admin promote themselves?"** — There is no API path to
+  `platform_role`; promotion is `scripts/promote-admin.js` on the server.
+  Every mutating admin call writes an `admin_audit_log` row in the same
+  transaction, so the admin is accountable too.

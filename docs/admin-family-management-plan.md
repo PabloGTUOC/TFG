@@ -1,7 +1,7 @@
 # Platform Admin, Family Registry & Subscriptions — Plan
 
-> **Status: Phases 1–3 implemented** (see §6 Implementation log). Phase 4
-> (RevenueCat) and Phase 5 (Flutter admin UI) pending; Phase 6 rolling.
+> **Status: Phases 1–3, 5 and 6 implemented** (see §5 Implementation log).
+> Phase 4 (RevenueCat) is the only remaining phase.
 > Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
 >
 > Decisions locked in this revision:
@@ -280,7 +280,7 @@ purchases inside the apps.
   webhook delivery; cancellation downgrades at period end, not immediately; replayed
   webhooks are no-ops.
 
-### Phase 5 — Admin UI (Flutter) · M (3–4 days)
+### Phase 5 — Admin UI (Flutter) · M (3–4 days) · ✅ DONE
 
 **Deliverables**
 - `/api/me` returns `platformRole`; Admin entry in shell/profile only for admins
@@ -294,7 +294,7 @@ purchases inside the apps.
 - Admin can run registry + billing oversight entirely from the app; no screen renders
   family internals.
 
-### Phase 6 — Hardening, retention, docs & store readiness · S (1–2 days)
+### Phase 6 — Hardening, retention, docs & store readiness · S (1–2 days) · ✅ DONE
 
 **Deliverables**
 - Retention policy for `inactive` families: notice → waiting period → automated
@@ -406,15 +406,46 @@ Decisions taken during implementation:
   suspension is deferred to Phase 4 hardening, when `past_due` can
   actually occur (nothing sets it until webhooks exist).
 
+### Phase 5 — Flutter admin UI
+
+| Piece | Where |
+|---|---|
+| `platform_role` in `/api/me` | `upsertUserFromAuth` RETURNING clauses (`src/db/users.js`) — flows through automatically |
+| Gated entry | Profile → Account Settings shows an "Admin console" row only when `AppState.isPlatformAdmin`; UI gating only, server re-checks every call |
+| Console | `fluterFront/lib/screens/admin_screen.dart`: `AdminScreen` (Families / Plans tabs), `AdminFamilyDetailScreen` |
+| Families tab | search, status filter (all/active/dormant/inactive), status + plan pills, pagination ("load more") |
+| Family detail | registry card (created, heartbeat, counts, notify-inactive with confirm), billing card, grants card (grant dialog: plan dropdown + reason + expiry-in-days; revoke), billing-event metadata list |
+| Plans tab | catalog list with default/inactive badges, create/edit dialog (name, price cents, period, per-key limits where empty = unlimited, default/active switches) |
+| l10n | 58 keys added to all four `.arb` files (en/es/fr/de) |
+| Registry API addition | list/detail now also return `planCode` + `subscriptionStatus` (registry-safe) for the plan badges; leak-test allowlist updated |
+
+The console renders registry and billing state only — there is deliberately
+no screen that shows members, tasks or coins, mirroring the API boundary.
+
+### Phase 6 — Hardening, retention & docs
+
+| Piece | Where |
+|---|---|
+| Retention sweep | `src/services/retentionService.js` + `scripts/retention-sweep.js` — dry-run by default, `--apply` to delete; candidates need BOTH `last_active_at` older than `--inactive-days` (365) AND a `family.notify_inactive` audit entry older than `--notice-days` (30); the DELETE re-verifies inactivity so a returning family is skipped; audited as the admin whose notice started the process |
+| Re-auth plumbing | `req.auth.authTime` (Firebase `auth_time`) now available for future recent-login guards |
+| Docs | `backend.md` §18 (operational reference), `database-schema.md` (5 new tables, 2 new columns, 4 new indexes), `PRODUCT.md` feature §13, `QA.md` §12 (tribunal Q&A on the privacy boundary and subscriptions), `store-release-checklist.md` (Phase 4 IAP prep checklist) |
+| Tests | `tests/retention.test.js` |
+
+Decision on **re-auth for destructive admin actions**: deferred, deliberately.
+No admin API endpoint is destructive today — the strongest API powers are
+grant revocation and the (audited) inactivity notice; retention deletion runs
+via an operator CLI that already requires server access. `req.auth.authTime`
+is plumbed so a recent-login guard is a five-line middleware when Phase 4
+adds anything sharper.
+
 ### Still pending
 
-- **Phase 4**: RevenueCat SDK + purchase-intent endpoint + webhook consumer
-  (writes `billing_events`, flips `family_plans.status`), double-purchase
-  guard, hard limits.
-- **Phase 5**: Flutter admin UI (registry, plan catalog, billing/grants).
-- **Phase 6**: retention job, re-auth for destructive admin actions,
-  `backend.md`/`database-schema.md`/`QA.md` updates, store-release
-  checklist additions.
+- **Phase 4** (the only remaining phase): RevenueCat SDK + purchase-intent
+  endpoint + webhook consumer (writes `billing_events`, flips
+  `family_plans.status`), double-purchase guard, hard limits.
+  Store-console setup (App Store Connect, Play Console, RevenueCat
+  project) has external lead time — start early. The store-release
+  checklist now carries the IAP review prep list.
 
 ---
 

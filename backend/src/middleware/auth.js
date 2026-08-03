@@ -44,7 +44,10 @@ export async function requireAuth(req, res, next) {
     req.auth = {
       uid: decoded.uid,
       email: decoded.email || null,
-      name: decoded.name || null
+      name: decoded.name || null,
+      // Seconds-since-epoch of the user's last credential entry; lets
+      // destructive endpoints demand a recent re-login when one is added.
+      authTime: decoded.auth_time ?? null
     };
 
     return next();

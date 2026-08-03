@@ -93,3 +93,31 @@ Every release:
 - [ ] Avatar upload (validates `/uploads` proxying through nginx).
 - [ ] Run `backend/scripts/onboarding-report.sql` after the first cohort
       to measure activation.
+
+---
+
+## Before shipping subscriptions (Phase 4 prep — not yet active)
+
+When RevenueCat / in-app purchases land
+(`docs/admin-family-management-plan.md` Phase 4), both stores add review
+requirements that are cheaper to prepare early:
+
+- [ ] Subscription products created in App Store Connect and Play Console
+      (matching product IDs), attached to a RevenueCat project with a
+      `premium` entitlement and the webhook pointed at
+      `/api/billing/webhook` (shared secret set).
+- [ ] **Restore purchases** entry point present in the app — Apple requires
+      it. Ours is trivial: entitlements come from the backend, so "restore"
+      is a re-sync, but the button must exist.
+- [ ] Paywall shows price, billing period, and auto-renewal terms before
+      purchase (both stores reject paywalls that hide the renewal).
+- [ ] "Manage subscription" deep links to the store's subscription
+      settings (the payment relationship belongs to the user and the
+      store — never cancel server-side).
+- [ ] Double-purchase guard verified: a family already subscribed on the
+      other platform sees "manage it there" instead of a second checkout.
+- [ ] Sandbox matrix passed on both stores: purchase, renewal, cancel,
+      expiration, billing-issue/grace, and cross-platform visibility
+      (iOS sandbox purchase → Android member sees premium).
+- [ ] Store listing metadata declares the subscription (App Store
+      "In-App Purchases" section / Play "In-app products").

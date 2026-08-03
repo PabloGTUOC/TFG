@@ -22,6 +22,11 @@ The schema uses PostgreSQL with the `uuid-ossp` extension loaded. Most tables us
 14. [family_deletion_approvals](#14-family_deletion_approvals)
 15. [fcm_tokens](#15-fcm_tokens)
 16. [notification_preferences](#16-notification_preferences)
+17. [admin_audit_log](#17-admin_audit_log)
+18. [plans](#18-plans)
+19. [family_plans](#19-family_plans)
+20. [billing_events](#20-billing_events)
+21. [admin_grants](#21-admin_grants)
 
 ---
 
@@ -37,6 +42,7 @@ Core identity table. Each row represents one registered user, linked to Firebase
 | `display_name` | TEXT | — | Human-readable name shown in the UI |
 | `avatar_url` | TEXT | — | URL to the user's profile picture |
 | `is_deleted` | BOOLEAN | NOT NULL, DEFAULT false | Soft-delete flag; deleted users are hidden but their data is preserved |
+| `platform_role` | TEXT | NOT NULL, DEFAULT 'user', CHECK IN ('user','admin') | Global role, separate from family roles; set only via `scripts/promote-admin.js` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Account creation timestamp |
 
 **Logic notes:**
@@ -57,6 +63,7 @@ Represents a family group. All shared data (activities, coins, rewards) belongs 
 | `monthly_coin_budget` | INTEGER | NOT NULL, DEFAULT 1000, CHECK > 0 | Total CareCoins distributed to caregivers each month |
 | `last_coin_distribution_month` | VARCHAR(7) | — | Last month coins were distributed, in `YYYY-MM` format; used to prevent double distribution |
 | `created_by` | BIGINT | NOT NULL, FK → users(id) | User who created the family |
+| `last_active_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Heartbeat: touched (throttled, ≤1/h) by successful family-scoped requests; drives the admin registry's active/dormant/inactive buckets |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Creation timestamp |
 
 **Logic notes:**
@@ -384,6 +391,95 @@ Per-user opt-in/opt-out settings for each push notification category.
 
 ---
 
+## 17. `admin_audit_log`
+
+One row per mutating platform-admin action, written in the same transaction as the mutation (see `docs/admin-family-management-plan.md`).
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | BIGSERIAL | PRIMARY KEY | Internal identifier |
+| `admin_id` | BIGINT | NOT NULL, FK → users(id) | Admin who performed the action |
+| `action` | TEXT | NOT NULL | Dotted action name (`plan.create`, `grant.revoke`, `family.notify_inactive`, `family.retention_delete`, …) |
+| `target_type` | TEXT | NOT NULL | `family`, `plan`, or `none` |
+| `target_id` | TEXT | — | Target identifier as text |
+| `payload` | JSONB | — | Action-specific detail |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When it happened |
+
+---
+
+## 18. `plans`
+
+Subscription plan catalog, managed via `/api/admin/plans`.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `code` | TEXT | PRIMARY KEY | Stable identifier (`free`, `plus`, …) |
+| `name` | TEXT | NOT NULL | Display name |
+| `price_cents` | INTEGER | NOT NULL, DEFAULT 0, CHECK >= 0 | Price per period |
+| `currency` | TEXT | NOT NULL, DEFAULT 'EUR' | ISO currency |
+| `billing_period` | TEXT | NOT NULL, DEFAULT 'monthly', CHECK IN ('monthly','yearly') | Billing cadence |
+| `limits` | JSONB | NOT NULL, DEFAULT '{}' | Limit keys (`max_members`, `max_actors`, `max_active_rewards`); an absent key means unlimited |
+| `features` | JSONB | NOT NULL, DEFAULT '{}' | Feature flags granted by the plan |
+| `is_default` | BOOLEAN | NOT NULL, DEFAULT false | The plan every family starts on (exactly one in practice) |
+| `active` | BOOLEAN | NOT NULL, DEFAULT true | Inactive plans cannot be granted |
+
+---
+
+## 19. `family_plans`
+
+One subscription record per family; the single source of truth clients read entitlements from (via the backend, never a store SDK).
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `family_id` | BIGINT | PRIMARY KEY, FK → families(id) ON DELETE CASCADE | One row per family |
+| `plan_code` | TEXT | NOT NULL, FK → plans(code) | Current plan |
+| `status` | TEXT | NOT NULL, DEFAULT 'active', CHECK IN ('trialing','active','in_grace','past_due','paused','canceled','expired') | Subscription lifecycle state |
+| `current_period_end` | TIMESTAMPTZ | — | End of the paid period |
+| `platform` | TEXT | — | `app_store` / `play` (future: `stripe`) |
+| `provider` | TEXT | — | `system`, `revenuecat`, … |
+| `provider_subscription_id` | TEXT | — | Provider-side reference for support lookups |
+| `billing_owner_user_id` | BIGINT | FK → users(id) | Whose store account pays |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last state change |
+
+**Logic notes:**
+- `trialing`/`active`/`in_grace` confer plan benefits; `canceled`/`expired`/`paused` downgrade gracefully to the default plan; only `past_due` puts the family in read-only mode (`assertFamilyWritable`, HTTP 402).
+
+---
+
+## 20. `billing_events`
+
+Raw payment-provider webhook log; gives idempotency (`event_id` UNIQUE) and a debugging trail. Admin endpoints expose only metadata, never `payload`.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | BIGSERIAL | PRIMARY KEY | Internal identifier |
+| `provider` | TEXT | NOT NULL | Event source |
+| `event_id` | TEXT | UNIQUE | Provider's event id; dedupes replays |
+| `event_type` | TEXT | NOT NULL | Provider event name (`RENEWAL`, `CANCELLATION`, …) |
+| `family_id` | BIGINT | FK → families(id) ON DELETE SET NULL | Attributed family |
+| `payload` | JSONB | NOT NULL | Raw event body |
+| `processed` | BOOLEAN | NOT NULL, DEFAULT false | Whether the event was applied to `family_plans` |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Receipt time |
+
+---
+
+## 21. `admin_grants`
+
+Comps/trials issued by platform admins — deliberately separate from `family_plans` so store truth and admin truth never overwrite each other. Effective entitlement is the most generous of both.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | BIGSERIAL | PRIMARY KEY | Internal identifier |
+| `family_id` | BIGINT | NOT NULL, FK → families(id) ON DELETE CASCADE | Beneficiary family |
+| `plan_code` | TEXT | NOT NULL, FK → plans(code) | Granted plan |
+| `granted_by` | BIGINT | NOT NULL, FK → users(id) | Admin who granted it |
+| `reason` | TEXT | — | Free-text justification |
+| `expires_at` | TIMESTAMPTZ | — | Optional expiry; NULL = open-ended |
+| `revoked_at` | TIMESTAMPTZ | — | Revocation timestamp (never hard-deleted) |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Grant time |
+
+---
+
 ## Indexes Summary
 
 | Index | Table | Columns | Purpose |
@@ -394,3 +490,7 @@ Per-user opt-in/opt-out settings for each push notification category.
 | `idx_absences_family_period` | `absences` | `(family_id, start_time, end_time)` | Overlap detection for scheduling |
 | `idx_invite_links_family` | `invite_links` | `(family_id)` | List all links for a family |
 | `idx_fcm_tokens_user_id` | `fcm_tokens` | `(user_id)` | Fetch all device tokens for a user before sending push notifications |
+| `idx_families_last_active` | `families` | `(last_active_at)` | Admin registry ordering and status-bucket filters |
+| `idx_admin_audit_log_admin_time` | `admin_audit_log` | `(admin_id, created_at)` | Audit trail lookups per admin |
+| `idx_billing_events_family` | `billing_events` | `(family_id, created_at)` | Billing history per family |
+| `idx_admin_grants_family` | `admin_grants` | `(family_id)` | Grant lookups during entitlement merges |

@@ -37,6 +37,8 @@ function toRegistryEntry(row, nowMs) {
     lastActiveAt: row.last_active_at,
     memberCount: Number(row.member_count ?? 0),
     status: heartbeatBucket(row.last_active_at, nowMs),
+    planCode: row.plan_code ?? null,
+    subscriptionStatus: row.subscription_status ?? null,
   };
 }
 
@@ -56,10 +58,12 @@ export async function listFamilies(client, { search = '', status = '', page = 1,
   params.push(size, (p - 1) * size);
   const { rows } = await client.query(
     `SELECT f.id, f.name, f.created_at, f.last_active_at,
+            fp.plan_code, fp.status AS subscription_status,
             (SELECT COUNT(*) FROM family_members fm
               WHERE fm.family_id = f.id AND fm.status = 'active') AS member_count,
             COUNT(*) OVER() AS total
      FROM families f
+     LEFT JOIN family_plans fp ON fp.family_id = f.id
      ${whereSql}
      ORDER BY f.last_active_at DESC, f.id
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -79,6 +83,7 @@ export async function listFamilies(client, { search = '', status = '', page = 1,
 export async function getFamilyRegistry(client, familyId, nowMs = Date.now()) {
   const { rows } = await client.query(
     `SELECT f.id, f.name, f.created_at, f.last_active_at,
+            fp.plan_code, fp.status AS subscription_status,
             (SELECT COUNT(*) FROM family_members fm
               WHERE fm.family_id = f.id AND fm.status = 'active') AS member_count,
             (SELECT COUNT(*) FROM family_members fm
@@ -86,6 +91,7 @@ export async function getFamilyRegistry(client, familyId, nowMs = Date.now()) {
             (SELECT COUNT(*) FROM actors a
               WHERE a.family_id = f.id AND a.user_id IS NULL) AS actor_count
      FROM families f
+     LEFT JOIN family_plans fp ON fp.family_id = f.id
      WHERE f.id = $1`,
     [familyId]
   );

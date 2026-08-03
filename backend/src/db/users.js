@@ -13,7 +13,7 @@ export async function upsertUserFromAuth(client, auth) {
      SET email        = COALESCE($2, email),
          display_name = COALESCE($3, display_name)
      WHERE firebase_uid = $1
-     RETURNING id, firebase_uid, email, display_name, avatar_url`,
+     RETURNING id, firebase_uid, email, display_name, avatar_url, platform_role`,
     [auth.uid, auth.email, auth.name]
   );
   if (updated.length) return updated[0];
@@ -26,7 +26,7 @@ export async function upsertUserFromAuth(client, auth) {
      ON CONFLICT (email)
      DO UPDATE SET firebase_uid  = EXCLUDED.firebase_uid,
                    display_name  = COALESCE(EXCLUDED.display_name, users.display_name)
-     RETURNING id, firebase_uid, email, display_name, avatar_url`,
+     RETURNING id, firebase_uid, email, display_name, avatar_url, platform_role`,
     [auth.uid, auth.email, auth.name]
   );
   return rows[0];
