@@ -708,5 +708,19 @@
   "adminPlanSaved": "Tarif gespeichert.",
   "adminDefaultBadge": "Standard",
   "adminInactiveBadge": "Inaktiv",
-  "adminPriceFree": "Kostenlos"
+  "adminPriceFree": "Kostenlos",
+
+  "proSectionTitle": "MyCareCoins Pro",
+  "proActive": "Deine Familie hat MyCareCoins Pro.",
+  "proFreePlan": "Deine Familie nutzt den Gratis-Tarif.",
+  "proManagedVia": "Verwaltet über {platform}",
+  "proRenewsOn": "Verlängert oder endet am {date}",
+  "proUpgradeBtn": "Auf Pro upgraden",
+  "proManageBtn": "Abo verwalten",
+  "proRestoreBtn": "Käufe wiederherstellen",
+  "proRestoreDone": "Käufe wiederhergestellt.",
+  "proRestoreNone": "Keine Käufe zum Wiederherstellen.",
+  "proPurchaseSuccess": "Willkommen bei MyCareCoins Pro!",
+  "proSyncDelayed": "Kauf abgeschlossen — die Aktivierung kann einen Moment dauern.",
+  "proOtherPlatform": "Das Pro deiner Familie wird über {platform} von der Betreuungsperson verwaltet, die es gekauft hat."
 }

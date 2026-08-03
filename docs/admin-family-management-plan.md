@@ -1,7 +1,8 @@
 # Platform Admin, Family Registry & Subscriptions — Plan
 
-> **Status: Phases 1–3, 5 and 6 implemented** (see §5 Implementation log).
-> Phase 4 (RevenueCat) is the only remaining phase.
+> **Status: all phases implemented** (see §5 Implementation log). Remaining
+> work is external store configuration + on-device sandbox testing (§5
+> Phase 4 → "What remains outside the repo").
 > Companion docs: `docs/backend.md`, `docs/database-schema.md`, `docs/PRODUCT.md`.
 >
 > Decisions locked in this revision:
@@ -258,7 +259,7 @@ purchases inside the apps.
   family behave per their limits; suspended family is read-only and instantly
   restorable.
 
-### Phase 4 — RevenueCat integration · M (3–5 days + store admin lead time)
+### Phase 4 — RevenueCat integration · M (3–5 days + store admin lead time) · ✅ DONE (code)
 
 **Deliverables**
 - Store setup (external to repo, start early — review/config lead time):
@@ -438,14 +439,56 @@ via an operator CLI that already requires server access. `req.auth.authTime`
 is plumbed so a recent-login guard is a five-line middleware when Phase 4
 adds anything sharper.
 
-### Still pending
+### Phase 4 — RevenueCat integration
 
-- **Phase 4** (the only remaining phase): RevenueCat SDK + purchase-intent
-  endpoint + webhook consumer (writes `billing_events`, flips
-  `family_plans.status`), double-purchase guard, hard limits.
-  Store-console setup (App Store Connect, Play Console, RevenueCat
-  project) has external lead time — start early. The store-release
-  checklist now carries the IAP review prep list.
+| Piece | Where |
+|---|---|
+| Webhook consumer | `POST /api/billing/webhook` (`src/routes/billing.js` + `src/services/billingService.js`): shared-secret auth (`REVENUECAT_WEBHOOK_SECRET`), idempotent via `billing_events.event_id`, event→status normalization, `family_plans` upsert; plan row auto-created on first sight and curated later via the admin plan API |
+| Family entitlements endpoint | `GET /api/families/:id/entitlements` — member-accessible single source of truth for clients (plan, status, platform, period end, limits, features, `subscribed`) |
+| Flutter SDK | `purchases_flutter` + `purchases_ui_flutter` (^9); `lib/services/purchase_service.dart` — configure with per-platform keys (`--dart-define=RC_IOS_KEY/RC_ANDROID_KEY`, test-store key as dev default), `logIn` with the backend user id after auth, `logOut` on sign-out |
+| Purchase flow | `SubscriptionCard` in Account Settings: backend-driven Pro state, caregiver-only Upgrade → sets the `family_id` subscriber attribute → RevenueCat Paywall (`presentPaywallIfNeeded('MyCareCoins Pro')`) → polls the backend until the webhook lands; Manage → RevenueCat Customer Center; Restore purchases (Apple-required); hides on web |
+| Double-purchase guard | Backend `platform` on the subscription + client check: already subscribed via the other store → "managed on X" message instead of a second checkout |
+| Tests | `tests/billing.test.js` (idempotency, attribution, lifecycle mapping, lifetime) + canceled-until-period-end case in `tests/entitlements.test.js` |
+
+Decisions taken during implementation:
+
+- **Subscriber attribute replaced the purchase-intent endpoint.** The
+  planned mint-an-intent-UUID flow existed to attribute a store purchase to
+  a family; setting a `family_id` subscriber attribute just before the
+  paywall achieves the same attribution with one moving part instead of
+  three (endpoint + storage + expiry). The webhook treats an event without
+  the attribute as unprocessed rather than guessing.
+- **RevenueCat Paywall UI + Customer Center adopted** instead of a fully
+  custom paywall — it is the SDK's modern path and halves the UI work. Our
+  wrapper still owns what RevenueCat cannot know: the family-level
+  double-purchase guard before presenting, and backend confirmation
+  polling after purchasing.
+- **Cancellation keeps benefits until period end** (entitlementService
+  change): the user paid through the period; the later EXPIRATION webhook
+  performs the actual downgrade. `BILLING_ISSUE` maps to `in_grace`;
+  `past_due` stays reserved for a future explicit dunning state, so the
+  402 read-only gate remains dormant until deliberately used.
+- **Products** (`monthly`, `yearly`, `lifetime`) all attach to the single
+  RevenueCat entitlement `MyCareCoins Pro`, which maps to plan code `pro`.
+  Lifetime arrives as `NON_RENEWING_PURCHASE` → active with no period end.
+- **Hard limits stay soft for now.** Warnings still flow (Phase 3); the
+  hard flip needs the limit check moved before the mutation at each choke
+  point, which is a contained follow-up once real plan limits exist in the
+  catalog.
+
+**What remains outside the repo** (operator checklist, see also
+`docs/store-release-checklist.md`):
+
+1. App Store Connect + Play Console: create the three subscription
+   products; attach store credentials in RevenueCat.
+2. RevenueCat dashboard: attach products to the `MyCareCoins Pro`
+   entitlement, default offering (+ optional hosted paywall design),
+   webhook → `https://mycarecoins.app/api/billing/webhook` with the
+   Authorization value mirrored into `REVENUECAT_WEBHOOK_SECRET`.
+3. Local build: `flutter pub get`, `flutter analyze`, then the sandbox
+   matrix (purchase / renewal / cancel / expiration / grace /
+   cross-platform visibility). Release builds pass the real public SDK
+   keys via `--dart-define=RC_IOS_KEY=appl_… RC_ANDROID_KEY=goog_…`.
 
 ---
 

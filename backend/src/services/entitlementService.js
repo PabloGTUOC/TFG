@@ -51,18 +51,19 @@ function mergeFeatures(sources) {
   return merged;
 }
 
-export async function getFamilyEntitlements(client, familyId) {
+export async function getFamilyEntitlements(client, familyId, now = () => new Date()) {
   const { rows } = await client.query(
-    `SELECT p.code, p.limits, p.features, fp.status, 'subscription' AS source
+    `SELECT p.code, p.limits, p.features, fp.status, fp.current_period_end,
+            fp.platform, 'subscription' AS source
        FROM family_plans fp JOIN plans p ON p.code = fp.plan_code
       WHERE fp.family_id = $1
      UNION ALL
-     SELECT p.code, p.limits, p.features, NULL, 'grant'
+     SELECT p.code, p.limits, p.features, NULL, NULL, NULL, 'grant'
        FROM admin_grants g JOIN plans p ON p.code = g.plan_code
       WHERE g.family_id = $1 AND g.revoked_at IS NULL
         AND (g.expires_at IS NULL OR g.expires_at > NOW())
      UNION ALL
-     SELECT p.code, p.limits, p.features, NULL, 'default'
+     SELECT p.code, p.limits, p.features, NULL, NULL, NULL, 'default'
        FROM plans p WHERE p.is_default = true`,
     [familyId]
   );
@@ -70,7 +71,13 @@ export async function getFamilyEntitlements(client, familyId) {
   const sub = rows.find(r => r.source === 'subscription');
   const def = rows.find(r => r.source === 'default');
   const grants = rows.filter(r => r.source === 'grant');
-  const subGood = Boolean(sub && GOOD_STANDING.has(sub.status));
+  // A canceled subscription was paid through the period: it keeps conferring
+  // benefits until current_period_end, then EXPIRATION flips it to expired.
+  const subGood = Boolean(sub && (
+    GOOD_STANDING.has(sub.status) ||
+    (sub.status === 'canceled' && sub.current_period_end &&
+      new Date(sub.current_period_end) > now())
+  ));
 
   const sources = [
     ...(def ? [def] : []),
@@ -81,6 +88,9 @@ export async function getFamilyEntitlements(client, familyId) {
   return {
     planCode: subGood ? sub.code : (def?.code ?? 'free'),
     subscriptionStatus: sub?.status ?? null,
+    subscribed: subGood,
+    platform: sub?.platform ?? null,
+    currentPeriodEnd: sub?.current_period_end ?? null,
     suspended: sub?.status === 'past_due',
     grantCodes: grants.map(g => g.code),
     // No sources at all (pre-migration DB) merges to {} = everything unlimited.

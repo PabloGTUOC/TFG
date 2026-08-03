@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { inviteLinksRouter } from './inviteLinks.js';
 import * as familyService from '../services/familyService.js';
 import * as memberService from '../services/memberService.js';
+import { getFamilyEntitlements } from '../services/entitlementService.js';
+import { assertActiveMember } from '../db/users.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,6 +67,27 @@ familiesRouter.get('/:familyId/budget', async (req, res) => {
   } catch (err) {
     console.error('Failed to get family budget:', err);
     return res.status(500).json({ error: 'Failed to fetch family budget.' });
+  }
+});
+
+// What the family may do under its plan (docs/admin-family-management-plan.md
+// Phase 4). Clients read entitlements HERE, never from a store SDK — that is
+// what makes one caregiver's purchase apply to every member on any platform.
+familiesRouter.get('/:familyId/entitlements', validateParams('familyId'), async (req, res) => {
+  const familyId = Number(req.params.familyId);
+  try {
+    const result = await withTransaction(async (client) => {
+      const user = await upsertUserFromAuth(client, req.auth);
+      if (!await assertActiveMember(client, familyId, user.id)) {
+        return { error: { code: 403, message: 'Not a family member.' } };
+      }
+      return { data: await getFamilyEntitlements(client, familyId) };
+    });
+    if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    return res.json(result.data);
+  } catch (err) {
+    console.error('Failed to fetch entitlements:', err);
+    return res.status(500).json({ error: 'Failed to fetch entitlements.' });
   }
 });
 

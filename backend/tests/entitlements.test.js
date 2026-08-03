@@ -59,6 +59,20 @@ describe('getFamilyEntitlements', () => {
     assert.deepEqual(ent.grantCodes, ['premium']);
   });
 
+  test('canceled subscription keeps benefits until current_period_end', async () => {
+    const future = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    const client = mockClient([ok([
+      src('default', 'free', { limits: { max_members: 4 } }),
+      { ...src('subscription', 'pro', { limits: { max_members: 15 }, status: 'canceled' }),
+        current_period_end: future, platform: 'play' },
+    ])]);
+    const ent = await getFamilyEntitlements(client, 1);
+    assert.equal(ent.subscribed, true);
+    assert.equal(ent.planCode, 'pro');
+    assert.equal(ent.limits.max_members, 15);
+    assert.equal(ent.platform, 'play');
+  });
+
   test('lapsed subscription downgrades gracefully to the default plan', async () => {
     const client = mockClient([ok([
       src('default', 'free', { limits: { max_members: 4 } }),

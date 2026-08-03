@@ -750,6 +750,24 @@ on `/api/admin`. Buckets: active ≤ 30 days, dormant 30–90, inactive > 90.
   (`withTransaction` only rolls back on throw). Other lapsed statuses
   downgrade gracefully to the default plan instead of blocking writes.
 
+### Billing (RevenueCat)
+
+- `POST /api/billing/webhook` — mounted **without** `requireAuth`;
+  authenticated by `REVENUECAT_WEBHOOK_SECRET` matching the webhook's
+  Authorization header configured in the RevenueCat dashboard. Idempotent
+  via `billing_events.event_id`; events are normalized into `family_plans`
+  by `src/services/billingService.js` (INITIAL_PURCHASE/RENEWAL/… → active,
+  CANCELLATION → canceled but entitled until `current_period_end`,
+  EXPIRATION → expired, BILLING_ISSUE → in_grace, NON_RENEWING_PURCHASE =
+  lifetime → active with no period end).
+- Family attribution: the Flutter app sets a `family_id` **subscriber
+  attribute** before opening the paywall; the webhook reads it. Events
+  without it are logged unprocessed for follow-up.
+- `GET /api/families/:id/entitlements` — member-accessible; the single
+  place every client reads the family's plan from (drives the Pro section
+  in the app and the double-purchase guard). Clients never trust store SDK
+  state for family-wide entitlements.
+
 ### Retention sweep
 
 `node scripts/retention-sweep.js [--apply] [--inactive-days=365] [--notice-days=30]`
