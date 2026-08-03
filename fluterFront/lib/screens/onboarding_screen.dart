@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/starter_packs.dart';
 import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -94,6 +95,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       app.setError(AppLocalizations.of(context).errFamilyNameRequired);
       return;
     }
+    // Seed the activity library in the user's language
+    // (docs/family-setup-questionnaire-plan.md). Areas are derived from the
+    // dependents entered above until Stage B asks explicitly.
+    final l = AppLocalizations.of(context);
+    final dependentTypes = [
+      for (final o in _careObjects)
+        if (o.name.text.trim().isNotEmpty) o.type,
+    ];
+    final starterTasks =
+        starterTasksPayload(l, areasForDependents(dependentTypes));
+
     await app.runAction(() async {
       await app.api.post('/api/families', {
         'name': _familyName.text.trim(),
@@ -113,9 +125,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 'careTime': o.careTime,
               },
         ],
+        'starterTasks': starterTasks,
       });
       await app.fetchUserData();
-    }, AppLocalizations.of(context).toastFamilyCreated);
+    }, l.toastFamilyCreated);
   }
 
   Future<void> _joinByToken() async {

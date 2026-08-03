@@ -1,5 +1,9 @@
 import { assertActiveMember } from '../db/users.js';
-import { insertDefaultActivities } from '../db/defaultActivities.js';
+import {
+  insertDefaultActivities,
+  insertStarterTasks,
+  validateStarterTasks,
+} from '../db/defaultActivities.js';
 
 export async function listFamilies(client, userId) {
   const { rows } = await client.query(
@@ -38,7 +42,14 @@ export async function getFamilyBudget(client, userId, familyId) {
   };
 }
 
-export async function createFamily(client, user, { name, mainCaretakerName, alias, caretakers = [], objectsOfCare = [] }) {
+export async function createFamily(client, user, { name, mainCaretakerName, alias, caretakers = [], objectsOfCare = [], starterTasks }) {
+  // Validate before any write: the seeding happens at the end of this
+  // function, and withTransaction only rolls back on throw.
+  if (starterTasks !== undefined) {
+    const invalid = validateStarterTasks(starterTasks);
+    if (invalid) return { error: { code: 400, message: invalid } };
+  }
+
   let monthlyCoinBudget = objectsOfCare.reduce((sum, obj) => {
     return sum + (obj.careTime === 'full_time' ? 720 : 360);
   }, 0);
@@ -94,7 +105,14 @@ export async function createFamily(client, user, { name, mainCaretakerName, alia
     }
   }
 
-  await insertDefaultActivities(client, famId, user.id, objectsOfCare);
+  // New clients send a localized catalogue chosen in the setup wizard; an
+  // empty array means "start empty". Clients that omit the field (Playwright
+  // E2E, the retired Vue frontend) keep the legacy English defaults.
+  if (starterTasks !== undefined) {
+    await insertStarterTasks(client, famId, user.id, starterTasks, monthlyCoinBudget);
+  } else {
+    await insertDefaultActivities(client, famId, user.id, objectsOfCare);
+  }
   return { data: famRows[0] };
 }
 
