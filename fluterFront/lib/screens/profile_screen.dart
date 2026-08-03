@@ -13,6 +13,7 @@ import 'admin_screen.dart';
 import '../widgets/coach_marks.dart';
 import '../widgets/family_circle.dart';
 import '../widgets/help_sheet.dart';
+import '../widgets/subscription_card.dart';
 import '../widgets/ui.dart';
 
 /// Native display name per shipped language code (each shown in its own
@@ -685,6 +686,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+          const Divider(height: 32),
+          // MyCareCoins Pro (docs/admin-family-management-plan.md Phase 4).
+          // Hides itself on web, where store purchases don't exist.
+          const SubscriptionCard(),
           const Divider(height: 32),
           // Language picker (docs/i18n-plan.md §2). Language names stay in
           // their own language on purpose; only "system" is translated.

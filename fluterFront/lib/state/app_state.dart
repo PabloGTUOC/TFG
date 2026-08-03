@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/api_client.dart';
+import '../services/purchase_service.dart';
 import '../services/telemetry.dart';
 import '../utils/json.dart';
 
@@ -141,6 +142,11 @@ class AppState extends ChangeNotifier {
         final loginData = await api.post('/api/me/login-event');
         loginEventId = toNumOrNull(loginData['eventId'])?.toInt();
       }
+
+      // Tie the RevenueCat identity to the backend user id so webhook
+      // events carry it (plan Phase 4). Fire-and-forget: purchases must
+      // never block login, and the service no-ops on web.
+      PurchaseService.syncIdentity(profile?['id']?.toString());
     } catch (e) {
       debugPrint('Backend auth sync failed: $e');
     }
@@ -229,6 +235,7 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to safely track backend logout: $e');
     }
+    await PurchaseService.logOut();
     api.token = '';
     loginEventId = null;
     await fb.FirebaseAuth.instance.signOut();

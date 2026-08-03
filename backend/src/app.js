@@ -8,6 +8,7 @@ import { requireAdmin } from './middleware/rbac.js';
 import { familyHeartbeat } from './middleware/heartbeat.js';
 import { familiesRouter } from './routes/families.js';
 import { adminRouter } from './routes/admin.js';
+import { billingRouter } from './routes/billing.js';
 import { activitiesRouter } from './routes/activities.js';
 import { meRouter } from './routes/me.js';
 import { dashboardRouter } from './routes/dashboard.js';
@@ -76,6 +77,10 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Provider webhooks authenticate by shared secret, not Firebase — see the
+// router. Covered by the global IP limiter only.
+app.use('/api/billing', billingRouter);
 
 app.use('/api/admin', requireAuth, adminLimiter, requireAdmin, adminRouter);
 app.use('/api/me', requireAuth, perUserLimiter, meRouter);

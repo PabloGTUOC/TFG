@@ -708,5 +708,19 @@
   "adminPlanSaved": "Plan guardado.",
   "adminDefaultBadge": "Por defecto",
   "adminInactiveBadge": "Inactivo",
-  "adminPriceFree": "Gratis"
+  "adminPriceFree": "Gratis",
+
+  "proSectionTitle": "MyCareCoins Pro",
+  "proActive": "Tu familia tiene MyCareCoins Pro.",
+  "proFreePlan": "Tu familia está en el plan gratuito.",
+  "proManagedVia": "Gestionado a través de {platform}",
+  "proRenewsOn": "Se renueva o termina el {date}",
+  "proUpgradeBtn": "Mejorar a Pro",
+  "proManageBtn": "Gestionar suscripción",
+  "proRestoreBtn": "Restaurar compras",
+  "proRestoreDone": "Compras restauradas.",
+  "proRestoreNone": "No hay compras que restaurar.",
+  "proPurchaseSuccess": "¡Bienvenido a MyCareCoins Pro!",
+  "proSyncDelayed": "Compra completada — puede tardar un momento en activarse.",
+  "proOtherPlatform": "El Pro de tu familia se gestiona en {platform} por el cuidador que lo compró."
 }
