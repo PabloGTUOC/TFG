@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -45,6 +46,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<_CareObjectEntry> _careObjects = [_CareObjectEntry()];
   List<dynamic> _invites = [];
 
+  // ── Wizard state (docs/family-setup-questionnaire-plan.md Stage B) ──
+  static const _stepCount = 4;
+  int _step = 0;
+  bool _submitting = false;
+
+  /// Starter-task areas. Pre-checked from the dependents entered in step 3
+  /// and re-derived whenever those change, so the questionnaire always
+  /// reflects who the family actually cares for; manual edits survive as
+  /// long as the dependents don't change.
+  Set<StarterArea> _areas = {...kUniversalAreas};
+  List<String> _derivedFromTypes = const [];
+
+  /// Tasks unchecked in the preview, by [starterTaskKey].
+  final Set<String> _excludedTasks = {};
+
+  /// Q2: "start empty" skips seeding entirely (sends an empty list).
+  bool _startEmpty = false;
+
+  static final _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
+  List<String> get _dependentTypes => [
+        for (final o in _careObjects)
+          if (o.name.text.trim().isNotEmpty) o.type,
+      ];
+
+  /// Re-derives the pre-checked areas when the dependents changed since the
+  /// last derivation. Called on entering the questionnaire step.
+  void _syncAreasWithDependents() {
+    final types = _dependentTypes;
+    if (listEquals(types, _derivedFromTypes)) return;
+    _derivedFromTypes = types;
+    _areas = areasForDependents(types);
+    _excludedTasks.clear();
+  }
+
   List<(String, String)> _typeOptions(AppLocalizations l) => [
         ('child', l.typeChildPlain),
         ('elderly', l.typeElderlyPlain),
@@ -89,23 +125,57 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     } catch (_) {}
   }
 
+  /// Per-step validation. Returns null when the step may be left, or the
+  /// message to show. Steps 3 and 4 have nothing mandatory.
+  String? _validateStep(int step, AppLocalizations l) => switch (step) {
+        0 => _familyName.text.trim().isEmpty ? l.errFamilyNameRequired : null,
+        1 => _caretakers.any((c) =>
+                c.email.text.trim().isNotEmpty &&
+                !_emailRe.hasMatch(c.email.text.trim()))
+            ? l.errInvalidCaregiverEmail
+            : null,
+        _ => null,
+      };
+
+  void _goToStep(int next) {
+    final l = AppLocalizations.of(context);
+    final app = context.read<AppState>();
+    if (next > _step) {
+      final error = _validateStep(_step, l);
+      if (error != null) {
+        app.setError(error);
+        return;
+      }
+    }
+    setState(() {
+      _step = next.clamp(0, _stepCount - 1);
+      if (_step == 3) _syncAreasWithDependents();
+    });
+  }
+
   Future<void> _createFamily() async {
     final app = context.read<AppState>();
-    if (_familyName.text.trim().isEmpty) {
-      app.setError(AppLocalizations.of(context).errFamilyNameRequired);
-      return;
-    }
-    // Seed the activity library in the user's language
-    // (docs/family-setup-questionnaire-plan.md). Areas are derived from the
-    // dependents entered above until Stage B asks explicitly.
     final l = AppLocalizations.of(context);
-    final dependentTypes = [
-      for (final o in _careObjects)
-        if (o.name.text.trim().isNotEmpty) o.type,
-    ];
-    final starterTasks =
-        starterTasksPayload(l, areasForDependents(dependentTypes));
+    // Re-check every step: the button is only reachable from the last one,
+    // but a validation gap earlier must not create a broken family.
+    for (var step = 0; step < _stepCount; step++) {
+      final error = _validateStep(step, l);
+      if (error != null) {
+        app.setError(error);
+        setState(() => _step = step);
+        return;
+      }
+    }
 
+    // Seed the activity library in the user's language
+    // (docs/family-setup-questionnaire-plan.md). An empty list is explicit:
+    // it means "start empty", which the backend distinguishes from an
+    // absent field (legacy English seeding).
+    final starterTasks = _startEmpty
+        ? const <Map<String, dynamic>>[]
+        : starterTasksPayload(l, _areas, excluded: _excludedTasks);
+
+    setState(() => _submitting = true);
     await app.runAction(() async {
       await app.api.post('/api/families', {
         'name': _familyName.text.trim(),
@@ -129,6 +199,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
       await app.fetchUserData();
     }, l.toastFamilyCreated);
+    if (mounted) setState(() => _submitting = false);
   }
 
   Future<void> _joinByToken() async {
@@ -334,12 +405,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildCreateWizard(AppState app) {
     final l = AppLocalizations.of(context);
+    final isLast = _step == _stepCount - 1;
     return VCard(
       title: l.setupFamilyTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── 1. Family details ──
+          _WizardProgress(step: _step, total: _stepCount),
+          const SizedBox(height: 18),
+          switch (_step) {
+            0 => _stepFamilyDetails(l),
+            1 => _stepCaregivers(app, l),
+            2 => _stepCareObjects(l),
+            _ => _stepStarterTasks(l),
+          },
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              if (_step > 0) ...[
+                VButton(
+                    type: VButtonType.secondary,
+                    disabled: _submitting,
+                    onPressed: () => _goToStep(_step - 1),
+                    child: Text(l.back)),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: VButton(
+                  block: true,
+                  disabled: _submitting,
+                  onPressed: isLast ? _createFamily : () => _goToStep(_step + 1),
+                  child: Text(isLast ? l.completeSetup : l.next),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 1: family details ──
+  Widget _stepFamilyDetails(AppLocalizations l) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _StepTitle(l.step1Title, l.step1Desc),
           VInput(
               controller: _familyName,
@@ -350,9 +459,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               controller: _alias,
               label: l.aliasRoleLabel,
               placeholder: l.aliasRoleHint),
-          const Divider(height: 36),
+        ],
+      );
 
-          // ── 2. Caregivers ──
+  // ── Step 2: caregivers ──
+  Widget _stepCaregivers(AppState app, AppLocalizations l) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _StepTitle(l.step2Title, l.step2Desc),
           VInput(
               controller: _mainCaretakerName,
@@ -398,9 +511,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     setState(() => _caretakers.add(_CaretakerEntry())),
                 child: Text(l.addAnotherCaregiver)),
           ),
-          const Divider(height: 36),
+        ],
+      );
 
-          // ── 3. Objects of care ──
+  // ── Step 3: objects of care ──
+  Widget _stepCareObjects(AppLocalizations l) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _StepTitle(l.step3Title, l.step3Desc),
           for (final (i, o) in _careObjects.indexed)
             Container(
@@ -478,12 +595,218 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     setState(() => _careObjects.add(_CareObjectEntry())),
                 child: Text(l.addSomeoneToCareFor)),
           ),
-          const SizedBox(height: 24),
-          VButton(
-              onPressed: _createFamily,
-              block: true,
-              child: Text(l.completeSetup)),
         ],
+      );
+
+  // ── Step 4: starter tasks questionnaire ──
+  Widget _stepStarterTasks(AppLocalizations l) {
+    final entries = starterEntries(_areas);
+    final selectedCount =
+        entries.where((e) => !_excludedTasks.contains(_keyOf(e))).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _StepTitle(l.step4Title, l.step4Desc),
+
+        // Q2 — starting point. Asked first so "start empty" can hide the
+        // rest instead of making people scroll past choices they don't want.
+        _ChoiceRow(
+          label: l.startWithTasks,
+          description: l.startWithTasksDesc,
+          selected: !_startEmpty,
+          onTap: () => setState(() => _startEmpty = false),
+        ),
+        const SizedBox(height: 8),
+        _ChoiceRow(
+          label: l.startEmpty,
+          description: l.startEmptyDesc,
+          selected: _startEmpty,
+          onTap: () => setState(() => _startEmpty = true),
+        ),
+
+        if (!_startEmpty) ...[
+          const Divider(height: 32),
+          // Q1 — activity areas, pre-checked from the dependents entered.
+          Text(l.areasLabel,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final area in StarterArea.values)
+                FilterChip(
+                  label: Text(starterAreaLabel(l, area)),
+                  avatar: Icon(_areaIcons[area], size: 18),
+                  selected: _areas.contains(area),
+                  showCheckmark: false,
+                  selectedColor: AppColors.primarySoft,
+                  onSelected: (on) => setState(() {
+                    on ? _areas.add(area) : _areas.remove(area);
+                  }),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(l.starterPreviewTitle(selectedCount),
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 4),
+          if (entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(l.starterPreviewEmpty,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppRadii.md),
+              ),
+              child: Column(
+                children: [
+                  for (final entry in entries)
+                    CheckboxListTile(
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AppColors.primary,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8),
+                      title: Text(entry.task.title(l),
+                          style: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                          '${entry.task.durationMinutes} min'
+                          '${entry.task.isRecurrent ? ' · ${l.recurringLabel}' : ''}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                      value: !_excludedTasks.contains(_keyOf(entry)),
+                      onChanged: (on) => setState(() {
+                        on == true
+                            ? _excludedTasks.remove(_keyOf(entry))
+                            : _excludedTasks.add(_keyOf(entry));
+                      }),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  String _keyOf(StarterEntry e) => starterTaskKey(e.area, e.index);
+
+  static const Map<StarterArea, IconData> _areaIcons = {
+    StarterArea.meals: Icons.restaurant_rounded,
+    StarterArea.cleaning: Icons.cleaning_services_rounded,
+    StarterArea.errands: Icons.receipt_long_rounded,
+    StarterArea.kidsRoutines: Icons.backpack_rounded,
+    StarterArea.homework: Icons.menu_book_rounded,
+    StarterArea.nightCare: Icons.bedtime_rounded,
+    StarterArea.pets: Icons.pets_rounded,
+    StarterArea.elderCare: Icons.medical_services_rounded,
+  };
+}
+
+/// Progress dots + "Step x of y" for the create-family wizard.
+class _WizardProgress extends StatelessWidget {
+  final int step;
+  final int total;
+  const _WizardProgress({required this.step, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Row(
+      children: [
+        for (var i = 0; i < total; i++) ...[
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 4,
+              decoration: BoxDecoration(
+                color: i <= step ? AppColors.primary : AppColors.border,
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+              ),
+            ),
+          ),
+          if (i < total - 1) const SizedBox(width: 6),
+        ],
+        const SizedBox(width: 12),
+        Text(l.stepIndicator(step + 1, total),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary)),
+      ],
+    );
+  }
+}
+
+/// Radio-style option row used by the "starting point" question.
+class _ChoiceRow extends StatelessWidget {
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChoiceRow({
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tappable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primarySoft : AppColors.bg,
+          border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border),
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+        child: Row(
+          children: [
+            Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 20,
+                color:
+                    selected ? AppColors.primary : AppColors.textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(description,
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                          height: 1.4)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,10 +1,9 @@
 # Family Setup Questionnaire — Plan
 
-> **Status (2026-08-03): Stage A implemented.** Localized starter packs and
-> the `starterTasks` API contract are live on `main` — new families are
-> seeded in the user's app language. Stage B (questionnaire step + wizard
-> stepper) and Stage C (telemetry + preference recording) are pending; see
-> §Staging and §Implementation log at the end.
+> **Status (2026-08-03): Stages A and B implemented.** Localized starter
+> packs, the `starterTasks` API contract, the activity-areas questionnaire
+> and the paged wizard are live on `main`. Stage C (telemetry + preference
+> recording) is pending; see §Staging and the implementation logs at the end.
 >
 > This document was originally written on an abandoned branch. It was
 > restored and updated for the current codebase — the problems it describes
@@ -133,7 +132,7 @@ the chosen tasks in the create-family payload:
 | Stage | Delivers | Effort | Status |
 |---|---|---|---|
 | **A — Packs + contract** | Fixes the untranslated-tasks bug; area selection derived from the dependents already entered in the wizard | ~1 day | ✅ done |
-| **B — Questionnaire + wizard** | The activity-areas step, per-task preview with checkboxes, single card → paged stepper | ~1.5 days | pending |
+| **B — Questionnaire + wizard** | The activity-areas step, per-task preview with checkboxes, single card → paged stepper | ~1.5 days | ✅ done |
 | **C — Learning loop** | Telemetry event, `activity_preferences` on the family row, popularity breakdown in `onboarding-report.sql` | ~2 h | pending |
 
 Stage A is the whole user-visible fix and is low-risk: it changes what gets
@@ -186,3 +185,58 @@ Three deltas, decided when porting the plan to the current codebase:
   field (Playwright E2E, the retired Vue frontend).
 - Switching app language later does **not** re-translate already-created
   tasks, by design (see §Out of scope).
+
+---
+
+## Implementation log — Stage B (2026-08-03)
+
+### What shipped
+
+| Piece | Where |
+|---|---|
+| Paged wizard | `onboarding_screen.dart`: the single long card became 4 steps (family details → caregivers → who you care for → starter tasks) with a progress bar, "Step x of 4", Back/Next, and per-step validation |
+| Questionnaire | Step 4 asks the starting point first, then the activity areas as multi-select chips (pre-checked from the dependents entered in step 3), then the preview |
+| Per-task preview | Every implied task is listed with a checkbox, duration and a "Repeats" marker; the header counts what will be created |
+| Start empty | Sends `[]` explicitly — the backend distinguishes that from an absent field, so "no tasks" never falls back to legacy English seeding |
+| Exclusion plumbing | `starterEntries()`, `starterTaskKey()` and `starterTasksPayload(..., excluded:)` in `starter_packs.dart` |
+| Validation | Caregiver e-mail format checked before leaving step 2 and again on submit; the submit button disables while the request is in flight |
+| l10n | 20 new keys × en/es/fr/de (719 total per language) |
+
+### Decisions taken during implementation
+
+- **Starting point is asked before the areas.** The plan listed areas first,
+  but a family choosing "start empty" should not have to scroll past choices
+  that are about to be discarded — picking it collapses the rest of the step.
+- **Area pre-checks re-derive when the dependents change.** Going back to
+  step 3 and adding a pet re-runs `areasForDependents` and clears manual
+  task exclusions; if the dependents are unchanged, manual edits survive.
+  Tracked via `_derivedFromTypes` — without it, either the pre-checks go
+  stale or every visit to step 4 wipes the user's choices.
+- **Task checkboxes are keyed by `area:index`, not by title.** Titles are
+  localized and would break the selection if the language changed mid-setup.
+- **Submit re-validates every step**, not just the current one: the button
+  is only reachable from step 4, but a future navigation change must not be
+  able to create a family with a malformed caregiver invite.
+- **Material icons instead of the emoji** listed in the plan, matching the
+  rest of the app's iconography.
+- **The activation-checklist item needed no work.** The dashboard computes
+  `done: hasTemplate` from data, so seeding starter tasks auto-checks
+  "Create a task template" already — Stage A satisfied that plan bullet.
+
+### Verification status
+
+Backend suite green (114/114 — Stage B is client-only). Script-verified:
+four-locale key parity, every `l.*` key used by the wizard exists, ICU
+plural placeholders consistent across languages, balanced delimiters.
+
+**Not verified here — no Flutter SDK in the authoring environment.** Run
+`flutter pub get && flutter analyze && flutter test` locally, then walk the
+wizard once by hand:
+
+1. Next/Back across all four steps; empty family name blocks step 1;
+   a malformed caregiver e-mail blocks step 2.
+2. Add a pet in step 3, return to step 4 → the pet-care chip is now
+   pre-checked and the preview grew.
+3. Uncheck two tasks → the header count drops and only the rest are created.
+4. Choose "start empty" → the family is created with no activity templates.
+5. Repeat in Spanish → chips, preview and created task titles are Spanish.

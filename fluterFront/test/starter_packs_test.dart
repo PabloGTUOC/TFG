@@ -100,4 +100,83 @@ void main() {
       expect(starterTasksPayload(l, {}), isEmpty);
     });
   });
+
+  // ── Stage B: the questionnaire's preview list and per-task exclusion ──
+
+  group('starterEntries', () {
+    test('lists every task of the selected areas in declaration order', () {
+      final areas = {StarterArea.meals, StarterArea.pets};
+      final entries = starterEntries(areas);
+
+      expect(entries.length,
+          starterPacks[StarterArea.meals]!.length +
+              starterPacks[StarterArea.pets]!.length);
+      // Areas follow enum order, so meals (declared first) comes before pets.
+      expect(entries.first.area, StarterArea.meals);
+      expect(entries.last.area, StarterArea.pets);
+      // Indexes restart within each area.
+      expect(entries.first.index, 0);
+    });
+
+    test('keys are unique and stable across rebuilds', () {
+      final keys = starterEntries(StarterArea.values.toSet())
+          .map((e) => starterTaskKey(e.area, e.index))
+          .toList();
+      expect(keys.toSet().length, keys.length);
+      // Stability matters: the checkbox state is keyed by this, and the
+      // localized title changes with the app language.
+      expect(starterTaskKey(StarterArea.meals, 0),
+          starterTaskKey(StarterArea.meals, 0));
+      expect(starterTaskKey(StarterArea.meals, 0),
+          isNot(starterTaskKey(StarterArea.cleaning, 0)));
+    });
+  });
+
+  group('starterTasksPayload with exclusions', () {
+    testWidgets('unchecked tasks are dropped, the rest survive',
+        (tester) async {
+      final l = await _localizations(tester, const Locale('en'));
+      final areas = {StarterArea.meals};
+      final all = starterTasksPayload(l, areas);
+      final excludedKey = starterTaskKey(StarterArea.meals, 0);
+      final dropped = starterPacks[StarterArea.meals]![0].title(l);
+
+      final kept = starterTasksPayload(l, areas, excluded: {excludedKey});
+
+      expect(kept.length, all.length - 1);
+      expect(kept.map((t) => t['title']), isNot(contains(dropped)));
+    });
+
+    testWidgets('excluding everything yields an empty payload',
+        (tester) async {
+      final l = await _localizations(tester, const Locale('en'));
+      final areas = {StarterArea.cleaning};
+      final allKeys = starterEntries(areas)
+          .map((e) => starterTaskKey(e.area, e.index))
+          .toSet();
+      expect(starterTasksPayload(l, areas, excluded: allKeys), isEmpty);
+    });
+
+    testWidgets('exclusions for unselected areas are harmless',
+        (tester) async {
+      final l = await _localizations(tester, const Locale('en'));
+      final areas = {StarterArea.meals};
+      final stale = starterTaskKey(StarterArea.pets, 0);
+      expect(starterTasksPayload(l, areas, excluded: {stale}).length,
+          starterTasksPayload(l, areas).length);
+    });
+  });
+
+  group('starterAreaLabel', () {
+    testWidgets('every area has a distinct, localized label', (tester) async {
+      for (final locale in const [Locale('en'), Locale('es')]) {
+        final l = await _localizations(tester, locale);
+        final labels =
+            StarterArea.values.map((a) => starterAreaLabel(l, a)).toList();
+        expect(labels.every((s) => s.trim().isNotEmpty), isTrue);
+        expect(labels.toSet().length, StarterArea.values.length,
+            reason: 'labels must be distinct in $locale');
+      }
+    });
+  });
 }

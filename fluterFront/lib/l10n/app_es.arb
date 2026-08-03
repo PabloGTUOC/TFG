@@ -745,5 +745,26 @@
   "taskEveningWalk": "Paseo de la tarde",
   "taskPetFeeding": "Dar de comer a la mascota",
   "taskDoctorAccompany": "Acompañar al médico o a una cita",
-  "taskMedicationReminder": "Recordatorio de medicación"
+  "taskMedicationReminder": "Recordatorio de medicación",
+
+  "stepIndicator": "Paso {current} de {total}",
+  "step4Title": "4. Tareas iniciales",
+  "step4Desc": "Elige las áreas de las que se ocupa tu familia. Añadiremos tareas acordes para que no empieces con una lista vacía: podrás editarlas o borrarlas cuando quieras.",
+  "startWithTasks": "Empezar con tareas ya preparadas",
+  "startWithTasksDesc": "Un pequeño catálogo según a quién cuidáis.",
+  "startEmpty": "Empezar de cero",
+  "startEmptyDesc": "Prefiero crear mis propias tareas.",
+  "areasLabel": "¿Cómo son los cuidados en tu familia?",
+  "areaMeals": "Comidas y cocina",
+  "areaCleaning": "Limpieza y colada",
+  "areaErrands": "Recados y papeleo",
+  "areaKidsRoutines": "Rutinas de los peques",
+  "areaHomework": "Deberes y estudio",
+  "areaNightCare": "Cuidados nocturnos",
+  "areaPets": "Cuidado de mascotas",
+  "areaElderCare": "Personas mayores y citas",
+  "starterPreviewTitle": "{count, plural, =0{Ninguna tarea seleccionada} =1{Se añadirá 1 tarea} other{Se añadirán {count} tareas}}",
+  "starterPreviewEmpty": "Elige al menos un área arriba para ver tareas sugeridas.",
+  "recurringLabel": "Se repite",
+  "errInvalidCaregiverEmail": "Revisa las direcciones de correo de los cuidadores."
 }

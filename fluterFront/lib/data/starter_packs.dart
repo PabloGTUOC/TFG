@@ -119,15 +119,45 @@ Set<StarterArea> areasForDependents(Iterable<String> dependentTypes) {
   return areas;
 }
 
-/// Builds the `starterTasks` payload for `POST /api/families`, localized
-/// through [l]. Areas keep their declaration order so the seeded catalogue
-/// reads sensibly in the activity library.
-List<Map<String, dynamic>> starterTasksPayload(
-  AppLocalizations l,
-  Set<StarterArea> areas,
-) =>
-    [
+/// Human label for an area chip in the setup questionnaire.
+String starterAreaLabel(AppLocalizations l, StarterArea area) =>
+    switch (area) {
+      StarterArea.meals => l.areaMeals,
+      StarterArea.cleaning => l.areaCleaning,
+      StarterArea.errands => l.areaErrands,
+      StarterArea.kidsRoutines => l.areaKidsRoutines,
+      StarterArea.homework => l.areaHomework,
+      StarterArea.nightCare => l.areaNightCare,
+      StarterArea.pets => l.areaPets,
+      StarterArea.elderCare => l.areaElderCare,
+    };
+
+/// One row of the questionnaire's preview list.
+typedef StarterEntry = ({StarterArea area, int index, StarterTask task});
+
+/// Stable identity for a task across rebuilds and language switches — the
+/// localized title is not usable as a key because it changes with the locale.
+String starterTaskKey(StarterArea area, int index) => '${area.name}:$index';
+
+/// The tasks implied by [areas], in a stable display order.
+List<StarterEntry> starterEntries(Set<StarterArea> areas) => [
       for (final area in StarterArea.values)
         if (areas.contains(area))
-          for (final task in starterPacks[area]!) task.toPayload(l),
+          for (final (index, task) in starterPacks[area]!.indexed)
+            (area: area, index: index, task: task),
+    ];
+
+/// Builds the `starterTasks` payload for `POST /api/families`, localized
+/// through [l]. Areas keep their declaration order so the seeded catalogue
+/// reads sensibly in the activity library. [excluded] holds
+/// [starterTaskKey] values the user unchecked in the preview.
+List<Map<String, dynamic>> starterTasksPayload(
+  AppLocalizations l,
+  Set<StarterArea> areas, {
+  Set<String> excluded = const {},
+}) =>
+    [
+      for (final entry in starterEntries(areas))
+        if (!excluded.contains(starterTaskKey(entry.area, entry.index)))
+          entry.task.toPayload(l),
     ];
