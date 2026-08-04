@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS families (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Databases created before the heartbeat work already have `families`, so the
+-- CREATE TABLE above is a no-op for them and the column would be missing when
+-- the index below runs. scripts/migrate-heartbeat.sql backfills it and sets the
+-- default/NOT NULL afterwards.
+ALTER TABLE families ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_families_last_active ON families (last_active_at);
 
 CREATE TABLE IF NOT EXISTS family_members (
