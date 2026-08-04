@@ -323,7 +323,7 @@ Requires three services (started automatically by Playwright if not already runn
 
 ### Environment variables
 
-Copy `.env.example` to `backend/.env` and set:
+Copy `backend/.env.example` to `backend/.env` and set:
 - `DATABASE_URL` — Postgres connection string
 - `FIREBASE_PROJECT_ID` — Firebase project ID
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to Firebase service account JSON

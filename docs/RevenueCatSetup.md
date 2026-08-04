@@ -93,8 +93,8 @@ Project settings → Integrations → Webhooks:
   Xd909890zgtewanzrtoppi345
   ```
 
-Server side, in the deploy `.env` (never committed — `.env` is gitignored;
-`.env.example` documents the variable):
+Server side, in `backend/.env` (never committed — `.env` is gitignored;
+`backend/.env.example` documents the variable):
 
 ```
 REVENUECAT_WEBHOOK_SECRET=Xd909890zgtewanzrtoppi345
