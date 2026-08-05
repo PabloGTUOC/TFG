@@ -1,373 +1,401 @@
 # CareCoins — Architecture & System Description
 
-CareCoins is a family caregiving coordination app built as a Progressive Web App (PWA). It uses a coin reward system to make household and caregiving contributions visible and valued across a family unit.
+CareCoins is a family caregiving coordination app. It uses a coin reward system to make household and caregiving contributions visible and valued across a family unit, so the person who always does everything finally has a record.
 
-**Stack:** Flutter (web · iOS · Android, in `fluterFront/`) · Node.js / Express (backend) · PostgreSQL · Firebase Auth + FCM · Docker
+**Stack:** Flutter (iOS · Android · web, in `fluterFront/`) · Node.js / Express · PostgreSQL 16 · Firebase Auth + FCM · RevenueCat (in-app subscriptions) · Docker
 
-> **Note:** the original Vue 3 + Vite frontend has been retired from `main` and is
-> preserved in full on the [`vue-frontend`](../../tree/vue-frontend) branch, including
-> its unit/E2E test suites and documentation. The Flutter app (`fluterFront/README.md`)
-> is the primary frontend. Sections below that describe the Vue frontend document the
-> design system and behaviours that the Flutter app ports 1:1.
+Localized in **English, Spanish, French and German**. The app ships as native store builds and as an installable PWA on web.
+
+> **Note:** the original Vue 3 + Vite frontend was retired from `main` and is preserved
+> in full — including its Vitest and Playwright suites — on the
+> [`vue-frontend`](../../tree/vue-frontend) branch. The Flutter app is the only
+> frontend on `main`; see `fluterFront/README.md`.
 
 ---
 
-## Part 1: Vue Frontend (retired — see `vue-frontend` branch)
+## Table of contents
 
-### Design System
+1. [Frontend (Flutter)](#part-1-frontend-flutter)
+2. [Backend](#part-2-backend)
+3. [Database schema](#part-3-database-schema)
+4. [Platform admin & subscriptions](#part-4-platform-admin--subscriptions)
+5. [Onboarding & starter tasks](#part-5-onboarding--starter-tasks)
+6. [Push notifications](#part-6-push-notifications)
+7. [Activity lifecycle](#part-7-activity-lifecycle)
+8. [Automated tests](#part-8-automated-tests)
+9. [Local development](#part-9-local-development)
+10. [Documentation index](#part-10-documentation-index)
 
-CareCoins uses a single design token system defined in `DESIGN.md` and `frontend/src/style.css`.
+---
 
-- **Typeface:** Plus Jakarta Sans (500 / 700 / 800) loaded via Google Fonts. Hierarchy is achieved through weight and size only — no second typeface.
-- **Colour palette:** Semantic-only. Blue (`#2563EB`) = action, green (`#16A34A`) = done, amber (`#D97706`) = household, red (`#DC2626`) = danger. Each colour has one job.
-- **Radius tokens:** `--r-sm` 8px · `--r-md` 16px · `--r-lg` 24px · `--r-pill` 9999px
-- **Activity card colours:** Driven by status, not by assignee. `pending` → surface/border/ink. `completed-care` → success. `completed-household` → warning. `rejected` → danger-soft.
+## Part 1: Frontend (Flutter)
 
-### Core UI Components (`src/components/`)
+Single Dart codebase targeting iOS, Android and web. State is a single `ChangeNotifier` (`AppState`) provided with `provider`; there is no router package — the shell swaps tabs and screens push with `MaterialPageRoute`.
 
-- **`KpiCard.vue`** — Key Performance Indicator card. Supports label, value, unit, subtitle, delta badge, and optional progress bar. Colour accents: primary, success, warning, danger, ink.
-- **`VButton.vue`** — Button with `type` prop: `primary`, `secondary`, `outline`, `danger`. Full pill radius. Supports `disabled` and `block` (full-width) props.
-- **`VCard.vue`** — Structural container with consistent padding, rounded corners (`--r-lg`), and ambient shadow. Accepts optional `title` prop.
-- **`VInput.vue`** — Text input wrapper with integrated label, placeholder, and v-model support. Pill radius matching buttons.
-- **`VSelect.vue`** — Styled native `<select>` with `{ value, label }` options array and v-model.
+### Design system
 
-### Daily View Sub-components (`src/components/daily/`)
+Tokens ported 1:1 from the Vue app's `style.css` into `lib/theme/app_theme.dart` (see `docs/DESIGN.md`).
 
-Extracted from `DailyView.vue` to keep it as a thin coordinator:
+- **Typeface:** Plus Jakarta Sans (500 / 700 / 800) via `google_fonts`. Hierarchy through weight and size only.
+- **Colour palette:** semantic-only. Blue `#2563EB` = action, green `#16A34A` = done, amber `#D97706` = household, red `#DC2626` = danger. Each colour has one job.
+- **Radius tokens:** `sm` 8 · `md` 16 · `lg` 24 · `pill` 999.
+- **Accessibility:** WCAG AA contrast minimum, 44×44 touch targets, reduced-motion support, status never conveyed by colour alone.
 
-- **`TaskLibrary.vue`** — Desktop task sidebar. Self-contained search, category filters, and draggable template rows.
-- **`DailyModals.vue`** — All 7 modals in one declarative component: schedule time, recurrence, delete recurring, offer bounty, accept bounty, log absence, absence detail. Communicates via props + emits.
+### Screens (`lib/screens/`)
 
-### Profile Sub-components (`src/components/profile/`)
+| File | Purpose |
+|---|---|
+| `shell.dart` | Root layout: desktop pill nav, mobile bottom tabs, global toasts, FCM sync, badge clearing |
+| `landing_screen.dart` | Brand/acquisition surface for signed-out visitors, with an animated product demo |
+| `login_screen.dart` | Email/password and Google sign-in |
+| `onboarding_screen.dart` | Four-step create-family wizard + join by invite link/token (see [Part 5](#part-5-onboarding--starter-tasks)) |
+| `dashboard_screen.dart` | Family hub: member grid, KPIs, week strip, bounties, absences, activation checklist |
+| `daily_screen.dart` | Signature daily timeline: NOW divider, gap indicators, day swipe, complete/revert, bounty banners |
+| `activities_screen.dart` | Activity template library, creation with budget-based coin suggestion, budget health |
+| `marketplace_screen.dart` | Reward store: browse, redeem, history, create |
+| `stats_screen.dart` | Charts: coin flow, hours per member and category, completion rates, ledger |
+| `profile_screen.dart` | Account settings, notification prefs, language picker, family circle, wallet, **Pro subscription**, **admin entry** |
+| `admin_screen.dart` | Platform admin console — family registry, plan catalog, billing & grants ([Part 4](#part-4-platform-admin--subscriptions)) |
 
-Extracted from `ProfileView.vue`:
+### Widgets, services and data (`lib/`)
 
-- **`AccountSettings.vue`** — Profile form (name, email, alias), user avatar upload, notification preference toggles.
-- **`FamilyCircle.vue`** — Care dependents grid, add/remove actors, email invite form, shareable link + QR code generator, family deletion flow.
-- **`WalletPanel.vue`** — Coin balance widget, recent ledger preview, full monthly ledger with month picker, activity insights card.
+- **`widgets/ui.dart`** — the design-system kit: `VCard`, `VButton`, `VInput`, `KpiCard`, `PillBadge`, `SegmentedTabs`, `Tappable`, `EmptyState`, `LoadErrorState`, `PageHeading`, `AvatarCircle`, `AssigneeBadge`.
+- **`widgets/`** — `family_circle.dart` (dependents, invites, QR), `charts.dart`, `absence_dialog.dart`, `help_sheet.dart`, `coach_marks.dart` + `activation_checklist.dart` (guided onboarding), `subscription_card.dart` (MyCareCoins Pro).
+- **`services/api_client.dart`** — thin REST client: JSON in/out, Bearer token, timeouts, and typed `ApiException`s localized at the display boundary.
+- **`services/purchase_service.dart`** — RevenueCat SDK wrapper: configure, identity sync, paywall, Customer Center, restore. No-ops on web.
+- **`services/push_service.dart`** — FCM token lifecycle (register on enable, silent refresh on startup, remove on disable) and foreground message handling.
+- **`services/telemetry.dart`**, **`services/tour_service.dart`** — onboarding instrumentation and the guided tour.
+- **`state/app_state.dart`** — auth session, `/api/me` payload, current family, locale, toasts, `isCaregiver` / `isPlatformAdmin`.
+- **`data/starter_packs.dart`** — the localized starter-task catalogue ([Part 5](#part-5-onboarding--starter-tasks)).
+- **`l10n/app_*.arb`** — 719 keys × 4 languages, compiled by `flutter gen-l10n`. `untranslated.json` must be empty before release (see `docs/i18n-plan.md`).
 
-### Application Views (`src/views/`)
+### PWA (web build)
 
-- **`App.vue`** — Root layout. Floating pill navigation bar (desktop), bottom tab bar (mobile), global success/error banners, FCM token sync on login, badge clear on visibility change.
-- **`LandingView.vue`** — Brand/acquisition surface for unauthenticated visitors. Fluid typography, scroll reveals, phone mockup, and family SVG.
-- **`DashboardView.vue`** — Family hub. Member grid, care-dependent GDP, open bounties, KPIs, weekly calendar, absence management.
-- **`DailyView.vue`** — Interactive daily timeline. Drag-and-drop scheduling (desktop), day-swipe gesture, swipe-to-delete cards, mobile task sheet, NOW divider, free-time gap indicators. Uses `TaskLibrary`, `DailyModals`, and the three composables below.
-- **`ActivitiesView.vue`** — Activity template library and budget management. Mobile tab bar (Catalogue / New Activity / Budget). Budget health SVG gauge.
-- **`MarketplaceView.vue`** — Reward store. Members redeem CareCoins for custom rewards. Mobile tab bar (Store / History / Create).
-- **`ProfileView.vue`** — Personal area shell. Tab container (`My Profile` / `Family` / `Wallet`) delegating to `AccountSettings`, `FamilyCircle`, `WalletPanel`. Owns data loading and the confirm dialog.
-- **`StatsView.vue`** — ECharts analytics dashboard. Lifetime wealth, coin flow trends, category splits, completion rates, leaderboard. Mobile tab bar (Overview / Members / Economy).
-- **`OnboardingView.vue`** — Setup wizard for new users with no family. Three steps: family name, caregiver name/alias, optional objects of care.
-- **`JoinView.vue`** — Invite link handler. Parses token from URL, prompts for alias, joins family.
-- **`LoginView.vue`** — Email/password and Google OAuth authentication.
-
-### Composables (`src/composables/`)
-
-- **`useTimeline.js`** — Core timeline logic extracted from `DailyView`. Exports `scheduledToday` (overlap-aware positioning algorithm), `completedToday`, `todayCoins`, `nowLineTop`, `nowIndex`, `scrollToNow`, `formatGap`, and `getCardStyle` (status → CSS token mapping).
-- **`useCardSwipe.js`** — Swipe-to-delete state and touch handlers for the mobile timeline cards. Calls an `onDismiss` callback after the dismiss animation.
-- **`useDaySwipe.js`** — Horizontal swipe gesture for day navigation. Fires `onNavigate(±1)` on a qualifying swipe.
-- **`useNotifications.js`** — FCM token management. `init()` refreshes token silently on startup, `enable()` requests permission and registers token, `disable()` removes token. Foreground message handler shows `Notification` with deep-link `onclick`.
-- **`useCurrentFamily.js`** — Derives current family, role, and familyId from the family store.
-
-### Stores (`src/stores/`)
-
-- **`auth.js`** — Firebase Auth listener, token management, request helper with auth headers. Toasts auto-dismiss (success 3.5s, errors 5s).
-- **`family.js`** — Family data, member profiles, actor list. Fetched once on auth and refreshed after mutations.
-
-### PWA Features
-
-CareCoins is a fully installable PWA:
-- **Service worker** (`firebase-messaging-sw.js`) — generated at build time from env vars via a Vite plugin. Handles background FCM messages, shows system notifications, sets app badge, and navigates to the relevant screen on tap.
-- **App badge** — `navigator.setAppBadge()` called on notification arrival. Cleared on `visibilitychange` when app is focused.
-- **Deep links** — every notification carries a `data.url` field; tapping navigates directly to the relevant view.
-- **Manifest** — standalone display, custom icons (192 × 512), theme colour `#2563EB` (brand blue).
+Installable with a standalone manifest, custom icons and brand theme colour. `firebase-messaging-sw.js` handles background push, sets the app badge, and deep-links on tap via each notification's `data.url`.
 
 ---
 
 ## Part 2: Backend
 
-Express.js REST API protected by Firebase Auth middleware and rate limiters. PostgreSQL via `pg` pool. All DB mutations use `withTransaction` for atomicity.
+Express REST API behind Firebase Auth middleware and rate limiters. PostgreSQL via `pg` pool; every mutation runs inside `withTransaction` for atomicity.
 
-### Service Layer (`src/services/`)
+### Service layer (`src/services/`)
 
-Business logic is separated from HTTP routing into pure service modules. Each service function receives a DB `client` (already inside a transaction) and returns `{ data, ... }` or `{ error: { code, message } }`. This makes them independently testable without spinning up HTTP.
+Business logic is separated from HTTP routing. Each function receives a DB `client` already inside a transaction and returns `{ data }` or `{ error: { code, message } }`, so it is testable without HTTP.
 
-- **`activityService.js`** — `listActivities`, `createActivity`, `approveActivity`, `scheduleActivity`, `createRecurrence`, `completeActivity`, `validateActivity`, `offerBounty`, `acceptBounty`, `deleteActivity`, `revertActivity`.
-- **`familyService.js`** — `listFamilies`, `getFamilyBudget`, `createFamily`, `deleteFamily`, `getDeletionRequests`, `approveDeletion`, `rejectDeletion`.
-- **`memberService.js`** — `listMembers`, `listInvitations`, `createInvitation`, `approveMember`, `updateMemberRole`, `joinByInvitation`, `joinByToken`, `addActor`, `removeActor`, `updateActorAvatar`.
+| Service | Responsibilities |
+|---|---|
+| `activityService.js` | `listActivities`, `createActivity`, `approveActivity`, `scheduleActivity`, `createRecurrence`, `completeActivity`, `validateActivity`, `offerBounty`, `acceptBounty`, `deleteActivity`, `revertActivity` |
+| `familyService.js` | `listFamilies`, `getFamilyBudget`, `createFamily`, `deleteFamily`, `getDeletionRequests`, `approveDeletion`, `rejectDeletion` |
+| `memberService.js` | `listMembers`, `listInvitations`, `createInvitation`, `approveMember`, `updateMemberRole`, `joinByInvitation`, `joinByToken`, `addActor`, `removeActor`, `updateActorAvatar` |
+| `adminService.js` | Family registry (aggregates only), plan catalog CRUD, family billing view, admin grants, `logAdminAction` audit helper |
+| `entitlementService.js` | `getFamilyEntitlements` (merges default plan + subscription + grants), `limitWarning`, `assertFamilyWritable` |
+| `billingService.js` | RevenueCat webhook normalization into `family_plans`, idempotent via `billing_events.event_id` |
+| `retentionService.js` | Finds and deletes families that were noticed as inactive and stayed silent |
 
 ### Middleware (`src/middleware/`)
 
-- **`auth.js` (`requireAuth`)** — Verifies Firebase ID token from `Authorization` header. Supports the Firebase Auth Emulator via `FIREBASE_AUTH_EMULATOR_HOST` env var (used in E2E tests).
-- **`rbac.js` (`requireRole`, `assertMemberRole`)** — Role-based access control. Checks user role within a specific family.
-- **`validate.js`** — Request body/params validation with composable rule functions (`required`, `string`, `positiveInt`, `isoDate`, `oneOf`, `email`).
-- **`audit.js`** — Request logging middleware.
+- **`auth.js`** (`requireAuth`) — verifies the Firebase ID token; supports the Auth Emulator via `FIREBASE_AUTH_EMULATOR_HOST`. Exposes `uid`, `email`, `name`, `authTime`.
+- **`rbac.js`** — `requireRole` / `assertMemberRole` for family roles, and `requireAdmin` / `checkPlatformAdmin` for the platform-admin axis (deliberately separate — see [Part 4](#part-4-platform-admin--subscriptions)).
+- **`heartbeat.js`** — touches `families.last_active_at` on successful family-scoped responses, throttled to one write per family per hour.
+- **`validate.js`** — composable body/param rules (`required`, `string`, `positiveInt`, `isoDate`, `oneOf`, `email`).
+- **`audit.js`** — login-history recording.
 
-### Utilities (`src/utils/`)
+### Utilities & DB helpers
 
-- **`notify.js`** — Firebase Cloud Messaging send helpers. `notifyUser`, `notifyFamilyCaregivers`, `notifyFamilyAll`. Each accepts a `prefKey` that filters recipients via `notification_preferences`. Stale/invalid tokens pruned after failed sends.
-- **`mailer.js`** — Email sending via Resend. Used for caregiver invitations. Gracefully no-ops (console log) when `RESEND_API_KEY` is not set.
+- **`utils/notify.js`** — FCM helpers `notifyUser`, `notifyFamilyCaregivers`, `notifyFamilyAll`; each takes a `prefKey` filtering opted-out users. Stale tokens pruned after failed sends.
+- **`utils/mailer.js`** — Resend email for invitations; logs to console when `RESEND_API_KEY` is unset.
+- **`db/pool.js`** — pool + `withTransaction` (BEGIN / COMMIT / ROLLBACK; rolls back only on throw).
+- **`db/users.js`** — `upsertUserFromAuth`, `assertActiveMember`.
+- **`db/autoComplete.js`** — sweeps past-due approved activities to completed and pays out atomically.
+- **`db/defaultActivities.js`** — `insertStarterTasks` + `validateStarterTasks` for client-supplied catalogues, and the legacy English `insertDefaultActivities` fallback.
 
-### DB Helpers (`src/db/`)
+### API routes
 
-- **`pool.js`** — PostgreSQL pool + `withTransaction` helper (BEGIN / COMMIT / ROLLBACK).
-- **`users.js`** — `upsertUserFromAuth` and `assertActiveMember` query helpers.
-- **`autoComplete.js`** — Sweeps approved scheduled activities past their end time to `completed` and distributes coin payouts atomically.
-- **`defaultActivities.js`** — Seeds a new family with a starter set of activity templates.
-
-### API Routes
-
-#### `/api/me` — Personal & Account
+#### `/api/me` — personal & account
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Current user profile, families, pending requests, actors |
+|---|---|---|
+| GET | `/` | Current user (incl. `platform_role`), families, pending requests, actors |
 | PATCH | `/profile` | Update display name, email, family alias |
-| POST | `/avatar` | Upload profile avatar (JPEG/PNG/WebP, max 2 MB) |
-| GET | `/invites` | Pending email invitations for this user |
+| POST | `/avatar` | Upload avatar (JPEG/PNG/WebP, max 2 MB) |
+| GET | `/invites` | Pending email invitations |
 | GET | `/login-history` | Last 20 login events |
-| GET | `/ledger` | Monthly coin transaction ledger |
-| POST | `/login-event` | Record login event |
-| POST | `/logout-event` | Close login session |
-| POST | `/fcm-token` | Register FCM push token |
-| DELETE | `/fcm-token` | Remove FCM push token |
-| GET | `/notification-preferences` | Per-category notification opt-in/out settings |
-| PUT | `/notification-preferences` | Save notification preferences (5 boolean fields) |
-| DELETE | `/` | Delete account (anonymise user, cancel activities, Firebase Auth delete) |
+| GET | `/ledger` | Monthly coin ledger |
+| POST | `/login-event` · `/logout-event` | Session tracking |
+| POST · DELETE | `/fcm-token` | Register / remove push token |
+| GET · PUT | `/notification-preferences` | Per-category opt-in (5 flags) |
+| DELETE | `/` | Delete account (anonymise, cancel activities, remove Firebase user) |
 
-#### `/api/families` — Family Management
+#### `/api/families` — family management
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | List families user belongs to |
-| POST | `/` | Create family (sets budget from care-object hours) |
-| DELETE | `/:familyId` | Request family deletion (multi-caregiver approval flow) |
-| GET | `/:familyId/budget` | Budget health: monthly budget, used, remaining, base rate |
+|---|---|---|
+| GET · POST | `/` | List / create family (budget from care hours; seeds starter tasks) |
+| DELETE | `/:familyId` | Request deletion (unanimous caregiver approval) |
+| GET | `/:familyId/budget` | Monthly budget, used, remaining, base rate |
+| GET | `/:familyId/entitlements` | **Plan, status, limits and features — the client's source of truth** |
 | GET | `/:familyId/members` | List active members |
-| PATCH | `/:familyId/members/:userId/role` | Change member role |
-| POST | `/:familyId/actors` | Add care dependent |
-| DELETE | `/:familyId/actors/:actorId` | Remove dependent |
+| PATCH | `/:familyId/members/:userId/role` | Change role |
+| POST | `/:familyId/members/:userId/approve` | Approve a pending join |
+| POST · DELETE | `/:familyId/actors[/:actorId]` | Add / remove care dependent |
 | POST | `/:familyId/actors/:actorId/avatar` | Upload dependent avatar |
-| GET | `/:familyId/invitations` | List pending email invitations |
-| POST | `/:familyId/invitations` | Send email invitation via Resend |
-| POST | `/join-request` | Accept email-based invitation |
-| POST | `/join-by-token` | Join via shareable link token |
-| POST | `/:familyId/invite-links` | Generate shareable invite link (optional expiry / max-uses) |
-| GET | `/:familyId/invite-links` | List active invite links |
-| DELETE | `/:familyId/invite-links/:linkId` | Revoke invite link |
-| GET | `/:familyId/deletion-requests` | List pending deletion requests |
-| POST | `/:familyId/deletion-requests/:id/approve` | Approve deletion |
-| POST | `/:familyId/deletion-requests/:id/reject` | Reject deletion |
+| GET · POST | `/:familyId/invitations` | List / send email invitations |
+| POST | `/join-request` · `/join-by-token` | Join by invitation or shareable link |
+| GET · POST · DELETE | `/:familyId/invite-links[/:linkId]` | Manage shareable links |
+| GET · POST | `/:familyId/deletion-requests[/:id/approve\|reject]` | Deletion consensus flow |
 
-#### `/api/activities` — Task Engine
+#### `/api/activities` — task engine
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | List activity templates and instances for a family |
-| POST | `/` | Create template |
+|---|---|---|
+| GET · POST | `/` | List / create templates and instances |
 | DELETE | `/:id` | Delete template or un-schedule instance |
-| POST | `/:id/approve` | Approve pending template |
-| POST | `/:id/schedule` | Schedule a task instance on the calendar |
-| POST | `/:id/recurrence` | Create recurring future instances |
-| POST | `/:id/complete` | Mark task as completed |
-| POST | `/:id/validate` | Validate completed task → mint coins |
-| POST | `/:id/revert` | Un-check a completed task |
-| POST | `/:id/bounty` | Attach a coin bounty to a task |
-| POST | `/:id/accept-bounty` | Accept bounty, reassign task to self |
+| POST | `/:id/approve` · `/schedule` · `/recurrence` | Approve, schedule, repeat |
+| POST | `/:id/complete` · `/validate` · `/revert` | Completion and coin minting |
+| POST | `/:id/bounty` · `/accept-bounty` | Offer and take over bounties |
 
-#### `/api/marketplace`
+#### `/api/admin` — platform admin (requires `platform_role = 'admin'`)
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/rewards/:familyId` | List active rewards |
-| POST | `/rewards` | Create reward (caregivers only) |
-| POST | `/rewards/:rewardId/redeem` | Redeem reward, deduct coins |
+|---|---|---|
+| GET | `/status` | Admin self-check used to gate the console |
+| GET | `/families` | Paged registry: search, heartbeat-bucket filter, counts, plan |
+| GET | `/families/:familyId` | Registry detail (aggregates only) |
+| POST | `/families/:familyId/notify-inactive` | Nudge caregivers via push; audited |
+| GET | `/families/:familyId/billing` | Subscription, grants, billing-event metadata |
+| POST · DELETE | `/families/:familyId/grants[/:grantId]` | Issue / revoke comps and trials |
+| GET · POST | `/plans` · PATCH `/plans/:code` | Plan catalog CRUD |
 
-#### `/api/absences`
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | List absences |
-| POST | `/` | Log absence |
-| DELETE | `/:id` | Remove absence |
-
-#### `/api/dashboard`
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/:familyId` | Aggregate dashboard data (members, GDP, KPIs, activity log) |
-
-#### `/api/stats`
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/:familyId` | Full analytics payload for ECharts |
+#### Other
+| Route | Description |
+|---|---|
+| `POST /api/billing/webhook` | RevenueCat events — shared-secret auth, no Firebase token |
+| `GET /api/dashboard/:familyId` | Aggregate dashboard payload |
+| `GET /api/stats/:familyId` | Analytics payload for the charts |
+| `GET /api/marketplace/rewards/:familyId` | Active rewards and redemption history |
+| `POST /api/marketplace/rewards` · `/rewards/:id/redeem` | Create reward (caregivers) · redeem atomically |
+| `GET · POST · DELETE /api/absences` | Absence management |
+| `POST /api/events` | Onboarding/telemetry events |
+| `GET /health` | Unauthenticated healthcheck used by Docker |
 
 ---
 
-## Part 3: Database Schema
+## Part 3: Database schema
 
-Defined in `backend/src/db/schema.sql`. Migrations in `backend/scripts/` — applied automatically by the `db-init` Docker service on startup.
+Defined in `backend/src/db/schema.sql`; incremental migrations live in `backend/scripts/migrate-*.sql` and are applied in order by `scripts/init-db.js` (idempotent — safe to re-run). Full column reference: `docs/database-schema.md`.
 
 | Table | Purpose |
-|-------|---------|
-| `users` | Firebase-linked accounts. `firebase_uid`, `email`, `display_name`, `avatar_url`, soft-delete flag. |
-| `families` | Core tenant. `name`, `monthly_coin_budget`, `created_by`. |
-| `family_members` | User↔Family join. `role` (caregiver/member), `alias`, `coin_balance`, `status` (active/pending/inactive). |
-| `family_invitations` | Email invite records. `status` (pending/accepted/declined). Unique on `(family_id, email)`. |
-| `invite_links` | Shareable UUID tokens. Optional `max_uses`, `expires_at`, `revoked` flag. Usage counter incremented on join. |
-| `actors` | Care dependents (child, pet, elderly) and person placeholders. Linked to family, optionally to a user. |
-| `activities` | Both templates (`is_template=true`) and scheduled instances. Tracks `status`, `coin_value`, `bounty_amount`, `assigned_to`, `approved_by`. |
-| `coin_ledger` | Immutable transaction log. Every coin movement recorded with `reason` and optional `activity_id`. |
-| `marketplace_rewards` | Custom rewards created by caregivers. `cost`, `max_uses`, `valid_from/until`, `status` (active/archived). |
-| `reward_redemptions` | Log of each redemption: `reward_id`, `user_id`, `family_id`, `redeemed_at`. |
-| `absences` | Time-off periods. `start_time`, `end_time`, `title`. Used to block scheduling conflicts. |
-| `login_history` | Per-session login/logout timestamps with IP and user-agent. |
-| `fcm_tokens` | FCM push registration tokens. One user can have multiple tokens (multi-device). Stale tokens auto-pruned after failed sends. |
-| `notification_preferences` | Per-user opt-in/out for 5 notification categories. Defaults to all true if no row exists. |
-| `family_deletion_requests` | Deletion request raised by a caregiver. `status` (pending/approved/rejected). |
-| `family_deletion_approvals` | Per-caregiver approval vote on a deletion request. |
+|---|---|
+| `users` | Firebase-linked accounts. `firebase_uid`, `email`, `display_name`, `avatar_url`, `is_deleted`, **`platform_role`** (`user`/`admin`) |
+| `families` | Core tenant. `name`, `monthly_coin_budget`, `created_by`, **`last_active_at`** (heartbeat) |
+| `family_members` | User↔family join: `role` (caregiver/member), `alias`, `coin_balance`, `status` |
+| `family_invitations` | Email invites, unique on `(family_id, email)` |
+| `invite_links` | Shareable UUID tokens with optional expiry, max-uses and revocation |
+| `actors` | Care dependents (child, elderly, pet) and person placeholders |
+| `activities` | Templates (`is_template`) and scheduled instances; status, coin value, bounty, assignee |
+| `coin_ledger` | Immutable transaction log of every coin movement |
+| `marketplace_rewards` · `reward_redemptions` | Reward catalogue and redemption history |
+| `absences` | Time-off periods used to avoid assigning unavailable members |
+| `login_history` | Per-session login/logout with IP and user agent |
+| `fcm_tokens` · `notification_preferences` | Push tokens (multi-device) and per-category opt-ins |
+| `family_deletion_requests` · `family_deletion_approvals` | Unanimous deletion consensus |
+| `onboarding_events` | Guided-tour / checklist instrumentation |
+| **`plans`** | Subscription catalog: price, period, `limits` and `features` JSONB, default flag |
+| **`family_plans`** | One subscription per family: plan, status, period end, platform, provider refs |
+| **`billing_events`** | Raw provider webhook log; `event_id` UNIQUE gives idempotency |
+| **`admin_grants`** | Admin-issued comps/trials, revoked by timestamp (never deleted) |
+| **`admin_audit_log`** | One row per mutating admin action, written in the same transaction |
 
 ---
 
-## Part 4: Push Notifications
+## Part 4: Platform admin & subscriptions
 
-CareCoins uses Firebase Cloud Messaging (FCM) for mobile push notifications.
+Design and implementation log: `docs/admin-family-management-plan.md`. Operational reference: `docs/backend.md` §18.
 
-**Token lifecycle:**
-1. User enables notifications in Profile → browser permission requested → FCM token saved via `POST /api/me/fcm-token`.
-2. On app startup (if already granted), `init()` in `useNotifications.js` silently re-fetches and upserts the token — handles rotation.
-3. Stale/invalid tokens are automatically deleted after a failed send.
+### The privacy boundary
 
-**Send path (backend):**
-- `notifyUser(userId, payload)` — sends to all tokens for one user.
-- `notifyFamilyCaregivers(familyId, excludeUserId, payload)` — sends to all active caregivers.
-- `notifyFamilyAll(familyId, excludeUserId, payload)` — sends to all active members.
-- All three accept `prefKey` to filter out users who opted out of that category.
+A platform admin is **the landlord, not a housemate**. `users.platform_role` is a global axis deliberately separate from family roles, so being an admin grants *no* rights inside any family. Admin endpoints expose **registry aggregates and billing state only** — never member identities, activities, coins or rewards. `adminService` maps every row through an explicit field allowlist, and a CI test feeds it contaminated rows to prove nothing else leaks. Admins are promoted only from the server (`scripts/promote-admin.js`); there is no API path to the role, and every mutating admin call writes an `admin_audit_log` row.
 
-**Notification events:**
+### Family liveness
+
+`families.last_active_at` is touched by middleware on **successful** family-scoped responses only (so unauthorized probes can't keep a family looking alive), throttled to one write per family per hour. The registry buckets it: **active** ≤ 30 days, **dormant** 30–90, **inactive** > 90. Cleanup is a process, not a button — an admin sends an audited inactivity notice, and `scripts/retention-sweep.js` later deletes only families that were noticed and stayed silent (dry-run by default).
+
+### Entitlements
+
+The backend is the single source of truth: clients read `/api/families/:id/entitlements`, never a store SDK. That is what makes one caregiver's iPhone purchase light up Pro for the Android grandparent. Effective entitlement merges three sources, **most generous wins**: the default plan, the subscription while in good standing (`trialing`/`active`/`in_grace`, plus `canceled` until the paid period ends), and unrevoked admin grants. Limits are `max_members`, `max_actors`, `max_active_rewards`; an absent key means unlimited. Lapsed subscriptions downgrade gracefully to the default plan — only `past_due` triggers the read-only gate (HTTP 402).
+
+### Billing (RevenueCat)
+
+Store rules require in-app purchases to go through StoreKit / Play Billing, so RevenueCat validates receipts and pushes lifecycle events to `POST /api/billing/webhook`, which normalizes them into `family_plans`. The Flutter app sets a `family_id` subscriber attribute before opening the paywall, because stores sell to a person while subscriptions belong to a family. Setup record and the remaining store checklist: `docs/RevenueCatSetup.md`.
+
+---
+
+## Part 5: Onboarding & starter tasks
+
+Plan and log: `docs/family-setup-questionnaire-plan.md`.
+
+The create-family flow is a four-step wizard — family details → caregivers → who you care for → starter tasks — with a progress bar, per-step validation and Back/Next.
+
+The final step asks how the family wants to start. Choosing ready-made tasks shows eight **activity-area** chips (meals, cleaning, errands, kids' routines, homework, night care, pets, elder care), pre-checked from the dependents entered a step earlier, plus a preview listing every implied task with a checkbox. Choosing "start empty" creates no tasks at all.
+
+The catalogue lives in the **client** (`lib/data/starter_packs.dart`) so titles resolve through `AppLocalizations` — a Spanish family is seeded in Spanish, which database rows written by the backend could never be. The chosen tasks travel in `POST /api/families` as `starterTasks` and are validated server-side (≤ 40 items, title length, known category, duration ≥ 15). An absent field falls back to the legacy English seeding; an empty array explicitly means "start empty". Starter coin values use the same budget rule the app suggests for user-created tasks.
+
+---
+
+## Part 6: Push notifications
+
+Firebase Cloud Messaging, sent server-side by the Node Admin SDK.
+
+**Token lifecycle:** the user enables notifications in Profile → permission requested → token saved via `POST /api/me/fcm-token`. On startup, `push_service.dart` silently refreshes and upserts the token (handling rotation). Tokens that fail a send as unregistered or invalid are pruned automatically.
+
+**Events:**
 
 | Event | Recipients | prefKey |
-|-------|-----------|---------|
-| New activity / pending approval | Caregivers | `activity_assigned` |
-| Activity validated (coins earned) | Assigned user | `activity_validated` |
+|---|---|---|
+| New activity pending approval | Caregivers | `activity_assigned` |
+| Activity scheduled for you | Assigned user | `activity_assigned` |
+| Activity needs validation (past due) | Caregivers | `activity_assigned` |
 | Activity completed | All family | `activity_completed` |
+| Activity validated (coins awarded) | Assignee | `activity_validated` |
 | Bounty offered | All family | `bounty_offered` |
-| Family deletion / member joined | Caregivers | `family_events` |
+| Member joined · deletion requested · inactivity notice | Caregivers | `family_events` |
 
-**Deep links:** Every notification carries `data.url`. Tapping a background notification navigates the app to the relevant view. Foreground notifications use `Notification.onclick` + `router.push`.
+Every notification carries `data.url`; tapping a background notification deep-links into the relevant view.
 
 ---
 
-## Part 5: Activity Lifecycle
+## Part 7: Activity lifecycle
 
-1. **Template creation** — caregiver defines title, category, duration, coin value.
+1. **Template creation** — title, category, duration, coin value (suggested from the family budget).
 2. **Approval** — a caregiver approves the template before it can be scheduled.
-3. **Scheduling** — approved template dragged onto the daily timeline (desktop) or selected from the task sheet (mobile). Supports recurring instances.
-4. **Bounty (optional)** — a caregiver offers extra coins on an activity. Any family member can accept the bounty and take over the task.
-5. **Completion** — assignee marks task done → status becomes `pending_validation`.
-6. **Validation** — a different caregiver validates → coins minted in `coin_ledger`, user balance updated.
-7. **Auto-complete** — `autoComplete.js` sweep transitions approved past-due tasks automatically.
+3. **Scheduling** — approved templates get a start time, optionally as a recurring series.
+4. **Bounty (optional)** — a caregiver adds bonus coins; any member can take the task over.
+5. **Completion** — the assignee marks it done → `pending_validation`.
+6. **Validation** — a caregiver confirms → coins minted in `coin_ledger`, balance updated.
+7. **Auto-complete** — `autoComplete.js` sweeps past-due approved tasks automatically.
+
+```
+pending → approved → pending_validation → completed
+                   → rejected
+```
 
 ---
 
-## Part 6: Automated Tests
+## Part 8: Automated tests
 
-116 unique test definitions (141 execution instances) across three layers. E2E tests run on multiple browser projects, so some definitions execute more than once. See `automatic-testing-E2E.md` for full test descriptions.
+### Backend unit tests — 114 tests
 
-### Layer 1 — Backend Unit Tests (44 tests)
-
-**Runner:** Node.js built-in `--test`. **Location:** `backend/tests/`.  
-No database required — all tests use mock DB clients.
+Node's built-in runner, mock DB clients, no database required.
 
 ```bash
 cd backend && npm test
 ```
 
-Covers: activity lifecycle (complete, validate, bounty, revert), family budget calculation, family deletion consensus flow, invite token validation, member management.
+`activityService` · `familyService` · `starterTasks` · `adminFoundation` · `adminRegistry` · `entitlements` · `billing` · `retention`. Coverage includes the activity lifecycle, budget and deletion consensus, admin authorization (403 matrix), the registry **leak-prevention** test, entitlement merging and suspension, webhook idempotency and event mapping, and the retention sweep.
 
-### Layer 2 — Frontend Unit Tests (25 tests, on the `vue-frontend` branch)
-
-**Runner:** Vitest with `vmThreads` pool. **Location:** `frontend/src/composables/__tests__/`, `frontend/src/stores/__tests__/`. The Flutter widget tests on `main` live in `fluterFront/test/`.
+### Flutter tests — 26 tests
 
 ```bash
-cd frontend && npm test        # on the vue-frontend branch
-cd fluterFront && flutter test # on main
+cd fluterFront && flutter analyze && flutter test
 ```
 
-Covers: `getCardStyle` status/category mapping (6 cases), `formatGap` time formatting (4 cases), `useTimeline` positioning algorithm (8 cases), auth and family stores (7 cases).
+`widget_test.dart` (UI kit, help sheet, checklist) · `l10n_test.dart` and `locale_test.dart` (all four locales resolve; persisted-locale behaviour) · `error_localization_test.dart` · `starter_packs_test.dart` (area derivation, payload validity, localization, per-task exclusion).
 
-### Layer 3 — E2E Integration Tests (47 definitions, 72 executions, on the `vue-frontend` branch)
+### E2E — on the `vue-frontend` branch
 
-**Runner:** Playwright 1.60. **Browsers:** Chromium + WebKit (Safari). **Location:** `frontend/e2e/`.  
-Uses the Firebase Auth Emulator — no real Google account needed, fully offline.
-
-```bash
-cd frontend && npm run test:e2e
-```
-
-Requires three services (started automatically by Playwright if not already running):
-- Firebase Auth Emulator on port 9099 (`firebase emulators:start --only auth`)
-- Backend in test mode: `npm run dev:test` (sets `FIREBASE_AUTH_EMULATOR_HOST`)
-- Frontend in test mode: `npm run dev:test` (sets `VITE_USE_EMULATOR=true`)
-
-**Test files:**
-- `landing.spec.js` — public pages, PWA meta, font loading
-- `dashboard.spec.js` — auth guard redirects, mobile viewport
-- `happy-paths.spec.js` — dashboard, daily view, schedule task, profile, navigation (Chromium + WebKit)
-- `two-users.spec.js` — validate activity and bounty flow with two simultaneous browser contexts
-- `onboarding.spec.js` — first-time user creates a family
-- `marketplace.spec.js` — reward listing, redeem, and create
-- `notifications.spec.js` — notification permission detection and preference toggles
+Playwright against the Firebase Auth Emulator, covering landing, dashboard, happy paths, two-user validation, onboarding, marketplace and notifications. Described in `docs/automatic-testing-E2E.md`. Not yet ported to Flutter.
 
 ---
 
-## Part 7: Local Development
+## Part 9: Local development
 
 ### Prerequisites
-- Node.js 20+, npm
-- PostgreSQL 16 (local instance, or use Docker)
-- Firebase project with Auth + FCM enabled
+Node.js 20+ · PostgreSQL 16 · Flutter SDK · a Firebase project with Auth + FCM
 
 ### Environment variables
 
-Copy `backend/.env.example` to `backend/.env` and set:
-- `DATABASE_URL` — Postgres connection string
-- `FIREBASE_PROJECT_ID` — Firebase project ID
-- `GOOGLE_APPLICATION_CREDENTIALS` — path to Firebase service account JSON
-- `RESEND_API_KEY` — (optional) email sending; omit to use console mock
-- `EMAIL_FROM` — sender address for invitation emails
+Copy `backend/.env.example` to `backend/.env`:
 
-Frontend (Flutter) needs no env file — Firebase config is compiled in via
-`fluterFront/lib/firebase_options.dart`; the backend URL is a build-time
-`--dart-define` (see `fluterFront/README.md`).
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` · `PGSSL` | Postgres connection string and SSL toggle |
+| `PORT` | API port (default 3000) |
+| `FIREBASE_PROJECT_ID` | Firebase project |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to the service-account JSON (production; unset when using the Auth Emulator) |
+| `ALLOWED_ORIGINS` | CORS whitelist |
+| `RESEND_API_KEY` · `EMAIL_FROM` | Invitation email (omit the key to log to console) |
+| `APP_URL` | Link base used in emails |
+| `REVENUECAT_WEBHOOK_SECRET` | Must match the Authorization header on the RevenueCat webhook, or it returns 401 |
 
-### Running locally
+The Flutter app needs no env file: Firebase config is compiled in via `lib/firebase_options.dart`; the backend URL and RevenueCat keys are build-time defines.
+
+### Running
 
 ```bash
-# Backend
-cd backend && npm install && npm run dev   # hot-reload on :3000
+# Database (once, or after pulling migrations)
+cd backend && npm install && npm run db:init
 
-# Frontend (web; see fluterFront/README.md for iOS/Android)
-cd fluterFront && flutter run -d chrome --web-port 8080 \
+# Backend, hot-reload on :3000
+npm run dev
+
+# App
+cd ../fluterFront && flutter pub get
+flutter run                                   # device / emulator
+flutter run -d chrome --web-port 8080 \
   --dart-define=API_BASE=http://localhost:3000
 ```
 
-**Important:** The Docker `db-init` service runs all migrations automatically on `docker compose up`. For local dev against a bare Postgres instance, run the init script once:
+Release builds pass the real keys:
 
 ```bash
-cd backend && npm run db:init
+flutter build appbundle --dart-define=API_BASE=https://mycarecoins.app \
+                        --dart-define=RC_ANDROID_KEY=goog_XXXX
 ```
 
-This executes `scripts/init-db.js`, which applies `schema.sql` and all migration scripts in order (all statements are idempotent — safe to re-run).
-
-### Running with Docker (recommended)
+### With Docker
 
 ```bash
 docker compose up --build -d
 ```
 
-Runs Postgres 16, `db-init` (schema + all migrations), Node API, and the NGINX-served Flutter web build on port 80. Firebase credentials must be placed at `./firebase-credentials.json`.
+Starts Postgres 16, `db-init` (schema + migrations), the Node API, and the NGINX-served Flutter web build. Firebase credentials must be at `./firebase-credentials.json`.
 
-### Testing push notifications locally
+### Operator scripts
 
-1. Enable notifications in Profile (requires `VITE_FIREBASE_VAPID_KEY` set).
-2. In Chrome DevTools → Application → Service Workers → find `firebase-messaging-sw.js` → use the **Push** button with payload:
-   ```json
-   {"notification":{"title":"Test","body":"Hello"},"data":{"url":"/activities"}}
-   ```
-3. For mobile badge and home-screen notification appearance, deploy to a server with HTTPS or expose localhost via ngrok.
+```bash
+node backend/scripts/promote-admin.js you@example.com   # grant/revoke platform admin (--demote)
+node backend/scripts/retention-sweep.js                 # dry run; --apply to delete
+```
 
-> macOS note: Chrome notifications also require system-level permission. Check **System Settings → Notifications → Google Chrome → Allow Notifications**.
+### Testing subscriptions locally
+
+RevenueCat delivers webhooks over the public internet, so a backend on `localhost` never receives them — a purchase will succeed on-device while the family stays on the free plan. Either test against the deployed server, or expose the local backend with a tunnel and point the webhook URL at it temporarily.
+
+### Testing push locally
+
+Enable notifications in Profile, then use Chrome DevTools → Application → Service Workers → **Push**:
+
+```json
+{"notification":{"title":"Test","body":"Hello"},"data":{"url":"/activities"}}
+```
+
+Mobile badges and home-screen behaviour need HTTPS — deploy or tunnel. On macOS, also allow Chrome notifications in System Settings.
+
+---
+
+## Part 10: Documentation index
+
+| Document | Contents |
+|---|---|
+| `docs/PRODUCT.md` | Users, purpose, brand, design principles, feature set |
+| `docs/DESIGN.md` | Design tokens and component rules |
+| `docs/backend.md` | Backend technical reference (§18 covers admin, billing and retention) |
+| `docs/frontend.md` | Frontend technical reference |
+| `docs/database-schema.md` | Full column-level schema reference |
+| `docs/admin-family-management-plan.md` | Platform admin, registry and subscription design + implementation log |
+| `docs/RevenueCatSetup.md` | RevenueCat dashboard configuration record and store checklist |
+| `docs/family-setup-questionnaire-plan.md` | Starter tasks and setup questionnaire design + log |
+| `docs/i18n-plan.md` | Localization workflow and guardrails |
+| `docs/onboarding-help-plan.md` | Guided tour, help sheet, activation checklist |
+| `docs/store-release-checklist.md` | Per-release store steps, including IAP review prep |
+| `docs/deployment.md` · `docs/running-instructions.txt` | Server deployment and run instructions |
+| `docs/automatic-testing-E2E.md` | E2E suite description (`vue-frontend` branch) |
+| `docs/mobile-usability-improvements.md` | Mobile audit findings |
+| `QA.md` | Thesis defence Q&A: architecture, concurrency, security, privacy boundary, subscriptions |
