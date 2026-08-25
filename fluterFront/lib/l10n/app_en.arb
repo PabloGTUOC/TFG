@@ -364,6 +364,8 @@
   },
   "absenceWholeDaysNote": "Time off covers whole days — pick one day or more.",
   "@absenceWholeDaysNote": { "description": "Absence dialog: explains the one-day minimum" },
+  "absenceCostNote": "While you're away, your share of the monthly coins goes to whoever is home.",
+  "@absenceCostNote": { "description": "Absence dialog: what logging time off costs the person leaving" },
   "logAction": "Log",
   "@logAction": { "description": "Confirm button of the absence dialog" },
 

@@ -147,6 +147,7 @@
   "absenceDatesLabel": "Dates",
   "absenceDaysCount": "{count, plural, one{{count} jour} other{{count} jours}}",
   "absenceWholeDaysNote": "Les absences couvrent des journées entières : choisissez un jour ou plus.",
+  "absenceCostNote": "Pendant votre absence, votre part des pièces du mois revient à la personne restée à la maison.",
   "logAction": "Enregistrer",
 
   "absenceAway": "{name} est absent(e)",

@@ -63,7 +63,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Log time off'), findsOneWidget);
-    expect(find.text('Time off covers whole days — pick one day or more.'),
+    expect(
+        find.textContaining('Time off covers whole days — pick one day or more.'),
+        findsOneWidget);
+    expect(
+        find.textContaining(
+            'your share of the monthly coins goes to whoever is home'),
         findsOneWidget);
     // Defaults to the anchor day only: one day, not the old 09:00-17:00 window.
     expect(find.textContaining('Dates: 4 Sep → 4 Sep · 1 day'), findsOneWidget);

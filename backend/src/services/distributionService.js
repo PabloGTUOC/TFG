@@ -7,9 +7,11 @@
  * remainder, logging an activity does not create coins — it moves them from the
  * shared residual to whoever did the work. See docs/personal-time-plan.md §1.2.
  *
- * Lifted out of routes/dashboard.js unchanged so the money path can be tested;
- * the route still triggers it on the first dashboard load of a new month, and
- * every elapsed month since the last run is settled in order.
+ * The residual is split by *presence*: the coins for the hours a caregiver was
+ * away go to whoever was home. See docs/personal-time-plan.md §3.1.
+ *
+ * The route triggers this on the first dashboard load of a new month, and every
+ * elapsed month since the last run is settled in order.
  */
 
 /** Advances a 'YYYY-MM' string by one month. */
@@ -19,6 +21,57 @@ function nextMonth(monthStr) {
   let month = parseInt(monthNumStr, 10) + 1;
   if (month > 12) { month = 1; year++; }
   return `${year}-${month.toString().padStart(2, '0')}`;
+}
+
+const MS_PER_HOUR = 3_600_000;
+
+/**
+ * Hours a caregiver was present during [monthStart, monthEnd).
+ *
+ * Absences are merged rather than summed, so two overlapping trips cannot
+ * subtract the same hour twice, and a caregiver who joined mid-month only
+ * counts from the day they joined.
+ */
+export function presentHours(monthStart, monthEnd, joinedAt, absences) {
+  const from = Math.max(monthStart, joinedAt ?? monthStart);
+  if (monthEnd <= from) return 0;
+
+  const clipped = absences
+    .map(({ start, end }) => [Math.max(from, start), Math.min(monthEnd, end)])
+    .filter(([start, end]) => end > start)
+    .sort((a, b) => a[0] - b[0]);
+
+  let away = 0;
+  let cursor = from;
+  for (const [start, end] of clipped) {
+    const uncounted = start > cursor ? start : cursor;
+    if (end > uncounted) {
+      away += end - uncounted;
+      cursor = end;
+    }
+  }
+  return Math.max(0, monthEnd - from - away) / MS_PER_HOUR;
+}
+
+/**
+ * Splits `unclaimed` in proportion to `weights` — the hours each caregiver was
+ * present. The coins for the hours you were away go to whoever was home
+ * (docs/personal-time-plan.md §3.1); no consent is asked, because you cannot
+ * decline your partner's business trip.
+ *
+ * Every share is floored and the rounding remainder is left unspent, exactly as
+ * the even split always did, so the distribution can never invent a coin. When
+ * nobody was present at all it falls back to an even split rather than
+ * swallowing the residual.
+ */
+export function distributionShares(unclaimed, weights) {
+  if (!weights.length || unclaimed <= 0) return weights.map(() => 0);
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  if (total <= 0) {
+    const even = Math.floor(unclaimed / weights.length);
+    return weights.map(() => even);
+  }
+  return weights.map((w) => Math.floor((unclaimed * w) / total));
 }
 
 /**
@@ -33,6 +86,9 @@ async function settleMonth(client, familyId, monthStr) {
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const hoursInMonth = daysInMonth * 24;
+  // UTC bounds, matching the `explicit` query below, which buckets by UTC month.
+  const monthStart = Date.UTC(year, month - 1, 1);
+  const monthEnd = Date.UTC(year, month, 1);
 
   const { rows: careActors } = await client.query(
     `SELECT care_time FROM actors WHERE family_id = $1 AND actor_type != 'person'`,
@@ -57,21 +113,42 @@ async function settleMonth(client, familyId, monthStr) {
   const unclaimed = Math.max(0, totalGdp - explicit[0].total);
 
   const { rows: caretakers } = await client.query(
-    `SELECT id, user_id FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
+    `SELECT id, user_id, joined_at FROM family_members WHERE family_id = $1 AND role = 'caregiver' AND status = 'active'`,
     [familyId]
   );
 
   if (caretakers.length === 0 || unclaimed <= 0) return;
 
-  const share = Math.floor(unclaimed / caretakers.length);
-  if (share <= 0) return;
-
-  await client.query(
-    `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE id = ANY($2::bigint[])`,
-    [share, caretakers.map(c => c.id)]
+  // A family has a handful of absences in a month, so they are merged in JS
+  // rather than in SQL: the rule stays unit-testable, which a window function
+  // over tstzranges would not be.
+  const { rows: absenceRows } = await client.query(
+    `SELECT user_id, start_time, end_time FROM absences
+     WHERE family_id = $1 AND start_time < $3 AND end_time > $2`,
+    [familyId, new Date(monthStart).toISOString(), new Date(monthEnd).toISOString()]
   );
 
-  for (const c of caretakers) {
+  const weights = caretakers.map((c) => presentHours(
+    monthStart,
+    monthEnd,
+    c.joined_at ? new Date(c.joined_at).getTime() : monthStart,
+    absenceRows
+      .filter((a) => String(a.user_id) === String(c.user_id))
+      .map((a) => ({
+        start: new Date(a.start_time).getTime(),
+        end: new Date(a.end_time).getTime(),
+      }))
+  ));
+
+  const shares = distributionShares(unclaimed, weights);
+
+  for (const [i, c] of caretakers.entries()) {
+    const share = shares[i];
+    if (share <= 0) continue;
+    await client.query(
+      `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE id = $2`,
+      [share, c.id]
+    );
     await client.query(
       `INSERT INTO coin_ledger (family_id, user_id, amount, reason) VALUES ($1, $2, $3, 'monthly_distribution')`,
       [familyId, c.user_id, share]

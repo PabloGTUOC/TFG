@@ -147,6 +147,7 @@
   "absenceDatesLabel": "Fechas",
   "absenceDaysCount": "{count, plural, one{{count} día} other{{count} días}}",
   "absenceWholeDaysNote": "Las ausencias cubren días completos: elige uno o más.",
+  "absenceCostNote": "Mientras estás fuera, tu parte de las monedas del mes va para quien se queda en casa.",
   "logAction": "Registrar",
 
   "absenceAway": "{name} está fuera",

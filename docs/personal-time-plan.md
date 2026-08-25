@@ -447,7 +447,7 @@ cleanly with `convalidated = f`.
 
 ---
 
-### Phase 2 — Presence-weighted residual
+### Phase 2 — Presence-weighted residual ✅ implemented
 
 **Goal.** The coins for hours you were away go to the caretaker who was present (§3.1).
 
@@ -468,6 +468,32 @@ cleanly with `convalidated = f`.
 **Done when.** Unit tests cover: total is conserved; nobody absent reproduces today's even
 split exactly; everyone absent falls back; a single caregiver takes everything; a
 mid-month joiner is prorated. The ledger still writes `monthly_distribution`.
+
+**As built.** Two commits, as planned.
+
+1. *Extraction.* `services/distributionService.js` holds the block verbatim; the route is
+   now one line, `if (!await runMonthlyDistribution(client, familyId)) return null;`. The
+   only addition is an injectable `now`, so tests do not drift with the wall clock. Ten
+   characterization tests pinned the old behaviour first.
+2. *Weighting.* Two exported pure functions do the work — `presentHours`, which merges a
+   caregiver's absences (overlapping trips cannot subtract the same hour twice) and counts
+   a mid-month joiner only from `joined_at`; and `distributionShares`, which floors every
+   share, leaves the rounding remainder unspent, and falls back to an even split when
+   nobody was present. All ten characterization tests still pass untouched, which is the
+   regression guarantee: with nobody away, the split is bit-for-bit what it was.
+
+Absences are merged in JS rather than SQL deliberately — a family has a handful per month,
+and the repo's mock-client tests can exercise a JS rule but not a window function over
+`tstzrange`s.
+
+The absence dialog now says what time off costs: *"While you're away, your share of the
+monthly coins goes to whoever is home."*
+
+**Verified.** 149 backend tests (28 in this file), 31 Flutter tests, `flutter analyze`
+clean. End-to-end against a real Postgres 16: a family with 744 h of July GDP, 200 already
+claimed and one caregiver away three days settled to **258 / 285** — the traveller down 14
+coins from the old even split of 272, the caretaker who stayed up 13, one coin unspent to
+rounding, and the clock advanced exactly once.
 
 ---
 

@@ -82,7 +82,7 @@ Future<bool> showLogAbsenceDialog(BuildContext context,
                 ),
               ),
               const SizedBox(height: 8),
-              Text(l.absenceWholeDaysNote,
+              Text('${l.absenceWholeDaysNote}\n${l.absenceCostNote}',
                   style: const TextStyle(
                       fontSize: 12.5, color: AppColors.textSecondary)),
             ],

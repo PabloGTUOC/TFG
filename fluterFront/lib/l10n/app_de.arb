@@ -147,6 +147,7 @@
   "absenceDatesLabel": "Zeitraum",
   "absenceDaysCount": "{count, plural, one{{count} Tag} other{{count} Tage}}",
   "absenceWholeDaysNote": "Abwesenheiten umfassen ganze Tage – wähle einen Tag oder mehr.",
+  "absenceCostNote": "Während du weg bist, geht dein Anteil an den Monatsmünzen an die Person, die zu Hause bleibt.",
   "logAction": "Eintragen",
 
   "absenceAway": "{name} ist abwesend",
