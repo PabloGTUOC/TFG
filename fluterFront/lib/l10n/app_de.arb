@@ -30,7 +30,7 @@
   "greetingEvening": "Guten Abend",
   "dashTitle": "Familienzentrale",
   "dashEarned": "{greeting}, {name}! Deine Familie hat heute {coins} cc verdient.",
-  "dashPendingTasks": "{count, plural, one{# Aufgabe wartet auf Aufmerksamkeit.} other{# Aufgaben warten auf Aufmerksamkeit.}}",
+  "dashPendingTasks": "{count, plural, one{{count} Aufgabe wartet auf Aufmerksamkeit.} other{{count} Aufgaben warten auf Aufmerksamkeit.}}",
 
   "tourMembersTitle": "Die Familie auf einen Blick",
   "tourMembersBody": "Hier steht der Münzstand aller Mitglieder. Er wächst, wenn eine Betreuungsperson eine erledigte Aufgabe bestätigt.",
@@ -59,7 +59,7 @@
   "offersOpenCount": "{count} offen",
 
   "kpiFamilyBalance": "Familiensaldo",
-  "kpiMembersCount": "{count, plural, one{über # Mitglied} other{über # Mitglieder}}",
+  "kpiMembersCount": "{count, plural, one{über {count} Mitglied} other{über {count} Mitglieder}}",
   "kpiTasksToday": "Aufgaben heute",
   "kpiAwaitingValidation": "{count} zu bestätigen",
   "kpiOnTrack": "im Plan",
@@ -77,9 +77,9 @@
   "feedVerbGot": "holte sich",
   "seeAllActivity": "Alle Aktivitäten ansehen",
 
-  "timeAgoDays": "{count, plural, one{vor # Tag} other{vor # Tagen}}",
-  "timeAgoHours": "{count, plural, one{vor # Stunde} other{vor # Stunden}}",
-  "timeAgoMins": "{count, plural, one{vor # Min.} other{vor # Min.}}",
+  "timeAgoDays": "{count, plural, one{vor {count} Tag} other{vor {count} Tagen}}",
+  "timeAgoHours": "{count, plural, one{vor {count} Stunde} other{vor {count} Stunden}}",
+  "timeAgoMins": "{count, plural, one{vor {count} Min.} other{vor {count} Min.}}",
 
   "caredFor": "umsorgt",
   "dayToday": "HEUTE",
@@ -219,7 +219,7 @@
   "fieldWithDate": "{label}: {date}",
   "createRewardBtn": "Prämie erstellen",
   "soldOut": "Ausverkauft",
-  "nLeft": "{count, plural, one{# übrig} other{# übrig}}",
+  "nLeft": "{count, plural, one{{count} übrig} other{{count} übrig}}",
   "expires": "⏳ Läuft ab am {date}",
   "buy": "Kaufen",
 
