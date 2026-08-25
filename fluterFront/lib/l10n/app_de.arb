@@ -144,8 +144,9 @@
   "absenceDialogTitle": "Abwesenheit eintragen",
   "fieldTitle": "Titel",
   "absenceHint": "z. B. Dienstreise",
-  "fromLabel": "Von",
-  "toLabel": "Bis",
+  "absenceDatesLabel": "Zeitraum",
+  "absenceDaysCount": "{count, plural, one{{count} Tag} other{{count} Tage}}",
+  "absenceWholeDaysNote": "Abwesenheiten umfassen ganze Tage – wähle einen Tag oder mehr.",
   "logAction": "Eintragen",
 
   "absenceAway": "{name} ist abwesend",

@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS absences (
   CHECK (end_time > start_time)
 );
 
+-- An absence must last at least 24 hours (docs/personal-time-plan.md Phase 1).
+-- The constraint lives in scripts/migrate-absence-floor.sql because it is added
+-- NOT VALID, to grandfather the shorter absences already in live databases.
+
 CREATE INDEX IF NOT EXISTS idx_absences_family_period ON absences (family_id, start_time, end_time);
 
 CREATE TABLE IF NOT EXISTS invite_links (

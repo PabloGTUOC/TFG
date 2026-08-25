@@ -144,8 +144,9 @@
   "absenceDialogTitle": "Déclarer une absence",
   "fieldTitle": "Titre",
   "absenceHint": "ex. Voyage d'affaires",
-  "fromLabel": "Du",
-  "toLabel": "Au",
+  "absenceDatesLabel": "Dates",
+  "absenceDaysCount": "{count, plural, one{{count} jour} other{{count} jours}}",
+  "absenceWholeDaysNote": "Les absences couvrent des journées entières : choisissez un jour ou plus.",
   "logAction": "Enregistrer",
 
   "absenceAway": "{name} est absent(e)",

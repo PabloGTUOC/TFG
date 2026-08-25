@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { withTransaction } from '../db/pool.js';
 import { upsertUserFromAuth, assertActiveMember } from '../db/users.js';
 import { validateBody, validateParams, required, string, positiveInt, isoDate } from '../middleware/validate.js';
+import { validateAbsenceWindow } from '../services/absenceService.js';
 
 export const absencesRouter = Router();
 
@@ -50,9 +51,8 @@ absencesRouter.post('/', validateBody({
 }), async (req, res) => {
   const { familyId, startTime, endTime, title } = req.body;
 
-  if (new Date(endTime) <= new Date(startTime)) {
-    return res.status(400).json({ error: 'End time must be after start time.' });
-  }
+  const windowError = validateAbsenceWindow(startTime, endTime);
+  if (windowError) return res.status(400).json({ error: windowError });
 
   try {
     const result = await withTransaction(async (client) => {

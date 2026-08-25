@@ -144,8 +144,9 @@
   "absenceDialogTitle": "Registrar ausencia",
   "fieldTitle": "Título",
   "absenceHint": "p. ej. Viaje de trabajo",
-  "fromLabel": "Desde",
-  "toLabel": "Hasta",
+  "absenceDatesLabel": "Fechas",
+  "absenceDaysCount": "{count, plural, one{{count} día} other{{count} días}}",
+  "absenceWholeDaysNote": "Las ausencias cubren días completos: elige uno o más.",
   "logAction": "Registrar",
 
   "absenceAway": "{name} está fuera",

@@ -1,0 +1,605 @@
+# Activity Subclasses, Personal Time & Coverage — Plan
+
+> **Status: proposed, revision 3. No code written.**
+> Companion docs: `docs/PRODUCT.md`, `docs/backend.md`, `docs/database-schema.md`.
+
+**The scenario:** "I want to go to the gym Friday 18:00–19:30. I double-tap that hour on
+the Daily view, name it, set a duration and a short note, optionally sweeten it from my own
+coins. The other caretaker gets a counter care activity for that window, worth the base
+rate. They can decline."
+
+### Changes in revision 3
+
+1. **Correction — revisions 1 and 2 missed the monthly GDP distribution**
+   (`dashboard.js:17–95`). It changes the economics fundamentally: explicit activities are
+   **zero-sum** against an unclaimed residual, not newly minted money. Every inflation
+   concern in the earlier revisions is void (§2).
+2. **Absences will pay the present caretaker** — via presence-weighted residual, not by
+   generating activities. This is the correction Pablo raised; the code does not do it today
+   (§3.1, §5.2).
+3. **Activities become a base class with two subclasses, `care` and `self`** (§4), so a self
+   activity and the counter care activity it creates can occupy the same window.
+4. **The 24 h boundary cliff from revision 2 is resolved** and inverted — dodging via a 24 h
+   absence now costs ~5× more than asking honestly (§5.3).
+
+---
+
+## 1. Current state
+
+### 1.1 Three time primitives
+
+| Primitive | Meaning | Who it moves | Coins | Consent |
+|---|---|---|---|---|
+| **Activity** (`care` \| `household`) | Value-producing work | Only yourself | `coin_value` to the doer on completion | None |
+| **Bounty** | Bonus to shed a shift you own | Reassigns an existing shift | Escrows *your* coins, first-come grab | None |
+| **Absence** | You are unavailable | Nobody | None | None |
+
+**Activities are always self-assigned.** `scheduleActivity` inserts `assigned_to = userId`;
+the only later mutation of `assigned_to` in the whole backend is `acceptBounty`, where the
+accepter assigns it to *themselves*. No role can put work on another person's calendar.
+
+**Absences touch no coin path.** `absences` appears in exactly two backend files —
+`app.js` (mount) and `routes/absences.js`. It is absent from `dashboard.js` and `stats.js`.
+There is no minimum duration; the dialog defaults to 09:00–17:00 on one day.
+
+### 1.2 The economy actually has two layers
+
+This is what revisions 1 and 2 got wrong. Coins reach a caregiver two ways:
+
+**Layer 1 — explicit activities.** `coin_value = max(1, round(baseRatePerHour × minutes/60))`,
+credited to the doer on completion, or automatically by `runAutoCompleteSweep` once
+`ends_at` passes.
+
+**Layer 2 — the monthly GDP residual** (`dashboard.js:17–95`, run lazily on the first
+dashboard load of a new month, sweeping every elapsed month):
+
+```
+totalGdp  = Σ over dependents:  full_time → daysInMonth × 24,  part_time → half
+explicit  = Σ coin_value of activities completed that month
+unclaimed = max(0, totalGdp − explicit)
+share     = floor(unclaimed / activeCaregivers)      ← split EVENLY, credited to each
+```
+
+The dependent generates one coin per hour of existence. Logged work claims part of it; the
+rest is divided equally among caregivers as `monthly_distribution`.
+
+### 1.3 The consequence everyone should understand
+
+Because `unclaimed = totalGdp − explicit`, **logging an activity does not create money — it
+moves money from the evenly-split residual to the person who did the work.**
+
+> Two caregivers, one full-time dependent, 30-day month. `totalGdp` 720, explicit 200,
+> unclaimed 520 → 260 each. Add a 2 cc activity: explicit 202, unclaimed 518 → 259 each,
+> and the doer also earns 2 → **261 vs 259**. Total unchanged. Zero-sum.
+
+The system only mints new money once `explicit` exceeds `totalGdp`, where `unclaimed`
+clamps at zero. That — not `monthly_coin_budget` — is the real ceiling.
+
+**Minor inconsistency found:** `monthly_coin_budget` is fixed at 720/360 per dependent at
+family creation and drives `baseRatePerHour` and task pricing, while the distribution uses
+the actual `daysInMonth × 24`. They disagree by 48 coins in February and 24 in July.
+
+---
+
+## 2. What this does to the earlier revisions
+
+| Revision 1–2 claim | Status |
+|---|---|
+| "Coverage minted from the budget inflates the money supply" | **Void.** Explicit activities are zero-sum against the residual (§1.3). |
+| "Cap personal time via `plans.limits`, make the budget a hard block" | **Dropped.** No cap needed. |
+| "A 90-min gym slot costs the household 2 cc" | **Refined.** It costs the *requester* ~1 cc of residual share and gives the coverer ~1, plus the 2 cc credit. |
+| "Absences are economically inert" | **True today, and wrong as a design.** Fixed in §3.1. |
+| "The 24 h boundary is a payment cliff" | **Resolved** by §3.1 — see §5.3. |
+
+---
+
+## 3. The two settlement paths
+
+The 24 h duration partition from revision 2 turns out to have a real economic meaning, not
+just a duration rule. Each side gets the settlement mechanism it suits.
+
+### 3.1 Absence (≥ 24 h) — settled at month end, no consent
+
+**The coins for the hours you are away go to the caretaker who was present.**
+
+Today `share = floor(unclaimed / caretakers.length)` ignores absences entirely. It becomes
+presence-weighted:
+
+```
+presentHours_i = hoursInMonth − (that caregiver's absent hours falling inside the month)
+share_i        = floor(unclaimed × presentHours_i / Σ presentHours)
+```
+
+Conserves the total, needs no new coin flow, and degrades correctly: one caregiver → gets
+everything; nobody absent → today's even split exactly.
+
+No consent is asked, because you cannot decline your partner's business trip. It is
+automatic and retrospective, which is right for coarse, whole-day unavailability.
+
+> 2 caregivers, unclaimed 520, one away 3 days (72 h): present 648 vs 720 → **246 vs 273**
+> instead of 260/260. The trip costs the traveller 14 coins.
+
+**Edge cases:** `Σ presentHours = 0` → fall back to the even split. A caregiver who joined
+mid-month should count present hours only from `joined_at`. Floor each share and leave the
+rounding remainder unspent, as the code does today.
+
+### 3.2 Self activity (< 24 h) — settled immediately, requires consent
+
+Month-end accounting is useless for a 90-minute gym slot: it is invisible, retrospective and
+unrefusable. Short discretionary time gets the opposite treatment — an **explicit counter
+care activity**, created immediately, visible on both calendars, and **refusable**.
+
+**Do not apply presence weighting to self-activity hours.** They are already settled by the
+explicit counter activity; counting them twice would pay the coverer for the same hour on
+both layers. Clean division of labour:
+
+| | Absence ≥ 24 h | Self activity < 24 h |
+|---|---|---|
+| Settled | Month end, automatically | Immediately, on acceptance |
+| Mechanism | Presence-weighted residual | Explicit counter care activity |
+| Refusable | No | **Yes** |
+| Sweetener | No | Yes, from the requester's wallet |
+
+---
+
+## 4. The activity class model
+
+Today `category` conflates two different questions — *is this a contribution at all?* and
+*what kind of contribution?* Splitting them is what lets a self activity and its counter
+care activity coexist in one window.
+
+```
+activity  (base: title, description, window, duration, assignee, status)
+│
+├── kind = 'care'   contribution to the family
+│                   category ∈ {care, household};  coin_value > 0;  pays the assignee
+│                   └── coverage: a care activity with personal_time_request_id set
+│
+└── kind = 'self'   personal time
+                    category NULL;  coin_value = 0;  pays nobody
+                    always paired with a counter care activity
+```
+
+`kind` defaults to `'care'`, so every existing row is correct with no backfill.
+
+### 4.1 Overlap rules become subclass-aware
+
+`scheduleActivity` currently rejects any overlap for the same assignee. That rule has to
+become a matrix, or the feature breaks in two places:
+
+| Existing (same person) ↓ / New → | care | coverage | self |
+|---|---|---|---|
+| **care** | blocked (today's rule) | **allowed** | blocked |
+| **coverage** | **allowed** | blocked | blocked |
+| **self** | blocked | blocked | blocked |
+
+Different people never conflict, so my self activity and my partner's counter care activity
+coexist by construction.
+
+**The `care` × `coverage` cell is the one that matters.** Coverage is supervisory: the
+coverer will still cook dinner and run bath time inside that window. Under today's rule,
+accepting coverage would lock them out of scheduling their own evening tasks. Tasks nested
+inside coverage pay normally on top — the coverage baseline pays for *being tied to the
+house*, the task pays for *the labour*, and both draw down the same residual, so it stays
+zero-sum.
+
+### 4.2 What each subclass does to the ledger
+
+| | Owner | Coin value | Counts toward `explicit` | Presence weighting |
+|---|---|---|---|---|
+| care | doer | base rate × hours | yes | — |
+| coverage | coverer | base rate × hours + sweetener | yes (baseline only) | — |
+| self | requester | 0 | no | excluded (§3.2) |
+
+The sweetener rides on the coverage row's existing `bounty_amount`, so
+`runAutoCompleteSweep` pays it out with no new payout code, and it must be excluded from
+`explicit` — it is the requester's own coins, not a claim on the residual.
+
+---
+
+## 5. Decisions
+
+### 5.1 Duration partition
+
+| | Self activity | Absence |
+|---|---|---|
+| Duration | 15 min – 24 h | **≥ 24 h** |
+| Purpose | Discretionary personal time | Work travel, urgent family matters |
+| Coverage | Counter activity, refusable | None — settled by presence weighting |
+
+**Migration caveat:** live databases hold absences shorter than 24 h. A
+`CHECK (end_time - start_time >= INTERVAL '24 hours')` will not apply. Enforce in
+`validateBody` and add the constraint `NOT VALID` so it binds new rows only.
+
+**UI consequence:** the absence dialog's two datetime pickers and 09:00→17:00 default become
+invalid — it becomes a date-range picker defaulting to today → tomorrow.
+
+### 5.2 The cliff is resolved
+
+With §3.1 in place, declaring a 24 h absence to dodge a negotiation now costs more than
+asking:
+
+| Path | Requester's residual | Their net |
+|---|---|---|
+| Ask honestly (90 min gym, 2 cc baseline) | 260 → 259 | **−1 cc** |
+| Dodge with a 24 h absence | 260 → 255 | **−5 cc** |
+
+The dodge is 5× more expensive *and* burns a whole day of calendar. Revision 2 accepted this
+cliff reluctantly; it no longer exists.
+
+### 5.3 The 24 h maximum — sound, with a rendering caveat
+
+The Daily grid is `kStartHour = 6`, `kTotalHours = 18` — 06:00 to midnight, one day. Blocks
+longer than ~12 h or crossing midnight cannot be drawn. Absences already render as chips
+outside the hour grid; long self activities reuse that. The picker offers 30 min – 12 h; the
+API enforces the 24 h ceiling.
+
+### 5.4 Remaining choices
+
+- **Who is asked** — two caregivers: the other, automatically. Three or more: a picker, plus
+  an "ask anyone" mode where the first to accept wins.
+- **"No coverage needed"** — gym at 10:00 with the kid at daycare needs nobody. Default to
+  requesting coverage, with a toggle for none; still notifies the partner (visible,
+  falsifiable), no acceptance, no coins.
+- **Series** — request the series, accept the series. `parent_request_id` exists from day one
+  so per-instance renegotiation can be added later.
+- **Expiry** — `min(request + 48 h, starts_at)`; refunds the sweetener; swept from
+  `runAutoCompleteSweep`.
+
+---
+
+## 6. Data model
+
+```sql
+-- 1. The subclass discriminator. DEFAULT 'care' makes every existing row correct.
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'care';
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_category_check;
+ALTER TABLE activities ALTER COLUMN category DROP NOT NULL;
+ALTER TABLE activities ADD CONSTRAINT activities_kind_category_check CHECK (
+  (kind = 'care' AND category IN ('care', 'household')) OR
+  (kind = 'self' AND category IS NULL AND coin_value = 0)
+);
+
+-- 2. The note the dialog needs (activities has no description column today).
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- 3. Absence floor. NOT VALID: existing short absences are grandfathered (§5.1).
+ALTER TABLE absences ADD CONSTRAINT absences_min_duration
+  CHECK (end_time - start_time >= INTERVAL '24 hours') NOT VALID;
+
+-- 4. The negotiation. Mirrors family_deletion_requests in spirit.
+CREATE TABLE personal_time_requests (
+  id                BIGSERIAL PRIMARY KEY,
+  family_id         BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  requester_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  requested_of      BIGINT REFERENCES users(id) ON DELETE CASCADE,   -- NULL = ask anyone
+  parent_request_id BIGINT REFERENCES personal_time_requests(id) ON DELETE CASCADE,
+  title             TEXT NOT NULL,
+  description       TEXT,
+  starts_at         TIMESTAMPTZ NOT NULL,
+  ends_at           TIMESTAMPTZ NOT NULL,
+  coverage_needed   BOOLEAN NOT NULL DEFAULT true,
+  baseline_coins    INTEGER NOT NULL CHECK (baseline_coins >= 0),
+  sweetener_coins   INTEGER NOT NULL DEFAULT 0 CHECK (sweetener_coins >= 0),
+  recurrence        TEXT CHECK (recurrence IN ('daily','weekdays','weekly')),
+  recurrence_until  DATE,
+  status            TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending','accepted','declined','expired','cancelled')),
+  responded_by      BIGINT REFERENCES users(id),
+  responded_at      TIMESTAMPTZ,
+  expires_at        TIMESTAMPTZ NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (ends_at > starts_at),
+  CHECK (ends_at - starts_at <= INTERVAL '24 hours')
+);
+
+CREATE INDEX ON personal_time_requests (family_id, status, starts_at);
+CREATE INDEX ON personal_time_requests (requested_of, status);
+
+-- 5. Link the materialized pair to its request, and to each other.
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS personal_time_request_id BIGINT
+  REFERENCES personal_time_requests(id) ON DELETE SET NULL;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS counterpart_activity_id BIGINT
+  REFERENCES activities(id) ON DELETE SET NULL;
+
+-- 6. Notification preference key.
+ALTER TABLE notification_preferences
+  ADD COLUMN IF NOT EXISTS coverage_requests BOOLEAN NOT NULL DEFAULT true;
+```
+
+New `coin_ledger` reasons: `coverage_sweetener_escrow` (−, at request),
+`coverage_sweetener_refunded` (+, on decline/expire/cancel), `coverage_earned` (+, via the
+sweep). Migration `backend/scripts/migrate-personal-time.sql`, appended to
+`backend/scripts/init-db.js`. All statements idempotent.
+
+**Queries that must learn about `kind`:** the `explicit` sum and `unclaimed` split in
+`dashboard.js`, `getFamilyBudget.used_this_month`, both overlap checks in `scheduleActivity`
+and `createRecurrence`, the `categorySplit` aggregate in `stats.js`, and
+`runAutoCompleteSweep` (self activities have `coin_value = 0`, so they sweep harmlessly —
+but they should not appear as completed *work*).
+
+---
+
+## 7. API
+
+New router `backend/src/routes/personalTime.js`, mounted with
+`requireAuth, perUserLimiter, familyHeartbeat`; logic in
+`backend/src/services/personalTimeService.js`, following the
+`(client, userId, …) → { data } | { error: { code, message } }` contract.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/personal-time?familyId=` | Mine, awaiting me, recent history |
+| POST | `/api/personal-time/quote` | Live pricing for the dialog: baseline, counterparty conflicts, my balance |
+| POST | `/api/personal-time` | Create; escrow sweetener; notify counterparty |
+| POST | `/api/personal-time/:id/accept` | Materialize the linked pair; carry sweetener onto the coverage row |
+| POST | `/api/personal-time/:id/decline` | Refund; notify requester |
+| DELETE | `/api/personal-time/:id` | Withdraw; refund |
+
+**Validation:** duration 15 min – 24 h; starts in the future; requester free in that window;
+sweetener ≤ requester's balance. Counterparty conflicts are **warnings, not errors**.
+
+**Also changes:** `POST /api/absences` gains the 24 h minimum, with a message pointing at
+personal time for anything shorter.
+
+**Notifications** (`prefKey: 'coverage_requests'`): request received → counterparty;
+accepted/declined → requester; expiring within 6 h → counterparty.
+
+---
+
+## 8. UI (Flutter)
+
+**Double-tap to create (`daily_screen.dart`).** The hour grid has a `DragTarget` and no tap
+handler, so `onDoubleTap` is free of gesture conflicts. Reuse the existing `_onGridDrop`
+math — `localDy → kGridHeight → 30-minute slot` — to seed the start time. Fields: **name**,
+**duration** (30 min – 12 h, default 60), **short note**, **coverage toggle**, **sweetener
+stepper** with a live quote: *"Ana gets 2 cc + your 5 cc. Your balance after: 43 cc."*
+
+Double-tap is invisible, so pair it with a **"Personal time"** row in the existing `+` sheet
+and a **＋ hint on the free-time gap blocks** the timeline already renders for gaps ≥ 30 min.
+
+**Ghost blocks.** Pending requests render dashed and muted on both calendars — *"Awaiting
+Ana"* / *"Pablo asked you to cover"*. The daily screen already merges activities and
+absences into one timeline; this is a third list. Blocks over ~12 h or crossing midnight
+render as an all-day chip.
+
+**Visual language for the subclasses.** Care and self must be legible at a glance —
+`getCardStyle` maps status to colour today; `kind` needs its own treatment (self activities
+outlined rather than filled, no coin badge).
+
+**Response card.** Dashboard, beside the existing offers strip: *"Pablo wants Friday
+18:00–19:30 for the gym. Covering Leo pays you 2 cc + 5 cc from Pablo."* → Accept / Decline.
+
+**Absence dialog** becomes a date-range picker with the 24 h floor, and should now say what
+it costs: *"While you're away, your share of the monthly coins goes to whoever is home."*
+
+**Also:** ledger labels (`profile_screen.dart:830`) and flow colours
+(`stats_screen.dart:508`) for the three new reasons; notification toggle at
+`profile_screen.dart:62`; strings in all four locales; glossary entries for *care activity*,
+*self activity*, *coverage* and *sweetener* in `widgets/help_sheet.dart`.
+
+---
+
+## 9. Phases
+
+Seven slices. Each one ends in a state you could ship and stop at.
+
+| Phase | Goal | Depends on |
+|---|---|---|
+| **1 — Absence floor** | Absences mean "away for at least a day" | — |
+| **2 — Presence-weighted residual** | An absent caretaker's share goes to whoever is home | — |
+| **3 — Activity subclasses** | The model can express "this is not a contribution" | 2 |
+| **4 — Backend core** | The negotiation works end to end over the API | 3 |
+| **5 — Flutter core** | The feature is usable | 4 |
+| **6 — Recurrence & expiry** | "Every Friday" works; stale requests clean up | 5 |
+| **7 — Fairness surfacing** | Personal time is as visible as contribution | 5 |
+
+**Phases 1 and 2 are a standalone fairness fix** — worth doing whether or not the rest ever
+ships, because today a caretaker can be away three weeks and still collect half the
+unclaimed coins. **Phase 3 is an invisible refactor.** **Phases 4–5 are the feature.**
+**Phases 6–7 are completion.**
+
+---
+
+### Phase 1 — Absence floor ✅ implemented
+
+**Goal.** Make an absence mean "away for a day or more", so discretionary short time has
+somewhere else to go.
+
+**Changes.**
+- `POST /api/absences` (`routes/absences.js:45`) — 24 h minimum, checked alongside the
+  existing `end_time > start_time` guard, with a 400 that explains the whole-day rule.
+- `absences_min_duration` CHECK added `NOT VALID` — binds new rows, grandfathers the short
+  absences already in live databases (§5.1).
+- `widgets/absence_dialog.dart` — the two datetime pickers and the 09:00→17:00 default
+  become a **date-range picker** defaulting to today → tomorrow. The current default would
+  be invalid under the new floor, so this is not optional polish.
+- Copy in all four locales, including the new rejection message.
+
+**Done when.** A sub-24 h absence is rejected with a message explaining the whole-day rule;
+existing short absences still list and delete; the dialog cannot produce an invalid range.
+
+**As built.**
+- `src/services/absenceService.js` — `MIN_ABSENCE_HOURS` and the pure
+  `validateAbsenceWindow`, following the `validateStarterTasks` precedent so the rule is
+  unit-testable without a database. `routes/absences.js` calls it in place of its inline
+  `end > start` check.
+- `scripts/migrate-absence-floor.sql` — the `NOT VALID` constraint, guarded by a
+  `pg_constraint` lookup so `db:init` stays re-runnable. Registered in `init-db.js`;
+  `schema.sql` carries a comment pointing at it.
+- `widgets/absence_dialog.dart` — rewritten around `showDateRangePicker`. The window math
+  is extracted as `absenceWindowFromRange` so the "cannot produce an invalid range"
+  guarantee is a test, not a claim. The anchor day is clamped into the picker's bounds,
+  since the Daily view scrolls arbitrarily far.
+- Copy: `absenceDatesLabel`, `absenceDaysCount`, `absenceWholeDaysNote` in all four
+  locales, replacing the now-unused `fromLabel` / `toLabel`.
+
+**The rejection copy does not name personal time yet.** Phase 1 ships before that feature
+exists, so pointing at it would advertise something users cannot find. The message states
+the rule instead — *"Time off covers whole days: it must last at least 24 hours."* — and
+should be revisited in Phase 5.
+
+**Verified.** 7 new backend unit tests (121 total, all passing); 5 new Flutter tests (31
+total); `flutter analyze` clean. The migration was applied against a throwaway Postgres 16
+seeded with a legacy 8-hour absence: the old row still reads and deletes, a new 8-hour
+insert is rejected by the constraint, exactly 24 h is accepted, and `db:init` runs twice
+cleanly with `convalidated = f`.
+
+---
+
+### Phase 2 — Presence-weighted residual
+
+**Goal.** The coins for hours you were away go to the caretaker who was present (§3.1).
+
+**Changes.**
+- **First, a pure refactor, committed on its own:** lift the distribution block out of
+  `dashboard.js:17–95` into `services/distributionService.js` with no behaviour change.
+  It currently sits inside a GET route, holds `FOR UPDATE` on the family row and loops
+  over every elapsed month — it needs to be testable before anything is added to it.
+- Replace `floor(unclaimed / caretakers.length)` with the presence weighting.
+- Add a per-caregiver absent-hours query, clipped to the month being swept (an absence can
+  straddle a month boundary).
+- Guards: `Σ presentHours = 0` falls back to the even split; a caregiver who joined
+  mid-month counts present hours only from `family_members.joined_at`; keep flooring each
+  share and leaving the rounding remainder unspent, as the code does today.
+- `absence_dialog.dart` gains a line saying what it costs: *"While you're away, your share
+  of the monthly coins goes to whoever is home."*
+
+**Done when.** Unit tests cover: total is conserved; nobody absent reproduces today's even
+split exactly; everyone absent falls back; a single caregiver takes everything; a
+mid-month joiner is prorated. The ledger still writes `monthly_distribution`.
+
+---
+
+### Phase 3 — Activity subclasses
+
+**Goal.** Land the model change on its own, with no user-visible behaviour, so the risky
+refactor is not entangled with a new feature.
+
+**Changes.**
+- `kind` column with `DEFAULT 'care'`, the compound kind/category CHECK, and the
+  `description` column (§6).
+- The overlap matrix (§4.1) in both `scheduleActivity` and `createRecurrence` — including
+  the `care × coverage` cell that must be **allowed**.
+- Make every aggregate `kind`-aware: the `explicit` sum in `distributionService`,
+  `getFamilyBudget.used_this_month`, and `categorySplit` in `stats.js`. Self activities
+  carry `coin_value = 0`, so they sweep harmlessly — but they must not appear as completed
+  *work*.
+- Card treatment for `kind` in the Flutter timeline: self activities outlined rather than
+  filled, no coin badge. `getCardStyle` maps status to colour today; `kind` is a second
+  axis.
+
+**Done when.** Every existing test passes unchanged, and a hand-inserted `kind='self'` row
+moves no coins and appears in no budget, GDP or stats figure.
+
+---
+
+### Phase 4 — Backend core
+
+**Goal.** The full negotiation — request, quote, accept, decline, withdraw — over the API,
+single instances only.
+
+**Changes.**
+- `personal_time_requests` table, `counterpart_activity_id` and
+  `personal_time_request_id` on `activities` (§6).
+- `services/personalTimeService.js` and `routes/personalTime.js`, mounted in `app.js` with
+  `requireAuth, perUserLimiter, familyHeartbeat` like every other router.
+- The `/quote` endpoint the dialog needs: baseline price, counterparty conflicts as
+  warnings, requester's balance.
+- Escrow on create and refund on decline / expire / withdraw, reusing the two statements
+  `offerBounty` already runs.
+- Materialize the linked pair on accept, carrying the sweetener onto the coverage row's
+  `bounty_amount` so `runAutoCompleteSweep` pays it with no new payout code.
+- `coverage_requests` preference column, accepted by the notification-preferences route,
+  and the four notification sends (§7).
+
+**Done when.** Money-path tests pass: sweetener escrowed on create and refunded on all
+three failure paths; concurrent accepts cannot double-materialize (`FOR UPDATE` on the
+request row); coverage pays baseline + sweetener exactly once through the sweep; a declined
+request leaves zero `activities` rows; self activities never contribute to `explicit`.
+
+---
+
+### Phase 5 — Flutter core
+
+**Goal.** The feature is usable by a real family.
+
+**Changes.**
+- `onDoubleTap` on the Daily hour grid, reusing the `_onGridDrop` slot math, opening the
+  dialog: name, duration, note, coverage toggle, sweetener stepper with the live quote.
+- Two discoverable entry points alongside it — a "Personal time" row in the `+` sheet, and
+  a ＋ hint on the free-time gap blocks (§8).
+- Ghost blocks for pending requests on both calendars; the all-day chip for blocks over
+  ~12 h or crossing midnight.
+- The accept/decline response card on the Dashboard.
+- Ledger labels (`profile_screen.dart:830`), stats flow colours
+  (`stats_screen.dart:508`), the notification toggle (`profile_screen.dart:62`), strings in
+  four locales, and glossary entries for *care activity*, *self activity*, *coverage* and
+  *sweetener* in `help_sheet.dart`.
+
+**Done when.** A two-device run completes: create → the other device is notified → accept →
+the pair appears on both calendars → the sweep pays baseline + sweetener.
+
+---
+
+### Phase 6 — Recurrence & expiry
+
+**Goal.** "Every Friday at the same time", and requests that clean themselves up.
+
+**Changes.**
+- Honour `recurrence` / `recurrence_until` on accept: materialize N pairs, skip instances
+  where the counterparty is unavailable, and report the created count — mirroring what
+  `createRecurrence` already does.
+- Expiry sweep at `min(request + 48 h, starts_at)`, refunding the sweetener, run from
+  `runAutoCompleteSweep` since it already executes inside every activity list call.
+- "Ask anyone" mode for families with three or more caregivers: first to accept wins, the
+  rest see the request close.
+
+**Done when.** A weekly request until a date creates the right number of pairs and reports
+the skips; an unanswered request expires and the sweetener returns to the requester.
+
+---
+
+### Phase 7 — Fairness surfacing
+
+**Goal.** Personal time taken is as visible as contribution made — otherwise the release
+adds a way to take without a way to see it (G10).
+
+**Changes.**
+- Stats: personal time taken vs coverage given, per member, beside the existing care-hours
+  figures. Never a declined count (§10).
+- `docs/PRODUCT.md` §15, the README feature list, `docs/database-schema.md` and the route
+  table in `docs/backend.md`.
+
+**Done when.** The docs describe the shipped behaviour, and a member can see at a glance
+how much personal time each caretaker took this month.
+
+---
+
+### Test coverage to add
+
+Matching the existing convention that every coin path is unit-tested
+(`backend/tests/`, mock-client style): presence weighting conserves the total, handles zero
+present hours, and reproduces the even split when nobody is absent; sweetener escrowed and
+refunded on decline, expiry and cancel; no double-materialization on concurrent accepts;
+coverage pays baseline + sweetener exactly once; a declined request leaves zero
+`activities` rows; **a care task scheduled inside a coverage window is not rejected**
+(§4.1); self activities never contribute to `explicit`.
+
+## 10. Risks
+
+1. **The overlap matrix (§4.1)** — miss the `care × coverage` cell and accepting coverage
+   locks the coverer out of their own evening.
+2. **Double-counting self-activity hours (§3.2)** — if presence weighting ever includes them,
+   the coverer is paid twice for the same hour.
+3. **The distribution is a lazy sweep inside a GET route** (`dashboard.js`), holding
+   `FOR UPDATE` on the family row and looping over every elapsed month. Adding per-caregiver
+   absence queries inside that loop makes a slow path slower. Extract and test it in Phase 2
+   before adding to it.
+4. **Vocabulary load.** cc, bounty, validation, object of care, monthly budget — now plus
+   *self activity*, *coverage*, *sweetener*. The help-sheet work ships in the same release,
+   not after; see `docs/onboarding-help-plan.md`.
+5. **"Bribe" is the wrong word in the UI.** Fine in conversation, corrosive in a product
+   built on fairness — it frames a partner as purchasable. Ship it as *"sweeten the offer"*.
+6. **Sweeteners as pressure.** Keep declining free and invisible — never surface declined
+   counts on the dashboard or in stats.

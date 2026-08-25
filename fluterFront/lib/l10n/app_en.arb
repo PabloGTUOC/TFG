@@ -355,10 +355,15 @@
   "@fieldTitle": { "description": "Generic title input label" },
   "absenceHint": "e.g. Business trip",
   "@absenceHint": { "description": "Absence title input hint" },
-  "fromLabel": "From",
-  "@fromLabel": { "description": "Absence start date-time button prefix" },
-  "toLabel": "To",
-  "@toLabel": { "description": "Absence end date-time button prefix" },
+  "absenceDatesLabel": "Dates",
+  "@absenceDatesLabel": { "description": "Absence dialog: date-range button prefix" },
+  "absenceDaysCount": "{count, plural, one{{count} day} other{{count} days}}",
+  "@absenceDaysCount": {
+    "description": "Absence dialog: length of the selected date range",
+    "placeholders": { "count": { "type": "num" } }
+  },
+  "absenceWholeDaysNote": "Time off covers whole days — pick one day or more.",
+  "@absenceWholeDaysNote": { "description": "Absence dialog: explains the one-day minimum" },
   "logAction": "Log",
   "@logAction": { "description": "Confirm button of the absence dialog" },
 

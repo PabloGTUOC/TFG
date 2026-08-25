@@ -44,6 +44,10 @@ async function main() {
   await pool.query(await fs.readFile(onboardingEventsPath, 'utf8'));
   console.log('Onboarding events table ready.');
 
+  const absenceFloorPath = path.join(__dirname, 'migrate-absence-floor.sql');
+  await pool.query(await fs.readFile(absenceFloorPath, 'utf8'));
+  console.log('Absence duration floor ready.');
+
   await pool.end();
 }
 
