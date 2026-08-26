@@ -15,6 +15,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { statsRouter } from './routes/stats.js';
 import { absencesRouter } from './routes/absences.js';
+import { personalTimeRouter } from './routes/personalTime.js';
 import { eventsRouter } from './routes/events.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,6 +91,7 @@ app.use('/api/dashboard', requireAuth, perUserLimiter, familyHeartbeat, dashboar
 app.use('/api/marketplace', requireAuth, perUserLimiter, familyHeartbeat, marketplaceRouter);
 app.use('/api/stats', requireAuth, perUserLimiter, familyHeartbeat, statsRouter);
 app.use('/api/absences', requireAuth, perUserLimiter, familyHeartbeat, absencesRouter);
+app.use('/api/personal-time', requireAuth, perUserLimiter, familyHeartbeat, personalTimeRouter);
 app.use('/api/events', requireAuth, perUserLimiter, familyHeartbeat, eventsRouter);
 
 app.use((err, _req, res, _next) => {

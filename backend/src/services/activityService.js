@@ -1,6 +1,7 @@
 import { assertActiveMember } from '../db/users.js';
 import { runAutoCompleteSweep } from '../db/autoComplete.js';
 import { assertMemberRole } from '../middleware/rbac.js';
+import { payoutReasons } from '../db/ledgerReasons.js';
 
 export async function listActivities(client, userId, familyId) {
   if (!await assertActiveMember(client, familyId, userId)) {
@@ -228,6 +229,7 @@ export async function completeActivity(client, userId, instanceId) {
 
   const bountyAmt = inst.bounty_amount || 0;
   const totalAward = (inst.coin_value || 0) + bountyAmt;
+  const reason = payoutReasons(inst.type);
   if (totalAward > 0) {
     await client.query(
       `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
@@ -235,14 +237,14 @@ export async function completeActivity(client, userId, instanceId) {
     );
     if (inst.coin_value > 0) {
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
-        [inst.family_id, inst.assigned_to, inst.id, inst.coin_value]
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,$5)`,
+        [inst.family_id, inst.assigned_to, inst.id, inst.coin_value, reason.value]
       );
     }
     if (bountyAmt > 0) {
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_earned')`,
-        [inst.family_id, inst.assigned_to, inst.id, bountyAmt]
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,$5)`,
+        [inst.family_id, inst.assigned_to, inst.id, bountyAmt, reason.bonus]
       );
     }
   }
@@ -251,7 +253,7 @@ export async function completeActivity(client, userId, instanceId) {
 
 export async function validateActivity(client, userId, activityId) {
   const { rows: actRows } = await client.query(
-    `SELECT id, family_id, assigned_to, status, coin_value, bounty_amount FROM activities WHERE id = $1
+    `SELECT id, family_id, assigned_to, status, type, coin_value, bounty_amount FROM activities WHERE id = $1
      AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
      FOR UPDATE`,
     [activityId, userId]
@@ -265,6 +267,7 @@ export async function validateActivity(client, userId, activityId) {
 
   const bountyAmt = act.bounty_amount || 0;
   const totalAward = (act.coin_value || 0) + bountyAmt;
+  const reason = payoutReasons(act.type);
   if (totalAward > 0) {
     await client.query(
       `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
@@ -272,14 +275,14 @@ export async function validateActivity(client, userId, activityId) {
     );
     if (act.coin_value > 0) {
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'activity_completed')`,
-        [act.family_id, act.assigned_to, act.id, act.coin_value]
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,$5)`,
+        [act.family_id, act.assigned_to, act.id, act.coin_value, reason.value]
       );
     }
     if (bountyAmt > 0) {
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_earned')`,
-        [act.family_id, act.assigned_to, act.id, bountyAmt]
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,$5)`,
+        [act.family_id, act.assigned_to, act.id, bountyAmt, reason.bonus]
       );
     }
   }
@@ -409,7 +412,7 @@ export async function deleteActivity(client, userId, activityId, isSeries) {
 
 export async function revertActivity(client, userId, activityId) {
   const { rows } = await client.query(
-    `SELECT family_id, assigned_to, status, coin_value, bounty_amount, bounty_offered_by
+    `SELECT family_id, assigned_to, status, type, coin_value, bounty_amount, bounty_offered_by
      FROM activities WHERE id = $1
      AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
      FOR UPDATE`,
@@ -422,6 +425,10 @@ export async function revertActivity(client, userId, activityId) {
 
   const bountyAmt = act.bounty_amount || 0;
   const totalAward = (act.coin_value || 0) + bountyAmt;
+  // Reverse the rows the payout actually wrote: a coverage shift files its
+  // earnings under different reasons, and matching the wrong ones would leave
+  // the ledger showing a credit the balance no longer has.
+  const reason = payoutReasons(act.type);
   if (totalAward > 0) {
     await client.query(
       `UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3`,
@@ -429,22 +436,22 @@ export async function revertActivity(client, userId, activityId) {
     );
     if (act.coin_value > 0) {
       await client.query(
-        `UPDATE coin_ledger SET amount = $1, reason = 'activity_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'activity_completed'`,
-        [-act.coin_value, activityId, userId]
+        `UPDATE coin_ledger SET amount = $1, reason = $4 WHERE activity_id = $2 AND user_id = $3 AND reason = $5`,
+        [-act.coin_value, activityId, userId, reason.valueReverted, reason.value]
       );
     }
     if (bountyAmt > 0) {
       await client.query(
-        `UPDATE coin_ledger SET amount = $1, reason = 'bounty_reverted' WHERE activity_id = $2 AND user_id = $3 AND reason = 'bounty_earned'`,
-        [-bountyAmt, activityId, userId]
+        `UPDATE coin_ledger SET amount = $1, reason = $4 WHERE activity_id = $2 AND user_id = $3 AND reason = $5`,
+        [-bountyAmt, activityId, userId, reason.bonusReverted, reason.bonus]
       );
       await client.query(
         `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
         [bountyAmt, act.family_id, act.bounty_offered_by]
       );
       await client.query(
-        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,'bounty_refunded')`,
-        [act.family_id, act.bounty_offered_by, activityId, bountyAmt]
+        `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason) VALUES ($1,$2,$3,$4,$5)`,
+        [act.family_id, act.bounty_offered_by, activityId, bountyAmt, reason.bonusRefunded]
       );
     }
   }

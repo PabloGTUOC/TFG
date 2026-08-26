@@ -52,6 +52,10 @@ async function main() {
   await pool.query(await fs.readFile(activitySubclassesPath, 'utf8'));
   console.log('Activity subclasses (category + type) ready.');
 
+  const personalTimePath = path.join(__dirname, 'migrate-personal-time.sql');
+  await pool.query(await fs.readFile(personalTimePath, 'utf8'));
+  console.log('Personal-time requests ready.');
+
   await pool.end();
 }
 

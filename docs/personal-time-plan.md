@@ -581,7 +581,7 @@ activities their own types made both columns NOT NULL and removed the hole struc
 
 ---
 
-### Phase 4 — Backend core
+### Phase 4 — Backend core ✅ implemented
 
 **Goal.** The full negotiation — request, quote, accept, decline, withdraw — over the API,
 single instances only.
@@ -604,6 +604,45 @@ single instances only.
 three failure paths; concurrent accepts cannot double-materialize (`FOR UPDATE` on the
 request row); coverage pays baseline + sweetener exactly once through the sweep; a declined
 request leaves zero `activities` rows; self activities never contribute to `explicit`.
+
+**As built.** `scripts/migrate-personal-time.sql`, `services/personalTimeService.js` and
+`routes/personalTime.js`, mounted alongside the other routers. The service keeps its rules
+pure where it can — `validateSelfWindow`, `priceCoverage`, `expiryFor` are testable without
+a database — and every state transition takes `FOR UPDATE` on the request row inside
+`withTransaction`.
+
+Counterparty resolution needs no picker in the common case: with two caregivers it is the
+other one, with three or more an unnamed counterparty means "ask anyone". A request that
+needs no coverage (§4.7) is created already `accepted` with `responded_by` NULL, books the
+self activity immediately, and moves no coins.
+
+The coverage shift is inserted directly rather than through `scheduleActivity`, so it is
+free to overlap whatever the coverer already has on — the second half of the overlap matrix,
+handled by construction. The one thing that blocks accepting is being *away*: an absence
+overlapping the window is refused, because you cannot cover a dependent from another city.
+
+**One deviation from the plan.** §6 promised a `coverage_earned` ledger reason while Phase 4
+promised the sweep would pay "with no new payout code". Running it end to end showed why
+both matter: reusing `bounty_amount` works perfectly, but the wallet then reads *"bounty
+earned"* for what was actually *"you covered Leo so Ana could go to the gym"*. `db/ledgerReasons.js`
+resolves it — one map from activity type to reason strings, used by the sweep,
+`completeActivity`, `validateActivity` and `revertActivity`. No new payout path, correct
+labels. Reverting had to learn it too: matching the wrong reason would have left the ledger
+showing a credit the balance no longer has.
+
+**Verified.** 181 backend tests (30 new), 35 Flutter tests, `flutter analyze` clean. End to
+end against Postgres 16, with a real family: the sweetener leaves the requester's wallet at
+request time and nothing is booked; accepting materializes the linked pair with the baseline
+as `coin_value` and the sweetener as `bounty_amount`; **the coverer then successfully
+scheduled a household task inside their own coverage window**; the sweep paid 2 + 5 exactly
+once and a second sweep paid nothing; declining refunded the escrow and left zero activity
+rows; and reverting a coverage shift wrote `coverage_reverted` rather than
+`activity_reverted`.
+
+**Found, not fixed:** `revertActivity` rewrites the original credit row into a debit instead
+of appending a reversal, so the ledger nets 2× the reverted amount below the real balances.
+It predates this work and affects every activity type, so it is tracked separately rather
+than folded in here.
 
 ---
 

@@ -3,7 +3,7 @@ import { pool } from '../db/pool.js';
 
 const VALID_PREF_KEYS = new Set([
   'activity_assigned', 'activity_validated', 'activity_completed',
-  'bounty_offered', 'family_events',
+  'bounty_offered', 'family_events', 'coverage_requests',
 ]);
 
 function getMessaging() {

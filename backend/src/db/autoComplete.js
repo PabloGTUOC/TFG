@@ -3,9 +3,11 @@
  * Must be called inside an existing transaction (client already has BEGIN).
  * Uses FOR UPDATE to prevent concurrent sweeps from double-awarding coins.
  */
+import { payoutReasons } from './ledgerReasons.js';
+
 export async function runAutoCompleteSweep(client, familyId) {
   const { rows: expired } = await client.query(
-    `SELECT id, assigned_to, coin_value, bounty_amount, bounty_offered_by FROM activities
+    `SELECT id, assigned_to, type, coin_value, bounty_amount, bounty_offered_by FROM activities
      WHERE family_id = $1 AND status = 'approved' AND ends_at <= NOW()
      FOR UPDATE`,
     [familyId]
@@ -14,6 +16,7 @@ export async function runAutoCompleteSweep(client, familyId) {
   for (const act of expired) {
     const bountyAmt = act.bounty_amount || 0;
     const totalAward = (act.coin_value || 0) + bountyAmt;
+    const reason = payoutReasons(act.type);
 
     await client.query(
       `UPDATE activities SET status = 'completed', bounty_amount = 0, bounty_offered_by = NULL WHERE id = $1`,
@@ -30,16 +33,16 @@ export async function runAutoCompleteSweep(client, familyId) {
     if (act.coin_value > 0) {
       await client.query(
         `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
-         VALUES ($1, $2, $3, $4, 'activity_completed')`,
-        [familyId, act.assigned_to, act.id, act.coin_value]
+         VALUES ($1, $2, $3, $4, $5)`,
+        [familyId, act.assigned_to, act.id, act.coin_value, reason.value]
       );
     }
 
     if (bountyAmt > 0) {
       await client.query(
         `INSERT INTO coin_ledger (family_id, user_id, activity_id, amount, reason)
-         VALUES ($1, $2, $3, $4, 'bounty_earned')`,
-        [familyId, act.assigned_to, act.id, bountyAmt]
+         VALUES ($1, $2, $3, $4, $5)`,
+        [familyId, act.assigned_to, act.id, bountyAmt, reason.bonus]
       );
     }
   }

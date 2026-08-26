@@ -358,13 +358,15 @@ const DEFAULT_PREFS = {
   activity_completed: true,
   bounty_offered: true,
   family_events: true,
+  coverage_requests: true,
 };
 
 meRouter.get('/notification-preferences', async (req, res) => {
   try {
     const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
     const { rows } = await pool.query(
-      `SELECT activity_assigned, activity_validated, activity_completed, bounty_offered, family_events
+      `SELECT activity_assigned, activity_validated, activity_completed, bounty_offered,
+              family_events, coverage_requests
        FROM notification_preferences WHERE user_id = $1`,
       [user.id]
     );
@@ -380,19 +382,28 @@ meRouter.put('/notification-preferences', async (req, res) => {
   if ([activity_assigned, activity_validated, activity_completed, bounty_offered, family_events].some(v => typeof v !== 'boolean')) {
     return res.status(400).json({ error: 'All preference fields must be boolean.' });
   }
+  // Optional so a client that predates coverage requests keeps working — and,
+  // because it is absent rather than false, does not silently switch them back on.
+  const { coverage_requests } = req.body;
+  if (coverage_requests !== undefined && typeof coverage_requests !== 'boolean') {
+    return res.status(400).json({ error: 'coverage_requests must be boolean.' });
+  }
   try {
     const user = await withTransaction(async (client) => upsertUserFromAuth(client, req.auth));
     await pool.query(
       `INSERT INTO notification_preferences
-         (user_id, activity_assigned, activity_validated, activity_completed, bounty_offered, family_events)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (user_id, activity_assigned, activity_validated, activity_completed, bounty_offered,
+          family_events, coverage_requests)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true))
        ON CONFLICT (user_id) DO UPDATE SET
          activity_assigned  = $2,
          activity_validated = $3,
          activity_completed = $4,
          bounty_offered     = $5,
-         family_events      = $6`,
-      [user.id, activity_assigned, activity_validated, activity_completed, bounty_offered, family_events]
+         family_events      = $6,
+         coverage_requests  = COALESCE($7, notification_preferences.coverage_requests)`,
+      [user.id, activity_assigned, activity_validated, activity_completed, bounty_offered,
+       family_events, coverage_requests ?? null]
     );
     return res.json({ ok: true });
   } catch (err) {
