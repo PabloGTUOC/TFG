@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  validateSelfWindow, priceCoverage, expiryFor,
-  createRequest, acceptRequest, declineRequest, cancelRequest,
+  validateSelfWindow, priceCoverage, expiryFor, occurrencesFor, MAX_OCCURRENCES,
+  createRequest, acceptRequest, declineRequest, cancelRequest, expireStaleRequests,
 } from '../src/services/personalTimeService.js';
 
 const NOW = new Date('2026-09-01T09:00:00Z');
@@ -18,6 +18,7 @@ function fakeDb({
   balance = 100,
   absences = [],
   busy = [],
+  stale = [],
 } = {}) {
   const writes = { balance: [], ledger: [], activities: [], requests: [], updates: [], sql: [] };
   let nextId = 100;
@@ -31,8 +32,13 @@ function fakeDb({
       if (q.includes("role = 'caregiver'")) return { rows: caregivers };
       if (q.includes('monthly_coin_budget FROM families')) return { rows: [{ monthly_coin_budget: budget }] };
       if (q.includes('coin_balance FROM family_members')) return { rows: [{ coin_balance: balance }] };
-      if (q.includes('FROM absences')) return { rows: absences };
-      if (q.includes('FROM activities') && q.includes("type <> 'coverage'")) return { rows: busy };
+      const per = (v) => (typeof v === 'function' ? v(params) : v);
+      if (q.includes('FROM absences')) return { rows: per(absences) };
+      if (q.includes('FROM activities') && q.includes("type <> 'coverage'")) return { rows: per(busy) };
+      // The expiry sweep's own query, before the general-purpose one.
+      if (q.includes('FROM personal_time_requests') && q.includes("status = 'pending'")) {
+        return { rows: stale.filter((r) => r.status === 'pending') };
+      }
       if (q.includes('FROM personal_time_requests')) {
         return { rowCount: request ? 1 : 0, rows: request ? [request] : [] };
       }
@@ -51,6 +57,7 @@ function fakeDb({
           title: params[3], type: params[4], description: params[5],
           starts_at: params[6], ends_at: params[7], coverage_needed: params[8],
           baseline_coins: params[9], sweetener_coins: params[10], status: params[11],
+          escrowed_coins: params[14], recurrence: params[15], recurrence_until: params[16],
         };
         writes.requests.push(row);
         return { rows: [row] };
@@ -62,6 +69,9 @@ function fakeDb({
       }
       if (q.startsWith('UPDATE personal_time_requests') || q.startsWith('UPDATE activities')) {
         writes.updates.push(q);
+        const row = stale.find((r) => r.id === params[params.length - 1]);
+        if (row && q.includes('escrowed_coins = escrowed_coins -')) row.escrowed_coins -= params[0];
+        if (row && q.includes("status = 'expired'")) row.status = 'expired';
         return { rows: [] };
       }
       throw new Error(`Unexpected query: ${q.slice(0, 100)}`);
@@ -74,6 +84,8 @@ const pending = (over = {}) => ({
   title: 'Gym', type: 'sport', description: null,
   starts_at: FRI_18, ends_at: FRI_1930,
   coverage_needed: true, baseline_coins: 2, sweetener_coins: 5,
+  // Per occurrence, and what actually left the wallet. Equal for a one-off.
+  escrowed_coins: 5, recurrence: null, recurrence_until: null,
   status: 'pending', expires_at: '2026-09-03T09:00:00Z', ...over,
 });
 
@@ -296,5 +308,195 @@ describe('cancelRequest', () => {
     const result = await cancelRequest(db, 1, 55);
     assert.equal(result.error.code, 409);
     assert.deepEqual(db.writes.balance, []);
+  });
+});
+
+// ─── Recurrence (Phase 6) ─────────────────────────────────────────────────────
+
+const day = (o) => o.start.toISOString().slice(0, 10);
+
+describe('occurrencesFor', () => {
+  test('no recurrence is exactly one occurrence — the request itself', () => {
+    const { occurrences, error } = occurrencesFor(FRI_18, FRI_1930);
+    assert.equal(error, null);
+    assert.equal(occurrences.length, 1);
+    assert.equal(occurrences[0].start.toISOString(), new Date(FRI_18).toISOString());
+    assert.equal(occurrences[0].end.toISOString(), new Date(FRI_1930).toISOString());
+  });
+
+  test('weekly runs across the month, starting at the seed', () => {
+    // Unlike createRecurrence, which excludes its seed: nothing exists yet here.
+    const { occurrences } = occurrencesFor(FRI_18, FRI_1930, 'weekly', '2026-09-30');
+    assert.deepEqual(occurrences.map(day),
+      ['2026-09-04', '2026-09-11', '2026-09-18', '2026-09-25']);
+  });
+
+  test('weekdays skips the weekend', () => {
+    const { occurrences } = occurrencesFor(FRI_18, FRI_1930, 'weekdays', '2026-09-10');
+    assert.deepEqual(occurrences.map(day),
+      ['2026-09-04', '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10'],
+      'Saturday the 5th and Sunday the 6th are not weekdays');
+  });
+
+  test('a weekdays repeat cannot start on a weekend', () => {
+    const { error } = occurrencesFor(
+      '2026-09-05T18:00:00Z', '2026-09-05T19:30:00Z', 'weekdays', '2026-09-20');
+    assert.match(error, /weekday/);
+  });
+
+  test('every occurrence keeps the seed duration', () => {
+    const { occurrences } = occurrencesFor(FRI_18, FRI_1930, 'weekly', '2026-09-30');
+    for (const o of occurrences) {
+      assert.equal(o.end.getTime() - o.start.getTime(), 90 * 60_000);
+    }
+  });
+
+  test('the cap refuses rather than silently truncating', () => {
+    const { occurrences, error } = occurrencesFor(FRI_18, FRI_1930, 'daily', '2027-09-30');
+    assert.match(error, new RegExp(`${MAX_OCCURRENCES} occurrences`));
+    assert.deepEqual(occurrences, [], 'a refused series yields nothing to escrow against');
+  });
+
+  test('an end date before the first occurrence is refused', () => {
+    const { error } = occurrencesFor(FRI_18, FRI_1930, 'weekly', '2026-08-01');
+    assert.match(error, /before the first occurrence/);
+  });
+
+  test('a repeat with no end date is refused', () => {
+    const { error } = occurrencesFor(FRI_18, FRI_1930, 'weekly', null);
+    assert.match(error, /needs a date/);
+  });
+});
+
+describe('createRequest — a series', () => {
+  const weekly = { recurrence: 'weekly', recurrenceUntil: '2026-09-30' };
+
+  test('escrows the sweetener once per occurrence, up front', () => {
+    const db = fakeDb({ balance: 40 });
+    return createRequest(db, 1, body({ ...weekly, sweetenerCoins: 5 }), NOW).then((result) => {
+      assert.equal(result.data.recurrence, 'weekly');
+      assert.equal(result.data.sweetener_coins, 5, 'stored per occurrence');
+      assert.equal(result.data.escrowed_coins, 20, 'four Fridays at 5 cc');
+      assert.deepEqual(db.writes.balance, [20], 'the whole series leaves the wallet now');
+      assert.deepEqual(db.writes.ledger, [{ amount: -20, reason: 'coverage_sweetener_escrow' }]);
+    });
+  });
+
+  test('an unaffordable series writes nothing at all', async () => {
+    const db = fakeDb({ balance: 15 });
+    const result = await createRequest(db, 1, body({ ...weekly, sweetenerCoins: 5 }), NOW);
+    assert.equal(result.error.code, 409);
+    assert.match(result.error.message, /4 occurrences costs 20 coins/);
+    assert.deepEqual(db.writes.balance, []);
+    assert.deepEqual(db.writes.requests, [], 'not even the request row');
+  });
+
+  test('a series the cap refuses never reaches the wallet', async () => {
+    const db = fakeDb({ balance: 500 });
+    const result = await createRequest(
+      db, 1, body({ recurrence: 'daily', recurrenceUntil: '2027-09-30', sweetenerCoins: 5 }), NOW);
+    assert.equal(result.error.code, 400);
+    assert.deepEqual(db.writes.balance, []);
+  });
+
+  test('with no coverage needed, every occurrence is booked at once', async () => {
+    const db = fakeDb();
+    await createRequest(db, 1, body({ ...weekly, coverageNeeded: false }), NOW);
+    assert.equal(db.writes.activities.length, 4, 'one self activity per Friday');
+    assert.ok(db.writes.activities.every((a) => a.category === 'self'));
+  });
+});
+
+describe('acceptRequest — a series', () => {
+  const series = () => pending({
+    recurrence: 'weekly', recurrence_until: '2026-09-30',
+    sweetener_coins: 5, escrowed_coins: 20,
+  });
+
+  test('materializes a pair per occurrence', async () => {
+    const db = fakeDb({ request: series() });
+    const result = await acceptRequest(db, 2, 55, NOW);
+    assert.equal(result.data.created, 4);
+    assert.equal(result.data.skipped, 0);
+    assert.equal(db.writes.activities.length, 8, 'four coverage shifts, four self activities');
+    assert.deepEqual(db.writes.ledger, [], 'nothing was skipped, so nothing comes back');
+  });
+
+  test('skips what the coverer is away for, and refunds exactly those', async () => {
+    // Away on the 18th only.
+    const db = fakeDb({
+      request: series(),
+      absences: (params) => (String(params[2]).startsWith('2026-09-18')
+        ? [{ title: 'Work trip' }] : []),
+    });
+    const result = await acceptRequest(db, 2, 55, NOW);
+
+    assert.equal(result.data.created, 3);
+    assert.equal(result.data.skipped, 1);
+    assert.equal(result.data.refunded, 5, 'one sweetener back, not the whole escrow');
+    assert.deepEqual(db.writes.balance, [5]);
+    assert.deepEqual(db.writes.ledger, [{ amount: 5, reason: 'coverage_sweetener_refunded' }]);
+    assert.equal(db.writes.activities.length, 6);
+  });
+
+  test('skips occurrences the requester has since filled', async () => {
+    const db = fakeDb({
+      request: series(),
+      busy: (params) => (String(params[2]).startsWith('2026-09-11') ? [{ title: 'Bath time' }] : []),
+    });
+    const result = await acceptRequest(db, 2, 55, NOW);
+    assert.equal(result.data.created, 3);
+    assert.equal(result.data.refunded, 5);
+  });
+
+  test('a series nobody can make is refused, and the escrow stays put', async () => {
+    const db = fakeDb({ request: series(), absences: [{ title: 'Work trip' }] });
+    const result = await acceptRequest(db, 2, 55, NOW);
+
+    assert.equal(result.error.code, 409);
+    assert.match(result.error.message, /None of the 4 occurrences/);
+    assert.match(result.error.message, /Work trip/);
+    assert.deepEqual(db.writes.activities, []);
+    assert.deepEqual(db.writes.balance, [], 'still pending, so the coins stay escrowed');
+  });
+});
+
+// ─── Expiry (Phase 6) ─────────────────────────────────────────────────────────
+
+describe('expireStaleRequests', () => {
+  const stale = (over = {}) => pending({
+    id: 77, expires_at: '2026-08-31T09:00:00Z', escrowed_coins: 20, ...over,
+  });
+
+  test('refunds the escrow and books nothing', async () => {
+    const rows = [stale()];
+    const db = fakeDb({ stale: rows });
+    const result = await expireStaleRequests(db, 10, NOW);
+
+    assert.deepEqual(result, { expired: 1, refunded: 20 });
+    assert.deepEqual(db.writes.balance, [20], 'the whole escrow, however many occurrences');
+    assert.deepEqual(db.writes.ledger, [{ amount: 20, reason: 'coverage_sweetener_refunded' }]);
+    assert.deepEqual(db.writes.activities, [], 'an expired request leaves no activity rows');
+    assert.equal(rows[0].status, 'expired');
+  });
+
+  test('sweeping twice does not refund twice', async () => {
+    const rows = [stale()];
+    const db = fakeDb({ stale: rows });
+    await expireStaleRequests(db, 10, NOW);
+    await expireStaleRequests(db, 10, NOW);
+
+    assert.deepEqual(db.writes.balance, [20], 'one refund, not two');
+    assert.equal(rows[0].escrowed_coins, 0, 'the escrow is written down as it is paid');
+  });
+
+  test('a request with nothing escrowed still closes, without a ledger line', async () => {
+    const rows = [stale({ sweetener_coins: 0, escrowed_coins: 0 })];
+    const db = fakeDb({ stale: rows });
+    const result = await expireStaleRequests(db, 10, NOW);
+
+    assert.deepEqual(result, { expired: 1, refunded: 0 });
+    assert.deepEqual(db.writes.ledger, [], 'no coins moved, so the wallet says nothing');
+    assert.equal(rows[0].status, 'expired');
   });
 });

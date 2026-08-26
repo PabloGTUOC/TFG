@@ -69,6 +69,8 @@ personalTimeRouter.post('/', validateBody({
   description: [string(0, 500)],
   startsAt: [required(), isoDate()],
   endsAt: [required(), isoDate()],
+  recurrence: [oneOf(personalTime.RECURRENCES)],
+  recurrenceUntil: [isoDate()],
 }), async (req, res) => {
   try {
     const result = await withTransaction(async (client) => {
@@ -92,9 +94,12 @@ personalTimeRouter.post('/:id/accept', validateParams('id'), async (req, res) =>
       return personalTime.acceptRequest(client, user.id, Number(req.params.id));
     });
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
+    const { created, skipped } = result.data;
     notifyUser(result.request.requester_id, {
       title: 'Your personal time is covered',
-      body: `"${result.request.title}" on ${when(result.request.starts_at)} was accepted.`,
+      body: created > 1
+        ? `"${result.request.title}" was accepted — ${created} of ${created + skipped} times.`
+        : `"${result.request.title}" on ${when(result.request.starts_at)} was accepted.`,
       url: '/daily',
       prefKey: PREF,
     });

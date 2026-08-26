@@ -18,6 +18,10 @@ export const SELF_TYPES = ['sport', 'social', 'rest', 'appointment', 'other'];
 
 export const MIN_MINUTES = 15;
 export const MAX_HOURS = 24;
+export const RECURRENCES = ['daily', 'weekdays', 'weekly'];
+
+/** However far out the end date is, no series may materialize more than this. */
+export const MAX_OCCURRENCES = 60;
 const DEFAULT_EXPIRY_HOURS = 48;
 const MS_PER_MINUTE = 60_000;
 
@@ -56,6 +60,82 @@ export function expiryFor(startsAt, now = new Date()) {
   const cap = new Date(now.getTime() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000);
   const start = new Date(startsAt);
   return start < cap ? start : cap;
+}
+
+const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+
+/**
+ * End of the given day, local. `recurrence_until` arrives either as a DATE row
+ * from pg or as a 'YYYY-MM-DD' string from the API, and a date-only string
+ * parses as UTC midnight — which `setHours` would then drag back a day for any
+ * server west of UTC. Parsing the parts explicitly makes the boundary the same
+ * day everywhere. (`createRecurrence` still has that off-by-one; this does not
+ * copy it, because copying a bug is not the kind of consistency worth having.)
+ */
+function endOfDay(until) {
+  const parts = typeof until === 'string' ? /^(\d{4})-(\d{2})-(\d{2})/.exec(until) : null;
+  const day = parts
+    ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
+    : new Date(until);
+  if (Number.isNaN(day.getTime())) return null;
+  day.setHours(23, 59, 59, 999);
+  return day;
+}
+
+/**
+ * Every window a request covers, as `{ occurrences, error }`. A request with no
+ * recurrence yields exactly one — its own window.
+ *
+ * Unlike `createRecurrence` in activityService, which excludes its seed because
+ * that instance already exists, this starts *at* `startsAt`: nothing has been
+ * scheduled yet, so the first window is part of what is being asked for.
+ *
+ * The step arithmetic deliberately mirrors `createRecurrence` — `setDate` in
+ * server-local time — and carries the same DST caveat: across a transition the
+ * wall-clock hour is preserved in the server's timezone rather than the
+ * family's, so the UTC instant moves by an hour. Consistency with the existing
+ * convention beats a lone correct-but-different implementation; fixing it is a
+ * job for both call sites at once.
+ */
+export function occurrencesFor(startsAt, endsAt, recurrence = null, until = null) {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  const durationMs = end.getTime() - start.getTime();
+  const one = { occurrences: [{ start, end }], error: null };
+  const refuse = (error) => ({ occurrences: [], error });
+
+  if (!recurrence) return one;
+  if (!RECURRENCES.includes(recurrence)) {
+    return refuse(`Repeat must be one of: ${RECURRENCES.join(', ')}.`);
+  }
+  if (!until) return refuse('A repeating request needs a date to repeat until.');
+
+  const last = endOfDay(until);
+  if (!last) return refuse('The repeat end date is not a valid date.');
+  if (last < start) return refuse('The repeat end date is before the first occurrence.');
+  if (recurrence === 'weekdays' && isWeekend(start)) {
+    return refuse('A weekdays repeat has to start on a weekday.');
+  }
+
+  const occurrences = [];
+  const current = new Date(start);
+  while (current <= last) {
+    if (!(recurrence === 'weekdays' && isWeekend(current))) {
+      occurrences.push({
+        start: new Date(current),
+        end: new Date(current.getTime() + durationMs),
+      });
+      // Refuse rather than truncate: a series quietly cut to 60 would escrow
+      // for 60 while the requester believed they had asked for more.
+      if (occurrences.length > MAX_OCCURRENCES) {
+        return refuse(
+          `A repeating request cannot cover more than ${MAX_OCCURRENCES} occurrences — pick a nearer end date.`
+        );
+      }
+    }
+    current.setDate(current.getDate() + (recurrence === 'weekly' ? 7 : 1));
+  }
+  return { occurrences, error: null };
 }
 
 // ─── Shared queries ───────────────────────────────────────────────────────────
@@ -116,18 +196,32 @@ async function baseRateFor(client, familyId) {
   return rows.length ? rows[0].monthly_coin_budget / 720 : 0;
 }
 
-/** Returns the requester's escrowed sweetener, crediting it back. */
-async function refundSweetener(client, req) {
-  if (!req.sweetener_coins) return;
+/**
+ * Credits `amount` of a request's escrow back to whoever asked, and writes the
+ * escrow down by what it returned. Reading the amount off `escrowed_coins`
+ * rather than recomputing it from the occurrence list is the whole reason that
+ * column exists: a refund that recomputes is a refund that can drift.
+ *
+ * Zeroing the column as it pays is also what makes refunding idempotent — a
+ * second sweep over the same row finds nothing left to give back.
+ */
+async function refundEscrow(client, req, amount = Number(req.escrowed_coins) || 0) {
+  const refund = Math.min(Math.max(0, amount), Number(req.escrowed_coins) || 0);
+  if (!refund) return 0;
   await client.query(
     'UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3',
-    [req.sweetener_coins, req.family_id, req.requester_id]
+    [refund, req.family_id, req.requester_id]
   );
   await client.query(
     `INSERT INTO coin_ledger (family_id, user_id, amount, reason)
      VALUES ($1, $2, $3, 'coverage_sweetener_refunded')`,
-    [req.family_id, req.requester_id, req.sweetener_coins]
+    [req.family_id, req.requester_id, refund]
   );
+  await client.query(
+    'UPDATE personal_time_requests SET escrowed_coins = escrowed_coins - $1 WHERE id = $2',
+    [refund, req.id]
+  );
+  return refund;
 }
 
 // ─── Operations ───────────────────────────────────────────────────────────────
@@ -169,10 +263,40 @@ export async function quoteRequest(client, userId, { familyId, startsAt, endsAt,
   };
 }
 
-export async function listRequests(client, userId, familyId) {
+/**
+ * Refunds and closes pending requests nobody answered in time.
+ *
+ * Driven from `listRequests` rather than from `runAutoCompleteSweep`: the
+ * personal-time domain sweeping its own stale rows is cleaner than piggybacking
+ * on the activity sweep, and runs just as often now that both calendars list
+ * requests. It shares the monthly distribution's limitation — if nobody opens
+ * the app, nothing expires — which is acceptable because `acceptRequest`
+ * already refuses an expired request. This sweep is about the money, not
+ * about correctness.
+ */
+export async function expireStaleRequests(client, familyId, now = new Date()) {
+  const { rows } = await client.query(
+    `SELECT * FROM personal_time_requests
+     WHERE family_id = $1 AND status = 'pending' AND expires_at <= $2::timestamptz
+     FOR UPDATE`,
+    [familyId, now.toISOString()]
+  );
+  let refunded = 0;
+  for (const request of rows) {
+    refunded += await refundEscrow(client, request);
+    await client.query(
+      `UPDATE personal_time_requests SET status = 'expired' WHERE id = $1`,
+      [request.id]
+    );
+  }
+  return { expired: rows.length, refunded };
+}
+
+export async function listRequests(client, userId, familyId, now = new Date()) {
   if (!await assertActiveMember(client, familyId, userId)) {
     return { error: { code: 403, message: 'Not a family member.' } };
   }
+  await expireStaleRequests(client, familyId, now);
   const { rows } = await client.query(
     `SELECT r.*,
             COALESCE(rm.alias, ru.display_name) AS requester_name,
@@ -194,6 +318,7 @@ export async function createRequest(client, userId, body, now = new Date()) {
     familyId, title, type, description = null,
     startsAt, endsAt, requestedOf = null,
     coverageNeeded = true, sweetenerCoins = 0,
+    recurrence = null, recurrenceUntil = null,
   } = body;
 
   if (!await assertActiveMember(client, familyId, userId)) {
@@ -214,29 +339,42 @@ export async function createRequest(client, userId, body, now = new Date()) {
   const resolved = resolveCounterparty(caregivers, userId, requestedOf);
   if (resolved.error) return { error: { code: 400, message: resolved.error } };
 
+  const { occurrences, error: repeatError } = occurrencesFor(startsAt, endsAt, recurrence, recurrenceUntil);
+  if (repeatError) return { error: { code: 400, message: repeatError } };
+
   const minutes = (new Date(endsAt) - new Date(startsAt)) / MS_PER_MINUTE;
   const baseline = coverageNeeded ? priceCoverage(await baseRateFor(client, familyId), minutes) : 0;
+  // The sweetener is priced per occurrence: ten Fridays at 5 cc is ten favours
+  // asked, not one, so the whole 50 leaves the wallet now.
   const sweetener = coverageNeeded ? Math.max(0, Math.trunc(Number(sweetenerCoins) || 0)) : 0;
+  const escrow = sweetener * occurrences.length;
 
-  if (sweetener > 0) {
+  if (escrow > 0) {
     const { rows } = await client.query(
       `SELECT coin_balance FROM family_members
        WHERE family_id = $1 AND user_id = $2 AND status = 'active' FOR UPDATE`,
       [familyId, userId]
     );
-    if (!rows.length || rows[0].coin_balance < sweetener) {
-      return { error: { code: 409, message: 'You do not have enough coins to sweeten this offer.' } };
+    if (!rows.length || rows[0].coin_balance < escrow) {
+      return {
+        error: {
+          code: 409,
+          message: occurrences.length > 1
+            ? `Sweetening all ${occurrences.length} occurrences costs ${escrow} coins, which is more than you have.`
+            : 'You do not have enough coins to sweeten this offer.',
+        },
+      };
     }
     // Escrowed now, exactly as offerBounty does, so the coins cannot be spent
     // twice while the request is outstanding.
     await client.query(
       'UPDATE family_members SET coin_balance = coin_balance - $1 WHERE family_id = $2 AND user_id = $3',
-      [sweetener, familyId, userId]
+      [escrow, familyId, userId]
     );
     await client.query(
       `INSERT INTO coin_ledger (family_id, user_id, amount, reason)
        VALUES ($1, $2, $3, 'coverage_sweetener_escrow')`,
-      [familyId, userId, -sweetener]
+      [familyId, userId, -escrow]
     );
   }
 
@@ -248,21 +386,25 @@ export async function createRequest(client, userId, body, now = new Date()) {
     `INSERT INTO personal_time_requests
        (family_id, requester_id, requested_of, title, type, description,
         starts_at, ends_at, coverage_needed, baseline_coins, sweetener_coins,
-        status, responded_at, expires_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14::timestamptz)
+        status, responded_at, expires_at,
+        escrowed_coins, recurrence, recurrence_until)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14::timestamptz,
+             $15,$16,$17::date)
      RETURNING *`,
     [
       familyId, userId, resolved.requestedOf, title.trim(), type, description,
       startsAt, endsAt, coverageNeeded, baseline, sweetener,
       status, coverageNeeded ? null : now.toISOString(),
       expiryFor(startsAt, now).toISOString(),
+      escrow, recurrence, recurrence ? recurrenceUntil : null,
     ]
   );
   const request = rows[0];
 
-  // With no coverage to negotiate the self activity is booked straight away.
+  // With no coverage to negotiate the self activities are booked straight away
+  // — every occurrence of them, not just the first.
   if (!coverageNeeded) {
-    await insertSelfActivity(client, request);
+    for (const slot of occurrences) await insertSelfActivity(client, request, null, slot);
   }
 
   const theirConflicts = resolved.requestedOf
@@ -272,7 +414,10 @@ export async function createRequest(client, userId, body, now = new Date()) {
   return { data: request, warnings: theirConflicts };
 }
 
-async function insertSelfActivity(client, request, counterpartId = null) {
+/** `slot` is the occurrence being booked; without one it is the request's own window. */
+async function insertSelfActivity(client, request, counterpartId = null, slot = null) {
+  const startsAt = slot ? slot.start.toISOString() : request.starts_at;
+  const endsAt = slot ? slot.end.toISOString() : request.ends_at;
   const { rows } = await client.query(
     `INSERT INTO activities
        (family_id, created_by, assigned_to, title, category, type, description,
@@ -282,7 +427,7 @@ async function insertSelfActivity(client, request, counterpartId = null) {
              EXTRACT(EPOCH FROM ($7::timestamptz - $6::timestamptz))/60, 0, 'approved', false, $8, $9)
      RETURNING *`,
     [request.family_id, request.requester_id, request.title, request.type,
-     request.description, request.starts_at, request.ends_at, request.id, counterpartId]
+     request.description, startsAt, endsAt, request.id, counterpartId]
   );
   return rows[0];
 }
@@ -315,39 +460,84 @@ export async function acceptRequest(client, userId, requestId, now = new Date())
     return { error: { code: 403, message: 'Only caregivers can cover.' } };
   }
 
-  // Being away is the one thing that makes covering impossible; anything else in
-  // their calendar is fine, because coverage nests (§4.1).
-  const { rows: away } = await client.query(
-    `SELECT title FROM absences
-     WHERE user_id = $1 AND family_id = $2 AND start_time < $4 AND end_time > $3`,
-    [userId, request.family_id, request.starts_at, request.ends_at]
+  const { occurrences, error: repeatError } = occurrencesFor(
+    request.starts_at, request.ends_at, request.recurrence, request.recurrence_until
   );
-  if (away.length) {
-    return { error: { code: 409, message: `You are away ("${away[0].title}") during this time.` } };
-  }
+  if (repeatError) return { error: { code: 409, message: repeatError } };
 
   // The coverage shift is inserted directly rather than through
   // scheduleActivity: it is allowed to overlap whatever else they have on.
   const minutes = `EXTRACT(EPOCH FROM ($6::timestamptz - $5::timestamptz))/60`;
-  const { rows: coverRows } = await client.query(
-    `INSERT INTO activities
-       (family_id, created_by, assigned_to, title, category, type, description,
-        starts_at, ends_at, duration_minutes, coin_value, status, is_template,
-        bounty_amount, bounty_offered_by, personal_time_request_id)
-     VALUES ($1,$2,$3,$4,'care','coverage',$7,$5::timestamptz,$6::timestamptz,
-             ${minutes}, $8, 'approved', false, $9, $2, $10)
-     RETURNING *`,
-    [request.family_id, request.requester_id, userId,
-     `Covering for ${request.title}`, request.starts_at, request.ends_at,
-     request.description, request.baseline_coins, request.sweetener_coins, request.id]
-  );
-  const coverage = coverRows[0];
 
-  const self = await insertSelfActivity(client, request, coverage.id);
-  await client.query(
-    'UPDATE activities SET counterpart_activity_id = $1 WHERE id = $2',
-    [self.id, coverage.id]
-  );
+  const pairs = [];
+  let skipped = 0;
+  let blocked = null; // why the first unusable occurrence was unusable
+
+  for (const slot of occurrences) {
+    const startIso = slot.start.toISOString();
+    const endIso = slot.end.toISOString();
+
+    // Being away is the one thing that makes covering impossible; anything else
+    // in their calendar is fine, because coverage nests (§4.1).
+    const { rows: away } = await client.query(
+      `SELECT title FROM absences
+       WHERE user_id = $1 AND family_id = $2 AND start_time < $4 AND end_time > $3`,
+      [userId, request.family_id, startIso, endIso]
+    );
+    if (away.length) {
+      blocked ??= `You are away ("${away[0].title}") during this time.`;
+      skipped++;
+      continue;
+    }
+
+    // And there is no point covering a window the requester has since filled.
+    const theirs = await conflictsFor(
+      client, request.family_id, request.requester_id, startIso, endIso
+    );
+    if (theirs.length) {
+      blocked ??= `They already have "${theirs[0]}" during this time.`;
+      skipped++;
+      continue;
+    }
+
+    const { rows: coverRows } = await client.query(
+      `INSERT INTO activities
+         (family_id, created_by, assigned_to, title, category, type, description,
+          starts_at, ends_at, duration_minutes, coin_value, status, is_template,
+          bounty_amount, bounty_offered_by, personal_time_request_id)
+       VALUES ($1,$2,$3,$4,'care','coverage',$7,$5::timestamptz,$6::timestamptz,
+               ${minutes}, $8, 'approved', false, $9, $2, $10)
+       RETURNING *`,
+      [request.family_id, request.requester_id, userId,
+       `Covering for ${request.title}`, startIso, endIso,
+       request.description, request.baseline_coins, request.sweetener_coins, request.id]
+    );
+    const coverage = coverRows[0];
+
+    const self = await insertSelfActivity(client, request, coverage.id, slot);
+    await client.query(
+      'UPDATE activities SET counterpart_activity_id = $1 WHERE id = $2',
+      [self.id, coverage.id]
+    );
+    pairs.push({ selfActivityId: self.id, coverageActivityId: coverage.id });
+  }
+
+  // Nothing usable is a refusal, not an acceptance of nothing: the request stays
+  // pending, its escrow untouched, and someone else may still be able to take it.
+  if (!pairs.length) {
+    return {
+      error: {
+        code: 409,
+        message: occurrences.length === 1
+          ? blocked
+          : `None of the ${occurrences.length} occurrences work — ${blocked}`,
+      },
+    };
+  }
+
+  // The escrow bought favours; the skipped ones will not happen, so that part of
+  // it goes home. What remains rides out on each shift's `bounty_amount`.
+  const refunded = await refundEscrow(client, request, request.sweetener_coins * skipped);
 
   await client.query(
     `UPDATE personal_time_requests
@@ -356,7 +546,17 @@ export async function acceptRequest(client, userId, requestId, now = new Date())
     [userId, now.toISOString(), request.id]
   );
 
-  return { data: { accepted: true, selfActivityId: self.id, coverageActivityId: coverage.id }, request };
+  return {
+    data: {
+      accepted: true,
+      created: pairs.length,
+      skipped,
+      refunded,
+      selfActivityId: pairs[0].selfActivityId,
+      coverageActivityId: pairs[0].coverageActivityId,
+    },
+    request,
+  };
 }
 
 export async function declineRequest(client, userId, requestId, now = new Date()) {
@@ -380,7 +580,7 @@ export async function declineRequest(client, userId, requestId, now = new Date()
     return { error: { code: 403, message: 'This request was addressed to someone else.' } };
   }
 
-  await refundSweetener(client, request);
+  await refundEscrow(client, request);
   await client.query(
     `UPDATE personal_time_requests
      SET status = 'declined', responded_by = $1, responded_at = $2::timestamptz
@@ -405,7 +605,7 @@ export async function cancelRequest(client, userId, requestId) {
     return { error: { code: 409, message: `This request is already ${request.status}.` } };
   }
 
-  await refundSweetener(client, request);
+  await refundEscrow(client, request);
   await client.query(
     `UPDATE personal_time_requests SET status = 'cancelled' WHERE id = $1`,
     [request.id]

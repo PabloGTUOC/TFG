@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS personal_time_requests (
   coverage_needed   BOOLEAN NOT NULL DEFAULT true,
   baseline_coins    INTEGER NOT NULL DEFAULT 0 CHECK (baseline_coins >= 0),
   sweetener_coins   INTEGER NOT NULL DEFAULT 0 CHECK (sweetener_coins >= 0),
+  -- What actually left the requester's wallet: `sweetener_coins` is per
+  -- occurrence, so a ten-Friday series escrows ten sweeteners up front. Kept
+  -- separately so a refund never has to recompute an occurrence list to know
+  -- what to give back — a refund that recomputes is a refund that can drift.
+  escrowed_coins    INTEGER NOT NULL DEFAULT 0 CHECK (escrowed_coins >= 0),
   recurrence        TEXT CHECK (recurrence IN ('daily', 'weekdays', 'weekly')),
   recurrence_until  DATE,
   status            TEXT NOT NULL DEFAULT 'pending'
@@ -52,3 +57,17 @@ ALTER TABLE activities ADD COLUMN IF NOT EXISTS counterpart_activity_id BIGINT
 
 ALTER TABLE notification_preferences
   ADD COLUMN IF NOT EXISTS coverage_requests BOOLEAN NOT NULL DEFAULT true;
+
+-- Phase 6. The CREATE above only fires on a fresh database, so an existing one
+-- needs the column added explicitly.
+ALTER TABLE personal_time_requests
+  ADD COLUMN IF NOT EXISTS escrowed_coins INTEGER NOT NULL DEFAULT 0
+    CHECK (escrowed_coins >= 0);
+
+-- Requests made before this column existed escrowed exactly one sweetener,
+-- because there was no recurrence to multiply it by. Without this backfill
+-- their refund would pay back nothing and the coins would vanish. Re-runnable:
+-- once backfilled the rows no longer match `escrowed_coins = 0`.
+UPDATE personal_time_requests
+   SET escrowed_coins = sweetener_coins
+ WHERE status = 'pending' AND escrowed_coins = 0 AND sweetener_coins > 0;

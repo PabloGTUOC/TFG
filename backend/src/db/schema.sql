@@ -308,6 +308,11 @@ CREATE TABLE IF NOT EXISTS personal_time_requests (
   coverage_needed   BOOLEAN NOT NULL DEFAULT true,
   baseline_coins    INTEGER NOT NULL DEFAULT 0 CHECK (baseline_coins >= 0),
   sweetener_coins   INTEGER NOT NULL DEFAULT 0 CHECK (sweetener_coins >= 0),
+  -- What actually left the requester's wallet: `sweetener_coins` is per
+  -- occurrence, so a ten-Friday series escrows ten sweeteners up front. Kept
+  -- separately so a refund never has to recompute an occurrence list to know
+  -- what to give back — a refund that recomputes is a refund that can drift.
+  escrowed_coins    INTEGER NOT NULL DEFAULT 0 CHECK (escrowed_coins >= 0),
   recurrence        TEXT CHECK (recurrence IN ('daily', 'weekdays', 'weekly')),
   recurrence_until  DATE,
   status            TEXT NOT NULL DEFAULT 'pending'
