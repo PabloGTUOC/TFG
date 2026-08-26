@@ -701,7 +701,7 @@ not blank out the whole day.
 
 ---
 
-### Phase 6 — Recurrence & expiry
+### Phase 6 — Recurrence & expiry ✅ implemented
 
 **Goal.** "Every Friday at the same time", and requests that clean themselves up.
 
@@ -716,6 +716,47 @@ not blank out the whole day.
 
 **Done when.** A weekly request until a date creates the right number of pairs and reports
 the skips; an unanswered request expires and the sweetener returns to the requester.
+
+**As built.** `occurrencesFor(startsAt, endsAt, recurrence, until)` in
+`personalTimeService.js` is pure and returns `{ occurrences, error }`, capped at
+`MAX_OCCURRENCES = 60`. It starts *at* the seed — unlike `createRecurrence`, which excludes
+its own instance because that one already exists — and mirrors that function's server-local
+`setDate` stepping, inheriting its DST caveat. It does not inherit its date-only parsing
+bug: `endOfDay` reads `YYYY-MM-DD` as a local day, so the boundary falls on the same date on
+every machine.
+
+The sweetener is priced **per occurrence and escrowed up front**: ten Fridays at 5 cc is ten
+favours asked, so the whole 50 leaves the wallet at creation. `escrowed_coins` (new column,
+added to `schema.sql` and `migrate-personal-time.sql` with a backfill for rows predating it)
+records what actually left, separately from the per-occurrence `sweetener_coins`. Refunds
+read that column instead of recomputing an occurrence list, and write it down as they pay —
+which is also what makes the expiry sweep idempotent. `POST /quote` now takes the recurrence
+and returns `occurrences`, so the sheet shows the true total without inventing a number.
+
+`acceptRequest` materializes a pair per occurrence, skipping any where the accepter is away
+or the requester has since filled the window, and refunds `sweetener_coins × skipped`. A
+series nobody can make at all is **refused**, not accepted empty: the request stays pending
+with its escrow intact so someone else can still take it. It returns `{ created, skipped,
+refunded }`, and both accept paths in the app report the count when anything was skipped.
+
+`expireStaleRequests` runs from `listRequests`, **not** from `runAutoCompleteSweep` as this
+plan originally said — the personal-time domain sweeping its own stale rows is cleaner and
+runs just as often, since both calendars list requests. It shares the monthly distribution's
+limitation: if nobody opens the app, nothing expires. That is acceptable because
+`acceptRequest` already refuses an expired request, so the sweep is about the money rather
+than about correctness.
+
+The create sheet gained a repeat chip row (`kPersonalTimeRepeats`, mirroring the API's
+`RECURRENCES`) with an end date offered four weeks out rather than demanded, and the "ask
+anyone" picker — a chip row of *Anyone* plus each candidate, shown only when
+`candidates.length > 1`, because with two caregivers there is no decision to make.
+
+Verified against Postgres 16, including the upgrade path from a database predating
+`escrowed_coins`. 200 backend tests, 40 Flutter tests.
+
+**Not done here.** Per-instance renegotiation of one occurrence in a series
+(`parent_request_id` is still reserved and unwritten), and positioned ghost blocks for
+pending requests on the desktop grid.
 
 ---
 

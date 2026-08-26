@@ -421,6 +421,30 @@
     "description": "Warning that the counterparty is busy — never a refusal",
     "placeholders": { "what": {} }
   },
+  "personalTimeWhoLabel": "Who to ask",
+  "@personalTimeWhoLabel": { "description": "Label above the chip row picking who should cover" },
+  "personalTimeRepeatLabel": "Repeat",
+  "@personalTimeRepeatLabel": { "description": "Label above the recurrence chips" },
+  "personalTimeRepeatNever": "Just once",
+  "@personalTimeRepeatNever": { "description": "Recurrence chip: no repeat" },
+  "personalTimeRepeatDaily": "Every day",
+  "@personalTimeRepeatDaily": { "description": "Recurrence chip: daily" },
+  "personalTimeRepeatWeekdays": "Weekdays",
+  "@personalTimeRepeatWeekdays": { "description": "Recurrence chip: Monday to Friday" },
+  "personalTimeRepeatWeekly": "Every week",
+  "@personalTimeRepeatWeekly": { "description": "Recurrence chip: weekly" },
+  "personalTimeRepeatUntil": "Until {date}",
+  "@personalTimeRepeatUntil": {
+    "description": "Button showing the date a repeat runs until",
+    "placeholders": { "date": {} }
+  },
+  "personalTimeSeriesCost": "{count} times · {total} cc from your coins",
+  "@personalTimeSeriesCost": {
+    "description": "What a repeating request really costs, so the total is never a surprise",
+    "placeholders": { "count": { "type": "num" }, "total": { "type": "num" } }
+  },
+  "personalTimeSeriesNote": "Dates they cannot make are skipped, and those coins come back to you.",
+  "@personalTimeSeriesNote": { "description": "Explains that a skipped occurrence is refunded" },
   "personalTimeAsk": "Ask",
   "@personalTimeAsk": { "description": "Confirm button of the personal-time dialog" },
   "personalTimeEntry": "Personal time",
@@ -435,6 +459,11 @@
   "@toastPersonalTimeWithdrawn": { "description": "Toast after withdrawing a request" },
   "toastCoverageAccepted": "Accepted. It is on your calendar.",
   "@toastCoverageAccepted": { "description": "Toast after accepting a coverage request" },
+  "toastCoverageAcceptedSeries": "Covered {created} of {total} times — the rest clashed.",
+  "@toastCoverageAcceptedSeries": {
+    "description": "Toast after accepting a repeating request where some dates could not be booked",
+    "placeholders": { "created": { "type": "num" }, "total": { "type": "num" } }
+  },
   "toastCoverageDeclined": "Declined.",
   "@toastCoverageDeclined": { "description": "Toast after declining a coverage request" },
   "ptAwaiting": "Awaiting {name}",

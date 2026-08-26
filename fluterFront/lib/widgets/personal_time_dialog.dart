@@ -27,6 +27,17 @@ String personalTimeTypeGlyph(String type) => switch (type) {
       _ => '✨',
     };
 
+/// The recurrences the API accepts, mirroring RECURRENCES in
+/// personalTimeService.js; null is "just once".
+const kPersonalTimeRepeats = <String?>[null, 'daily', 'weekdays', 'weekly'];
+
+String personalTimeRepeatLabel(AppLocalizations l, String? r) => switch (r) {
+      'daily' => l.personalTimeRepeatDaily,
+      'weekdays' => l.personalTimeRepeatWeekdays,
+      'weekly' => l.personalTimeRepeatWeekly,
+      _ => l.personalTimeRepeatNever,
+    };
+
 const _durations = [30, 60, 90, 120, 180, 240, 480, 720];
 
 String _durationLabel(int minutes) {
@@ -77,14 +88,31 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
   bool _coverageNeeded = true;
   int _sweetener = 0;
 
+  String? _recurrence;
+  DateTime? _until;
+  int? _requestedOf;
+
   bool _quoting = true;
   int _baseline = 0;
   int _balance = 0;
   String? _coverName;
+  List<Map> _candidates = const [];
+  int _occurrences = 1;
   List<String> _conflicts = const [];
   bool _submitting = false;
 
   DateTime get _end => _start.add(Duration(minutes: _minutes));
+
+  /// What the whole ask costs the requester: the sweetener buys one favour per
+  /// occurrence, and all of it is escrowed the moment they ask.
+  int get _escrow => _sweetener * _occurrences;
+
+  /// Sent as a plain date; the server owns the end-of-day boundary.
+  String? get _untilIso => _until == null
+      ? null
+      : '${_until!.year.toString().padLeft(4, '0')}-'
+          '${_until!.month.toString().padLeft(2, '0')}-'
+          '${_until!.day.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
@@ -111,29 +139,63 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
         'startsAt': _start.toUtc().toIso8601String(),
         'endsAt': _end.toUtc().toIso8601String(),
         'coverageNeeded': _coverageNeeded,
+        'requestedOf': _requestedOf,
+        'recurrence': _recurrence,
+        'recurrenceUntil': _untilIso,
       });
       if (!mounted) return;
       setState(() {
         _baseline = toNum(q['baselineCoins']).toInt();
         _balance = toNum(q['yourBalance']).toInt();
+        _occurrences = toNum(q['occurrences'] ?? 1).toInt();
         _conflicts = ((q['theirConflicts'] as List?) ?? [])
             .map((e) => e.toString())
             .toList();
-        final candidates = (q['candidates'] as List?) ?? [];
+        _candidates = ((q['candidates'] as List?) ?? []).cast<Map>();
+        // The server resolves an unnamed counterparty when there is only one
+        // other caregiver, so read the answer back rather than assuming.
         final target = q['requestedOf'];
         _coverName = target == null
             ? null
-            : candidates
-                .cast<Map>()
+            : _candidates
                 .firstWhere((c) => c['user_id'].toString() == target.toString(),
                     orElse: () => {})['name']
                 ?.toString();
-        if (_sweetener > _balance) _sweetener = _balance;
+        // A longer series can put the chosen sweetener out of reach.
+        if (_occurrences > 0 && _escrow > _balance) {
+          _sweetener = _balance ~/ _occurrences;
+        }
         _quoting = false;
       });
     } catch (_) {
       if (mounted) setState(() => _quoting = false);
     }
+  }
+
+  /// Choosing a repeat needs an end date, so one is offered rather than
+  /// demanded: four weeks out, which the user can then move.
+  Future<void> _setRecurrence(String? value) async {
+    setState(() {
+      _recurrence = value;
+      _until = value == null
+          ? null
+          : (_until ?? DateTime(_start.year, _start.month, _start.day + 28));
+      if (value == null) _occurrences = 1;
+    });
+    await _quote();
+  }
+
+  Future<void> _pickUntil() async {
+    final first = DateTime(_start.year, _start.month, _start.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _until ?? first,
+      firstDate: first,
+      lastDate: DateTime(first.year + 1, first.month, first.day),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _until = picked);
+    await _quote();
   }
 
   Future<void> _pickStart() async {
@@ -163,6 +225,9 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
         'endsAt': _end.toUtc().toIso8601String(),
         'coverageNeeded': _coverageNeeded,
         'sweetenerCoins': _coverageNeeded ? _sweetener : 0,
+        'requestedOf': _requestedOf,
+        'recurrence': _recurrence,
+        'recurrenceUntil': _untilIso,
       });
     }, _coverageNeeded ? l.toastPersonalTimeAsked : l.toastPersonalTimeBooked);
     if (!mounted) return;
@@ -258,6 +323,38 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
             ),
+            const SizedBox(height: 14),
+            _Label(l.personalTimeRepeatLabel),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final r in kPersonalTimeRepeats)
+                  ChoiceChip(
+                    selected: _recurrence == r,
+                    onSelected: (_) => _setRecurrence(r),
+                    label: Text(personalTimeRepeatLabel(l, r)),
+                    labelStyle: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: _recurrence == r
+                            ? AppColors.primary
+                            : AppColors.textSecondary),
+                    selectedColor: AppColors.primarySoft,
+                    backgroundColor: AppColors.bg,
+                    showCheckmark: false,
+                  ),
+              ],
+            ),
+            if (_recurrence != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: OutlinedButton.icon(
+                  onPressed: _pickUntil,
+                  icon: const Icon(Icons.event_repeat_rounded, size: 18),
+                  label: Text(l.personalTimeRepeatUntil(
+                      DateFormat('d MMM y', loc).format(_until!))),
+                ),
+              ),
             const SizedBox(height: 8),
             VInput(
                 controller: _note,
@@ -283,6 +380,43 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
                           fontSize: 12, color: AppColors.textSecondary)),
             ),
             if (_coverageNeeded) ...[
+              // With two caregivers there is nothing to pick — it is the other
+              // one — so the picker only appears when it has a decision to make.
+              if (_candidates.length > 1) ...[
+                const SizedBox(height: 6),
+                _Label(l.personalTimeWhoLabel),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final c in [null, ..._candidates])
+                      ChoiceChip(
+                        selected: _requestedOf ==
+                            (c == null ? null : toNum(c['user_id']).toInt()),
+                        onSelected: (_) {
+                          setState(() => _requestedOf =
+                              c == null ? null : toNum(c['user_id']).toInt());
+                          _quote();
+                        },
+                        label: Text(c == null
+                            ? l.personalTimeAnyone
+                            : (c['name']?.toString() ?? '')),
+                        labelStyle: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _requestedOf ==
+                                    (c == null
+                                        ? null
+                                        : toNum(c['user_id']).toInt())
+                                ? AppColors.primary
+                                : AppColors.textSecondary),
+                        selectedColor: AppColors.primarySoft,
+                        backgroundColor: AppColors.bg,
+                        showCheckmark: false,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               const SizedBox(height: 6),
               _Label(l.personalTimeSweetenerLabel),
               Row(
@@ -301,7 +435,7 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
                   ),
                   _StepButton(
                       icon: Icons.add_rounded,
-                      onTap: _sweetener < _balance
+                      onTap: (_sweetener + 1) * _occurrences <= _balance
                           ? () => setState(() => _sweetener++)
                           : null),
                 ],
@@ -326,13 +460,26 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
                       Text(l.personalTimeQuoteExtra(_baseline, _sweetener),
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.primary)),
+                    if (!_quoting && _occurrences > 1)
+                      Text(l.personalTimeSeriesCost(_occurrences, _escrow),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
                     if (!_quoting)
-                      Text(l.personalTimeBalanceAfter(_balance - _sweetener),
+                      Text(l.personalTimeBalanceAfter(_balance - _escrow),
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
+              if (_occurrences > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(l.personalTimeSeriesNote,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
+                ),
               if (_conflicts.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

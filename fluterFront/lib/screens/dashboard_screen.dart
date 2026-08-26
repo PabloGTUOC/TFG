@@ -1347,11 +1347,21 @@ class _CoverRequestCardState extends State<_CoverRequestCard> {
     final l = AppLocalizations.of(context);
     final app = context.read<AppState>();
     setState(() => _busy = true);
-    await app.runAction(() async {
-      await app.api.post(
+    Map? answer;
+    final ok = await app.runAction(() async {
+      final res = await app.api.post(
           '/api/personal-time/${widget.request['id']}/${accept ? 'accept' : 'decline'}');
+      if (res is Map) answer = res;
       await widget.onAnswered();
-    }, accept ? l.toastCoverageAccepted : l.toastCoverageDeclined);
+    });
+    if (ok) {
+      // A repeating request may be only partly coverable; say which it was.
+      final skipped = toNum(answer?['skipped'] ?? 0).toInt();
+      final created = toNum(answer?['created'] ?? 0).toInt();
+      app.setSuccess(skipped > 0
+          ? l.toastCoverageAcceptedSeries(created, created + skipped)
+          : (accept ? l.toastCoverageAccepted : l.toastCoverageDeclined));
+    }
     if (mounted) setState(() => _busy = false);
   }
 

@@ -753,14 +753,28 @@ class _DailyScreenState extends State<DailyScreen> {
           l.toastPersonalTimeWithdrawn
         ),
     };
-    await app.runAction(() async {
+    // Accepting a repeating request books what works and skips what does not,
+    // so the toast reports the count rather than claiming a clean sweep.
+    Map? answer;
+    final ok = await app.runAction(() async {
       if (method == 'post') {
-        await app.api.post(path);
+        final res = await app.api.post(path);
+        if (res is Map) answer = res;
       } else {
         await app.api.delete(path);
       }
       await _load();
-    }, toast);
+    });
+    if (!ok || !mounted) return;
+    app.setSuccess(_coverageToast(l, answer) ?? toast);
+  }
+
+  /// The count, but only when there is something the plain toast would hide.
+  String? _coverageToast(AppLocalizations l, Map? answer) {
+    final skipped = toNum(answer?['skipped'] ?? 0).toInt();
+    if (skipped == 0) return null;
+    final created = toNum(answer?['created'] ?? 0).toInt();
+    return l.toastCoverageAcceptedSeries(created, created + skipped);
   }
 
   /// Drop on the hour grid: local dy → 30-min slot (mirror of dropOnTimeline).

@@ -47,6 +47,8 @@ personalTimeRouter.post('/quote', validateBody({
   familyId: [required(), positiveInt()],
   startsAt: [required(), isoDate()],
   endsAt: [required(), isoDate()],
+  recurrence: [oneOf(personalTime.RECURRENCES)],
+  recurrenceUntil: [isoDate()],
 }), async (req, res) => {
   try {
     const result = await withTransaction(async (client) => {

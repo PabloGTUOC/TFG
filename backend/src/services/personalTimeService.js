@@ -226,12 +226,17 @@ async function refundEscrow(client, req, amount = Number(req.escrowed_coins) || 
 
 // ─── Operations ───────────────────────────────────────────────────────────────
 
-export async function quoteRequest(client, userId, { familyId, startsAt, endsAt, requestedOf, coverageNeeded = true }, now = new Date()) {
+export async function quoteRequest(client, userId, { familyId, startsAt, endsAt, requestedOf, coverageNeeded = true, recurrence = null, recurrenceUntil = null }, now = new Date()) {
   if (!await assertActiveMember(client, familyId, userId)) {
     return { error: { code: 403, message: 'Not a family member.' } };
   }
   const windowError = validateSelfWindow(startsAt, endsAt, now);
   if (windowError) return { error: { code: 400, message: windowError } };
+
+  // The sheet must be able to show what a series really costs before it is
+  // asked for, and the occurrence count is the server's to decide.
+  const { occurrences, error: repeatError } = occurrencesFor(startsAt, endsAt, recurrence, recurrenceUntil);
+  if (repeatError) return { error: { code: 400, message: repeatError } };
 
   const minutes = (new Date(endsAt) - new Date(startsAt)) / MS_PER_MINUTE;
   const caregivers = await activeCaregivers(client, familyId);
@@ -258,6 +263,7 @@ export async function quoteRequest(client, userId, { familyId, startsAt, endsAt,
       candidates: caregivers.filter((c) => Number(c.user_id) !== Number(userId)),
       yourBalance: balanceRows[0]?.coin_balance ?? 0,
       theirConflicts,
+      occurrences: occurrences.length,
       expiresAt: expiryFor(startsAt, now).toISOString(),
     },
   };
