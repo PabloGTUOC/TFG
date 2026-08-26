@@ -8,7 +8,8 @@ export async function listActivities(client, userId, familyId) {
   }
   await runAutoCompleteSweep(client, familyId);
   const { rows } = await client.query(
-    `SELECT a.id, a.title, a.category, a.starts_at, a.ends_at, a.duration_minutes,
+    `SELECT a.id, a.title, a.kind, a.category, a.description,
+            a.starts_at, a.ends_at, a.duration_minutes,
             a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.is_recurrent,
             a.approved_by, a.approved_at, a.bounty_amount, a.bounty_offered_by,
             fm.alias AS assigned_alias,
@@ -113,7 +114,7 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
     SELECT f.monthly_coin_budget,
       COALESCE((
         SELECT SUM(coin_value) FROM activities
-        WHERE family_id = $1 AND is_template = false
+        WHERE family_id = $1 AND kind = 'care' AND is_template = false
           AND status IN ('approved', 'completed')
           AND date_trunc('month', starts_at) = date_trunc('month', $2::timestamptz)
       ), 0)::int as used_this_month

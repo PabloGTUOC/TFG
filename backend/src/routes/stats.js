@@ -19,7 +19,7 @@ statsRouter.get('/:familyId', async (req, res) => {
            COALESCE(SUM(coin_value), 0)::int as total_lifetime_coins,
            COUNT(*)::int as total_lifetime_tasks
          FROM activities
-         WHERE family_id = $1 AND status = 'completed'`,
+         WHERE family_id = $1 AND kind = 'care' AND status = 'completed'`,
                 [familyId]
             );
 
@@ -48,7 +48,7 @@ statsRouter.get('/:familyId', async (req, res) => {
          FROM activities a
          JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
          JOIN users u ON u.id = a.assigned_to
-         WHERE a.family_id = $1 AND a.status = 'completed'
+         WHERE a.family_id = $1 AND a.kind = 'care' AND a.status = 'completed'
          GROUP BY caregiver, month
          ORDER BY month ASC
          LIMIT 100`,
@@ -63,7 +63,7 @@ statsRouter.get('/:familyId', async (req, res) => {
          FROM activities a
          JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
          JOIN users u ON u.id = a.assigned_to
-         WHERE a.family_id = $1 AND a.status = 'completed'
+         WHERE a.family_id = $1 AND a.kind = 'care' AND a.status = 'completed'
          GROUP BY caregiver, category`,
                 [familyId]
             );
@@ -76,7 +76,7 @@ statsRouter.get('/:familyId', async (req, res) => {
          FROM activities a
          JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
          JOIN users u ON u.id = a.assigned_to
-         WHERE a.family_id = $1 AND a.status = 'completed'
+         WHERE a.family_id = $1 AND a.kind = 'care' AND a.status = 'completed'
          GROUP BY caregiver, title
          ORDER BY value DESC
          LIMIT 100`,
@@ -141,6 +141,7 @@ statsRouter.get('/:familyId', async (req, res) => {
                  JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
                  JOIN users u ON u.id = a.assigned_to
                  WHERE a.family_id = $1
+                   AND a.kind = 'care'
                    AND a.assigned_to IS NOT NULL
                    AND a.status != 'rejected'
                  GROUP BY caregiver`,
@@ -150,7 +151,7 @@ statsRouter.get('/:familyId', async (req, res) => {
             const { rows: statusDistribution } = await client.query(
                 `SELECT status, COUNT(*)::int as count
                  FROM activities
-                 WHERE family_id = $1
+                 WHERE family_id = $1 AND kind = 'care'
                  GROUP BY status`,
                 [familyId]
             );

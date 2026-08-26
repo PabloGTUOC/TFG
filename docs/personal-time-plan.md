@@ -497,7 +497,7 @@ rounding, and the clock advanced exactly once.
 
 ---
 
-### Phase 3 — Activity subclasses
+### Phase 3 — Activity subclasses ✅ implemented
 
 **Goal.** Land the model change on its own, with no user-visible behaviour, so the risky
 refactor is not entangled with a new feature.
@@ -517,6 +517,48 @@ refactor is not entangled with a new feature.
 
 **Done when.** Every existing test passes unchanged, and a hand-inserted `kind='self'` row
 moves no coins and appears in no budget, GDP or stats figure.
+
+**As built.** `scripts/migrate-activity-kinds.sql` adds `kind` (DEFAULT `'care'`, so every
+existing row is correct with no backfill), `description`, drops NOT NULL from `category`,
+swaps the inline category CHECK for the compound one, and indexes
+`(family_id, kind, status)` since every work aggregate now filters on it.
+
+Eleven queries became `kind`-aware: the GDP residual in `distributionService`, the two
+budget figures (`getFamilyBudget`, the dashboard's `used_this_month`), the budget warning
+in `scheduleActivity`, and six stats aggregates (lifetime KPIs, `trendByMonth`,
+`categorySplit`, `activityFrequency`, `completionRates`, `statusDistribution`).
+`listActivities` now returns `kind` and `description` so the client can tell the subclasses
+apart. `runAutoCompleteSweep` was deliberately left alone: a self activity is worth 0, so
+it sweeps to `completed` and moves nothing.
+
+The dashboard's day-by-day calendar counts was **not** filtered — it is a schedule, not a
+work metric, and personal time genuinely occupies the day.
+
+Flutter: `isSelfActivity` in `ui.dart` is the single predicate both renderers share; a row
+with no `kind` is care work, which keeps every pre-migration row rendering as it did.
+Personal time never takes the filled "completed work" fill — it earns nothing, so it reads
+as a claim on the day — and `_ActivityAction` returns nothing for it, since personal time
+is nobody's to validate, delegate or take over.
+
+**The overlap matrix is only half-landable here.** The `care` × `coverage` cell needs
+`personal_time_request_id` to identify a coverage row, and that column arrives with the
+requests table in Phase 4. The rest of the matrix already holds, because the `selfOverlap`
+check in `scheduleActivity` is kind-agnostic: a self activity blocks care work in the same
+window and vice versa, which is correct. **Phase 4 must add the coverage exemption** — it
+remains the top risk in §10.
+
+**Verified.** 149 backend tests pass *unchanged* (plus one new guard that the residual
+query carries the `kind` filter), 35 Flutter tests, `flutter analyze` clean. Against a real
+Postgres 16 the constraint rejects all four invalid shapes — a self activity carrying a
+category, one worth coins, a care activity with no category, and an unknown kind — and a
+seeded self activity is invisible where it must be: lifetime tasks 1 rather than 2, status
+distribution 1 rather than 2, and the category split free of the `null` bucket it would
+otherwise add to the chart.
+
+**Caught during that check:** the first draft of the CHECK let a care row with a null
+category through. `(kind = 'care' AND category IN (…))` evaluates to NULL rather than false
+when `category` is null, and a CHECK only rejects on false. The shipped constraint spells
+out `category IS NOT NULL`.
 
 ---
 

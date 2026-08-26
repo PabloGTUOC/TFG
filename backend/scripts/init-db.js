@@ -48,6 +48,10 @@ async function main() {
   await pool.query(await fs.readFile(absenceFloorPath, 'utf8'));
   console.log('Absence duration floor ready.');
 
+  const activityKindsPath = path.join(__dirname, 'migrate-activity-kinds.sql');
+  await pool.query(await fs.readFile(activityKindsPath, 'utf8'));
+  console.log('Activity subclasses ready.');
+
   await pool.end();
 }
 

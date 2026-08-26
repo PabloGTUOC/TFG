@@ -969,16 +969,22 @@ class _DailyScreenState extends State<DailyScreen> {
     final status = a['status']?.toString() ?? 'pending';
     final completed = status == 'completed';
     final isCare = a['category'] == 'care';
+    final isSelf = isSelfActivity(a);
+    // Personal time earns nothing, so it never gets the filled "completed work"
+    // treatment — it reads as a claim on the day, not as a contribution.
+    final filled = completed && !isSelf;
 
     final (bg, fg, border) = status == 'rejected'
         ? (AppColors.dangerSoft, AppColors.danger, AppColors.dangerSoft)
-        : completed
+        : filled
             ? (
                 isCare ? AppColors.success : AppColors.warning,
                 Colors.white,
                 Colors.transparent
               )
-            : (AppColors.surface, AppColors.textPrimary, AppColors.border);
+            : isSelf
+                ? (AppColors.bg, AppColors.textSecondary, AppColors.inputBorder)
+                : (AppColors.surface, AppColors.textPrimary, AppColors.border);
 
     final chip = Container(
       height: height,
@@ -1001,8 +1007,8 @@ class _DailyScreenState extends State<DailyScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child:
-                Text(isCare ? '❤️' : '🍽️', style: const TextStyle(fontSize: 15)),
+            child: Text(isSelf ? '🧘' : (isCare ? '❤️' : '🍽️'),
+                style: const TextStyle(fontSize: 15)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1024,17 +1030,15 @@ class _DailyScreenState extends State<DailyScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
-              color:
-                  completed ? Colors.black.withValues(alpha: 0.15) : AppColors.bg,
-              border: completed ? null : Border.all(color: AppColors.border),
+              color: filled ? Colors.black.withValues(alpha: 0.15) : AppColors.bg,
+              border: filled ? null : Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(AppRadii.pill),
             ),
             child: Text(DateFormat('HH:mm').format(ts),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color:
-                        completed ? Colors.white : AppColors.textSecondary)),
+                    color: filled ? Colors.white : AppColors.textSecondary)),
           ),
           const SizedBox(width: 6),
           _ActivityAction(
@@ -1261,6 +1265,10 @@ class _ActivityAction extends StatelessWidget {
                 child: w),
       );
     }
+
+    // Personal time is nobody's to validate, delegate or take over; its own
+    // accept/decline flow arrives with the requests (plan Phase 5).
+    if (isSelfActivity(item)) return const SizedBox.shrink();
 
     final l = AppLocalizations.of(context);
     if (status == 'pending_validation') {
@@ -1607,10 +1615,12 @@ class _TimelineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = item['status']?.toString() ?? 'pending';
     final isCare = item['category'] == 'care';
+    final isSelf = isSelfActivity(item);
     final ts = DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
     final bounty = toNum(item['bounty_amount']);
     final isRecurrent = item['is_recurrent'] == true;
     final completed = status == 'completed';
+    final filled = completed && !isSelf;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1636,11 +1646,13 @@ class _TimelineCard extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: completed
+                color: filled
                     ? (isCare ? AppColors.success : AppColors.warning)
                     : AppColors.surface,
                 border: Border.all(
-                    color: completed ? Colors.transparent : AppColors.border),
+                    color: filled
+                        ? Colors.transparent
+                        : (isSelf ? AppColors.inputBorder : AppColors.border)),
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
               child: Column(
@@ -1648,7 +1660,7 @@ class _TimelineCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(isCare ? '❤️' : '🍽️',
+                      Text(isSelf ? '🧘' : (isCare ? '❤️' : '🍽️'),
                           style: const TextStyle(fontSize: 20)),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1662,7 +1674,7 @@ class _TimelineCard extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
-                              color: completed
+                              color: filled
                                   ? Colors.white
                                   : AppColors.textPrimary),
                         ),

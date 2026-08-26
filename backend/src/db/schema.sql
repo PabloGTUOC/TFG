@@ -87,6 +87,12 @@ CREATE TABLE IF NOT EXISTS activities (
   CHECK ((ends_at > starts_at) OR (starts_at IS NULL AND ends_at IS NULL))
 );
 
+-- Activities are a base class with two subclasses (docs/personal-time-plan.md
+-- Phase 3): `kind` is 'care' (work for the family, which is what `category`
+-- describes) or 'self' (personal time, worth nothing to the person taking it).
+-- scripts/migrate-activity-kinds.sql adds the column and swaps the inline
+-- category CHECK above for the compound one, so existing rows migrate in place.
+
 CREATE TABLE IF NOT EXISTS coin_ledger (
   id BIGSERIAL PRIMARY KEY,
   family_id BIGINT NOT NULL REFERENCES families(id) ON DELETE CASCADE,

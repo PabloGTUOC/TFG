@@ -25,7 +25,7 @@ export async function getFamilyBudget(client, userId, familyId) {
     SELECT f.monthly_coin_budget,
       COALESCE((
         SELECT SUM(coin_value) FROM activities
-        WHERE family_id = $1 AND is_template = false AND status = 'completed'
+        WHERE family_id = $1 AND kind = 'care' AND is_template = false AND status = 'completed'
           AND date_trunc('month', starts_at) = date_trunc('month', NOW())
       ), 0)::int as used_this_month
     FROM families f WHERE f.id = $1

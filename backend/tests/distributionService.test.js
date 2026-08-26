@@ -12,11 +12,12 @@ import {
  * behaviour.
  */
 function fakeDb({ lastMonth, actors = [], explicit = {}, caretakers = [], absences = [] }) {
-  const writes = { credits: [], ledger: [], clock: [] };
+  const writes = { credits: [], ledger: [], clock: [], sql: [] };
   const client = {
     writes,
     async query(sql, params) {
       const q = sql.replace(/\s+/g, ' ').trim();
+      writes.sql.push(q);
       if (q.startsWith('SELECT last_coin_distribution_month')) {
         return lastMonth === undefined
           ? { rowCount: 0, rows: [] }
@@ -307,5 +308,24 @@ describe('runMonthlyDistribution with absences', () => {
     await runMonthlyDistribution(db, 1, AUG);
     assert.deepEqual(db.writes.credits.map(c => c.amount), [272, 272],
       'the residual must not vanish because everyone happened to be away');
+  });
+});
+
+describe('activity subclasses', () => {
+  test('personal time is excluded from the claimed total', async () => {
+    // A self activity is worth 0 coins, so it cannot move SUM(coin_value) — the
+    // filter is what stops it being counted as work anywhere the row appears.
+    const db = fakeDb({
+      lastMonth: '2026-07',
+      actors: fullTime,
+      explicit: { '2026-07': 200 },
+      caretakers: twoCaregivers,
+    });
+    await runMonthlyDistribution(db, 1, AUG);
+
+    const claimed = db.writes.sql.find(q => q.includes('SUM(coin_value)'));
+    assert.ok(claimed, 'the claimed-coins query should have run');
+    assert.match(claimed, /kind = 'care'/,
+      'the GDP residual must count care work only, never personal time');
   });
 });

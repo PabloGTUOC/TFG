@@ -105,6 +105,7 @@ async function settleMonth(client, familyId, monthStr) {
     `SELECT COALESCE(SUM(coin_value), 0)::int as total
      FROM activities
      WHERE family_id = $1
+       AND kind = 'care'
        AND status = 'completed'
        AND to_char(starts_at AT TIME ZONE 'UTC', 'YYYY-MM') = $2`,
     [familyId, monthStr]
