@@ -51,7 +51,7 @@ dashboardRouter.get('/:familyId', async (req, res) => {
         `SELECT COALESCE(SUM(coin_value), 0)::int as used_this_month
          FROM activities
          WHERE family_id = $1
-           AND kind = 'care'
+           AND category = 'care'
            AND status = 'completed'
            AND starts_at >= date_trunc('month', NOW())`,
         [familyId]

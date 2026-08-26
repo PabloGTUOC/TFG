@@ -67,7 +67,7 @@ void main() {
       expect(payload.length, lessThanOrEqualTo(40));
       for (final task in payload) {
         expect((task['title'] as String).trim(), isNotEmpty);
-        expect(task['category'], anyOf('care', 'household'));
+        expect(task['type'], anyOf('care', 'household'));
         expect(task['durationMinutes'], isA<int>());
         expect(task['durationMinutes'] as int, greaterThanOrEqualTo(15));
         expect(task['isRecurrent'], isA<bool>());
@@ -92,7 +92,7 @@ void main() {
     testWidgets('no dependents seeds household tasks only', (tester) async {
       final l = await _localizations(tester, const Locale('en'));
       final payload = starterTasksPayload(l, areasForDependents([]));
-      expect(payload.every((t) => t['category'] == 'household'), isTrue);
+      expect(payload.every((t) => t['type'] == 'household'), isTrue);
     });
 
     testWidgets('an empty area set produces an empty payload', (tester) async {

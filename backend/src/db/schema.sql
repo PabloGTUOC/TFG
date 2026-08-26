@@ -71,7 +71,14 @@ CREATE TABLE IF NOT EXISTS activities (
   created_by BIGINT NOT NULL REFERENCES users(id),
   assigned_to BIGINT REFERENCES users(id),
   title TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('care', 'household')),
+  -- Activities are a base class with two subclasses (docs/personal-time-plan.md
+  -- §4): `category` is the subclass — 'care' is work for the family, 'self' is
+  -- personal time — and `type` is the sub-type within it. Both are NOT NULL,
+  -- which is what keeps the CHECK below from ever evaluating to NULL: a CHECK
+  -- rejects only on false, so a nullable column here would let bad rows through.
+  category TEXT NOT NULL DEFAULT 'care',
+  type TEXT NOT NULL,
+  description TEXT,
   starts_at TIMESTAMPTZ,
   ends_at TIMESTAMPTZ,
   duration_minutes INTEGER NOT NULL CHECK (duration_minutes >= 15),
@@ -84,14 +91,13 @@ CREATE TABLE IF NOT EXISTS activities (
   bounty_amount INTEGER NOT NULL DEFAULT 0,
   bounty_offered_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT activities_category_type_check CHECK (
+    (category = 'care' AND type IN ('care', 'household')) OR
+    (category = 'self' AND coin_value = 0
+                       AND type IN ('sport', 'social', 'rest', 'appointment', 'other'))
+  ),
   CHECK ((ends_at > starts_at) OR (starts_at IS NULL AND ends_at IS NULL))
 );
-
--- Activities are a base class with two subclasses (docs/personal-time-plan.md
--- Phase 3): `kind` is 'care' (work for the family, which is what `category`
--- describes) or 'self' (personal time, worth nothing to the person taking it).
--- scripts/migrate-activity-kinds.sql adds the column and swaps the inline
--- category CHECK above for the compound one, so existing rows migrate in place.
 
 CREATE TABLE IF NOT EXISTS coin_ledger (
   id BIGSERIAL PRIMARY KEY,
@@ -137,6 +143,8 @@ CREATE TABLE IF NOT EXISTS reward_redemptions (
 
 CREATE INDEX IF NOT EXISTS idx_activities_assignee_period ON activities (assigned_to, starts_at, ends_at);
 CREATE INDEX IF NOT EXISTS idx_activities_family_status ON activities (family_id, status);
+CREATE INDEX IF NOT EXISTS idx_activities_family_category_status
+  ON activities (family_id, category, status);
 CREATE INDEX IF NOT EXISTS idx_marketplace_family_status ON marketplace_rewards (family_id, status);
 
 CREATE TABLE IF NOT EXISTS absences (

@@ -8,7 +8,7 @@ export async function listActivities(client, userId, familyId) {
   }
   await runAutoCompleteSweep(client, familyId);
   const { rows } = await client.query(
-    `SELECT a.id, a.title, a.kind, a.category, a.description,
+    `SELECT a.id, a.title, a.category, a.type, a.description,
             a.starts_at, a.ends_at, a.duration_minutes,
             a.coin_value, a.status, a.created_by, a.assigned_to, a.is_template, a.is_recurrent,
             a.approved_by, a.approved_at, a.bounty_amount, a.bounty_offered_by,
@@ -24,19 +24,19 @@ export async function listActivities(client, userId, familyId) {
   return { data: { activities: rows } };
 }
 
-export async function createActivity(client, userId, { familyId, title, category, durationMinutes, coinValue, isRecurrent }) {
+export async function createActivity(client, userId, { familyId, title, type, durationMinutes, coinValue, isRecurrent }) {
   if (!await assertActiveMember(client, familyId, userId)) {
     return { error: { code: 403, message: 'Not a family member.' } };
   }
   const { rows } = await client.query(
     `INSERT INTO activities
-       (family_id, created_by, assigned_to, title, category,
+       (family_id, created_by, assigned_to, title, type,
         starts_at, ends_at, duration_minutes, coin_value, status, is_template, is_recurrent)
      VALUES ($1, $2, NULL, $3, $4, NULL, NULL, $5, $6, 'pending', true, $7)
      RETURNING *`,
     [
       familyId, userId,
-      title.trim(), category,
+      title.trim(), type,
       Number(durationMinutes),
       coinValue ? Number(coinValue) : Number(durationMinutes),
       Boolean(isRecurrent),
@@ -114,7 +114,7 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
     SELECT f.monthly_coin_budget,
       COALESCE((
         SELECT SUM(coin_value) FROM activities
-        WHERE family_id = $1 AND kind = 'care' AND is_template = false
+        WHERE family_id = $1 AND category = 'care' AND is_template = false
           AND status IN ('approved', 'completed')
           AND date_trunc('month', starts_at) = date_trunc('month', $2::timestamptz)
       ), 0)::int as used_this_month
@@ -128,7 +128,7 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
 
   const { rows } = await client.query(
     `INSERT INTO activities
-       (family_id, created_by, assigned_to, title, category,
+       (family_id, created_by, assigned_to, title, type,
         starts_at, ends_at, duration_minutes, coin_value,
         status, is_template, is_recurrent, approved_by, approved_at)
      VALUES ($1, $2, $3, $4, $5, $6::timestamptz,
@@ -136,7 +136,7 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
              $7::int, $8::int, $11, false, $12, $9, $10)
      RETURNING *`,
     [
-      t.family_id, t.created_by, userId, t.title, t.category,
+      t.family_id, t.created_by, userId, t.title, t.type,
       start.toISOString(), Number(t.duration_minutes), Number(t.coin_value),
       t.approved_by, t.approved_at, initialStatus, t.is_recurrent,
     ]
@@ -195,11 +195,11 @@ export async function createRecurrence(client, userId, instanceId, { frequency, 
     if (selfOverlap.length > 0) continue;
     await client.query(
       `INSERT INTO activities
-         (family_id, created_by, assigned_to, title, category,
+         (family_id, created_by, assigned_to, title, type,
           starts_at, ends_at, duration_minutes, coin_value,
           status, is_template, is_recurrent, approved_by, approved_at)
        VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$6::timestamptz+($7::int||' minutes')::interval,$7,$8,$11,false,true,$9,$10)`,
-      [act.family_id, act.created_by, act.assigned_to, act.title, act.category,
+      [act.family_id, act.created_by, act.assigned_to, act.title, act.type,
        startIso, act.duration_minutes, act.coin_value, act.approved_by, act.approved_at, 'approved']
     );
     count++;
@@ -336,7 +336,7 @@ export async function acceptBounty(client, userId, activityId) {
 export async function deleteActivity(client, userId, activityId, isSeries) {
   const { rows } = await client.query(
     `SELECT family_id, assigned_to, created_by, status, starts_at,
-            bounty_amount, bounty_offered_by, title, category, is_template
+            bounty_amount, bounty_offered_by, title, type, is_template
      FROM activities WHERE id = $1
      AND family_id IN (SELECT family_id FROM family_members WHERE user_id = $2 AND status = 'active')
      FOR UPDATE`,
@@ -366,10 +366,10 @@ export async function deleteActivity(client, userId, activityId, isSeries) {
   if (isSeries) {
     const { rows: refundRows } = await client.query(`
       SELECT bounty_amount, bounty_offered_by FROM activities
-      WHERE family_id = $1 AND title = $2 AND category = $3 AND assigned_to = $4
+      WHERE family_id = $1 AND title = $2 AND type = $3 AND assigned_to = $4
         AND is_template = false AND is_recurrent = true AND starts_at >= $5
         AND status IN ('approved', 'pending_validation') AND bounty_amount > 0 AND bounty_offered_by IS NOT NULL
-    `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+    `, [act.family_id, act.title, act.type, act.assigned_to, act.starts_at]);
     for (const refund of refundRows) {
       await client.query(
         `UPDATE family_members SET coin_balance = coin_balance + $1 WHERE family_id = $2 AND user_id = $3`,
@@ -382,10 +382,10 @@ export async function deleteActivity(client, userId, activityId, isSeries) {
     }
     await client.query(`
       DELETE FROM activities
-      WHERE family_id = $1 AND title = $2 AND category = $3 AND assigned_to = $4
+      WHERE family_id = $1 AND title = $2 AND type = $3 AND assigned_to = $4
         AND is_template = false AND is_recurrent = true AND starts_at >= $5
         AND status IN ('approved', 'pending_validation')
-    `, [act.family_id, act.title, act.category, act.assigned_to, act.starts_at]);
+    `, [act.family_id, act.title, act.type, act.assigned_to, act.starts_at]);
   } else {
     if (act.bounty_amount > 0 && act.bounty_offered_by) {
       await client.query(

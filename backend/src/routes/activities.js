@@ -26,18 +26,18 @@ activitiesRouter.get('/', async (req, res) => {
 activitiesRouter.post('/', validateBody({
   familyId: [required(), positiveInt()],
   title: [required(), string(1, 100)],
-  category: [required(), oneOf(['care', 'household'])],
+  type: [required(), oneOf(['care', 'household'])],
   durationMinutes: [required(), positiveInt()],
   coinValue: [positiveInt()],
 }), async (req, res) => {
-  const { familyId, title, category, durationMinutes, coinValue, isRecurrent } = req.body;
+  const { familyId, title, type, durationMinutes, coinValue, isRecurrent } = req.body;
   if (Number(durationMinutes) < 15) {
     return res.status(400).json({ error: 'Minimum duration is 15 minutes.' });
   }
   try {
     const result = await withTransaction(async (client) => {
       const user = await upsertUserFromAuth(client, req.auth);
-      return activityService.createActivity(client, user.id, { familyId, title, category, durationMinutes, coinValue, isRecurrent });
+      return activityService.createActivity(client, user.id, { familyId, title, type, durationMinutes, coinValue, isRecurrent });
     });
     if (result.error) return res.status(result.error.code).json({ error: result.error.message });
     notifyFamilyCaregivers(result.data.family_id, result.data.created_by, {

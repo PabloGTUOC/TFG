@@ -1,34 +1,34 @@
 export const HOUSEHOLD_ACTIVITIES = [
-  { title: 'Breakfast prep', category: 'household', duration: 30, recurrent: true },
-  { title: 'Lunch prep', category: 'household', duration: 30, recurrent: true },
-  { title: 'Dinner prep', category: 'household', duration: 60, recurrent: true },
-  { title: 'Grocery shopping', category: 'household', duration: 60, recurrent: false },
-  { title: 'Laundry', category: 'household', duration: 30, recurrent: false },
-  { title: 'House cleaning', category: 'household', duration: 60, recurrent: false },
-  { title: 'Dishes / kitchen cleanup', category: 'household', duration: 30, recurrent: true },
+  { title: 'Breakfast prep', type: 'household', duration: 30, recurrent: true },
+  { title: 'Lunch prep', type: 'household', duration: 30, recurrent: true },
+  { title: 'Dinner prep', type: 'household', duration: 60, recurrent: true },
+  { title: 'Grocery shopping', type: 'household', duration: 60, recurrent: false },
+  { title: 'Laundry', type: 'household', duration: 30, recurrent: false },
+  { title: 'House cleaning', type: 'household', duration: 60, recurrent: false },
+  { title: 'Dishes / kitchen cleanup', type: 'household', duration: 30, recurrent: true },
 ];
 
 export const CHILD_ACTIVITIES = [
-  { title: 'Morning routine', category: 'care', duration: 60, recurrent: true },
-  { title: 'Daycare / school drop-off', category: 'care', duration: 30, recurrent: true },
-  { title: 'Daycare / school pick-up', category: 'care', duration: 30, recurrent: true },
-  { title: 'Nap time supervision', category: 'care', duration: 90, recurrent: true },
-  { title: 'Outdoor play / park', category: 'care', duration: 60, recurrent: true },
-  { title: 'Bath time', category: 'care', duration: 30, recurrent: true },
-  { title: 'Bedtime routine', category: 'care', duration: 60, recurrent: true },
-  { title: 'Night wake-up', category: 'care', duration: 30, recurrent: false },
-  { title: 'Homework help', category: 'care', duration: 60, recurrent: true },
+  { title: 'Morning routine', type: 'care', duration: 60, recurrent: true },
+  { title: 'Daycare / school drop-off', type: 'care', duration: 30, recurrent: true },
+  { title: 'Daycare / school pick-up', type: 'care', duration: 30, recurrent: true },
+  { title: 'Nap time supervision', type: 'care', duration: 90, recurrent: true },
+  { title: 'Outdoor play / park', type: 'care', duration: 60, recurrent: true },
+  { title: 'Bath time', type: 'care', duration: 30, recurrent: true },
+  { title: 'Bedtime routine', type: 'care', duration: 60, recurrent: true },
+  { title: 'Night wake-up', type: 'care', duration: 30, recurrent: false },
+  { title: 'Homework help', type: 'care', duration: 60, recurrent: true },
 ];
 
 export const PET_ACTIVITIES = [
-  { title: 'Morning walk', category: 'care', duration: 30, recurrent: true },
-  { title: 'Evening walk', category: 'care', duration: 30, recurrent: true },
-  { title: 'Pet feeding', category: 'care', duration: 30, recurrent: true },
+  { title: 'Morning walk', type: 'care', duration: 30, recurrent: true },
+  { title: 'Evening walk', type: 'care', duration: 30, recurrent: true },
+  { title: 'Pet feeding', type: 'care', duration: 30, recurrent: true },
 ];
 
 export const GENERIC_CARE_ACTIVITIES = [
-  { title: 'Doctor / appointment accompany', category: 'care', duration: 90, recurrent: false },
-  { title: 'Medication reminder', category: 'care', duration: 30, recurrent: true },
+  { title: 'Doctor / appointment accompany', type: 'care', duration: 90, recurrent: false },
+  { title: 'Medication reminder', type: 'care', duration: 30, recurrent: true },
 ];
 
 // ── Client-supplied starter tasks (docs/family-setup-questionnaire-plan.md) ──
@@ -38,7 +38,8 @@ export const GENERIC_CARE_ACTIVITIES = [
 // arrays above remain the fallback for clients that omit the field.
 
 const MAX_STARTER_TASKS = 40;
-const STARTER_CATEGORIES = ['care', 'household'];
+// The care subclass's vocabulary; self activities carry their own types.
+const STARTER_TYPES = ['care', 'household'];
 // Mirrors the activities table CHECK (duration_minutes >= 15).
 const MIN_DURATION_MINUTES = 15;
 
@@ -59,8 +60,8 @@ export function validateStarterTasks(tasks) {
     if (!title || title.length > 100) {
       return `starterTasks[${i}].title: must be 1-100 characters.`;
     }
-    if (!STARTER_CATEGORIES.includes(task.category)) {
-      return `starterTasks[${i}].category: must be one of: ${STARTER_CATEGORIES.join(', ')}.`;
+    if (!STARTER_TYPES.includes(task.type)) {
+      return `starterTasks[${i}].type: must be one of: ${STARTER_TYPES.join(', ')}.`;
     }
     const duration = Number(task.durationMinutes);
     if (!Number.isInteger(duration) || duration < MIN_DURATION_MINUTES) {
@@ -95,7 +96,7 @@ export async function insertStarterTasks(client, familyId, creatorId, tasks, mon
       familyId,
       creatorId,
       task.title.trim(),
-      task.category,
+      task.type,
       duration,
       coinValue,
       task.isRecurrent === true
@@ -104,7 +105,7 @@ export async function insertStarterTasks(client, familyId, creatorId, tasks, mon
 
   await client.query(
     `INSERT INTO activities (
-      family_id, created_by, title, category, duration_minutes, coin_value, is_recurrent, status, is_template
+      family_id, created_by, title, type, duration_minutes, coin_value, is_recurrent, status, is_template
     ) VALUES ${values.join(', ')}`,
     params
   );
@@ -138,7 +139,7 @@ export async function insertDefaultActivities(client, familyId, creatorId, objec
       familyId, 
       creatorId, 
       act.title, 
-      act.category, 
+      act.type,
       act.duration, 
       Math.max(1, Math.round((act.duration / 60) * 2)), // Default to 2 coins/hr
       act.recurrent
@@ -147,7 +148,7 @@ export async function insertDefaultActivities(client, familyId, creatorId, objec
 
   const query = `
     INSERT INTO activities (
-      family_id, created_by, title, category, duration_minutes, coin_value, is_recurrent, status, is_template
+      family_id, created_by, title, type, duration_minutes, coin_value, is_recurrent, status, is_template
     ) VALUES ${values.join(', ')}
   `;
 

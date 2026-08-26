@@ -325,7 +325,7 @@ describe('activity subclasses', () => {
 
     const claimed = db.writes.sql.find(q => q.includes('SUM(coin_value)'));
     assert.ok(claimed, 'the claimed-coins query should have run');
-    assert.match(claimed, /kind = 'care'/,
+    assert.match(claimed, /category = 'care'/,
       'the GDP residual must count care work only, never personal time');
   });
 });

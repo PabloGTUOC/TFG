@@ -968,7 +968,7 @@ class _DailyScreenState extends State<DailyScreen> {
     final left = 70.0 + cappedOverlap * 45.0;
     final status = a['status']?.toString() ?? 'pending';
     final completed = status == 'completed';
-    final isCare = a['category'] == 'care';
+    final isCare = a['type'] == 'care';
     final isSelf = isSelfActivity(a);
     // Personal time earns nothing, so it never gets the filled "completed work"
     // treatment — it reads as a claim on the day, not as a contribution.
@@ -1327,8 +1327,8 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
   Widget build(BuildContext context) {
     final q = _search.text.toLowerCase();
     final filtered = widget.templates.where((t) {
-      if (_filter == 1 && t['category'] != 'care') return false;
-      if (_filter == 2 && t['category'] != 'household') return false;
+      if (_filter == 1 && t['type'] != 'care') return false;
+      if (_filter == 2 && t['type'] != 'household') return false;
       if (q.isNotEmpty &&
           !(t['title']?.toString().toLowerCase().contains(q) ?? false)) {
         return false;
@@ -1376,7 +1376,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
           child: ListView(
             children: [
               for (final cat in ['care', 'household'])
-                if (filtered.any((t) => t['category'] == cat)) ...[
+                if (filtered.any((t) => t['type'] == cat)) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
                     child: Row(
@@ -1399,7 +1399,7 @@ class _TaskLibraryPanelState extends State<_TaskLibraryPanel> {
                       ],
                     ),
                   ),
-                  for (final t in filtered.where((t) => t['category'] == cat))
+                  for (final t in filtered.where((t) => t['type'] == cat))
                     _libraryRow(t, cat),
                 ],
               if (filtered.isEmpty)
@@ -1497,8 +1497,8 @@ class _TaskSheetState extends State<_TaskSheet> {
   Widget build(BuildContext context) {
     final q = _search.text.toLowerCase();
     final filtered = widget.templates.where((t) {
-      if (_filter == 1 && t['category'] != 'care') return false;
-      if (_filter == 2 && t['category'] != 'household') return false;
+      if (_filter == 1 && t['type'] != 'care') return false;
+      if (_filter == 2 && t['type'] != 'household') return false;
       if (q.isNotEmpty &&
           !(t['title']?.toString().toLowerCase().contains(q) ?? false)) {
         return false;
@@ -1565,7 +1565,7 @@ class _TaskSheetState extends State<_TaskSheet> {
                       ListTile(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppRadii.md)),
-                        leading: Text(t['category'] == 'care' ? '❤️' : '🍽️',
+                        leading: Text(t['type'] == 'care' ? '❤️' : '🍽️',
                             style: const TextStyle(fontSize: 20)),
                         title: Text((t['title'] ?? '').toString(),
                             style:
@@ -1614,7 +1614,7 @@ class _TimelineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = item['status']?.toString() ?? 'pending';
-    final isCare = item['category'] == 'care';
+    final isCare = item['type'] == 'care';
     final isSelf = isSelfActivity(item);
     final ts = DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
     final bounty = toNum(item['bounty_amount']);

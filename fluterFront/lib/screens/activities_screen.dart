@@ -34,7 +34,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   int _filter = 0; // 0 all, 1 care, 2 household
 
   final _title = TextEditingController();
-  String _category = 'care';
+  String _type = 'care';
   int _durationMinutes = 60;
   bool _isRecurrent = false;
   double _coins = 0;
@@ -151,7 +151,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       await app.api.post('/api/activities', {
         'familyId': app.familyId,
         'title': _title.text.trim(),
-        'category': _category,
+        'type': _type,
         'durationMinutes': _durationMinutes,
         'coinValue': _coins.round() > 0 ? _coins.round() : _baseScore,
         'isRecurrent': _isRecurrent,
@@ -245,8 +245,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
               .toString()
               .compareTo((b['title'] ?? '').toString()));
     final filtered = templates.where((a) {
-      if (_filter == 1) return a['category'] == 'care';
-      if (_filter == 2) return a['category'] == 'household';
+      if (_filter == 1) return a['type'] == 'care';
+      if (_filter == 2) return a['type'] == 'household';
       return true;
     }).toList();
 
@@ -311,11 +311,11 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: a['category'] == 'care'
+                      color: a['type'] == 'care'
                           ? AppColors.successSoft
                           : AppColors.warningSoft,
                       shape: BoxShape.circle),
-                  child: Text(a['category'] == 'care' ? '❤️' : '🍽️',
+                  child: Text(a['type'] == 'care' ? '❤️' : '🍽️',
                       style: const TextStyle(fontSize: 17)),
                 ),
                 const SizedBox(width: 12),
@@ -345,7 +345,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                         ],
                       ),
                       Text(
-                          '${a['category'] == 'care' ? l.filterCare : l.filterHousehold} · ${_durationLabel(l, toNum(a['duration_minutes'] ?? a['durationMinutes']).toInt())} · 🪙 ${a['coin_value'] ?? a['coinValue'] ?? 0}cc',
+                          '${a['type'] == 'care' ? l.filterCare : l.filterHousehold} · ${_durationLabel(l, toNum(a['duration_minutes'] ?? a['durationMinutes']).toInt())} · 🪙 ${a['coin_value'] ?? a['coinValue'] ?? 0}cc',
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textSecondary)),
                     ],
@@ -411,20 +411,20 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     label: Text(label),
-                    selected: _category == value,
+                    selected: _type == value,
                     selectedColor: AppColors.primarySoft,
                     labelStyle: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: _category == value
+                        color: _type == value
                             ? AppColors.primary
                             : AppColors.textSecondary),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadii.pill),
                         side: BorderSide(
-                            color: _category == value
+                            color: _type == value
                                 ? AppColors.primary
                                 : AppColors.border)),
-                    onSelected: (_) => setState(() => _category = value),
+                    onSelected: (_) => setState(() => _type = value),
                   ),
                 ),
             ],

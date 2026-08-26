@@ -145,22 +145,29 @@ both layers. Clean division of labour:
 ## 4. The activity class model
 
 Today `category` conflates two different questions — *is this a contribution at all?* and
-*what kind of contribution?* Splitting them is what lets a self activity and its counter
+*which kind of contribution?* Splitting them is what lets a self activity and its counter
 care activity coexist in one window.
 
 ```
 activity  (base: title, description, window, duration, assignee, status)
 │
-├── kind = 'care'   contribution to the family
-│                   category ∈ {care, household};  coin_value > 0;  pays the assignee
-│                   └── coverage: a care activity with personal_time_request_id set
+├── category = 'care'   contribution to the family
+│                       type ∈ {care, household};  coin_value > 0;  pays the assignee
+│                       └── coverage: a care activity with personal_time_request_id set
 │
-└── kind = 'self'   personal time
-                    category NULL;  coin_value = 0;  pays nobody
-                    always paired with a counter care activity
+└── category = 'self'   personal time
+                        type ∈ {sport, social, rest, appointment, other}
+                        coin_value = 0;  pays nobody
+                        always paired with a counter care activity
 ```
 
-`kind` defaults to `'care'`, so every existing row is correct with no backfill.
+`category` is the subclass; `type` is the sub-type within it. Both are NOT NULL — there is
+no "no type" state, and the picker asks for a type when personal time is created.
+`category` defaults to `'care'`, so every existing row is correct with no backfill.
+
+Keeping both columns NOT NULL is load-bearing, not tidiness: a CHECK rejects only on
+*false*, so a nullable column makes an unmatched branch evaluate to NULL and the bad row
+slips through.
 
 ### 4.1 Overlap rules become subclass-aware
 
@@ -251,17 +258,16 @@ API enforces the 24 h ceiling.
 ## 6. Data model
 
 ```sql
--- 1. The subclass discriminator. DEFAULT 'care' makes every existing row correct.
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'care';
-ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_category_check;
-ALTER TABLE activities ALTER COLUMN category DROP NOT NULL;
-ALTER TABLE activities ADD CONSTRAINT activities_kind_category_check CHECK (
-  (kind = 'care' AND category IN ('care', 'household')) OR
-  (kind = 'self' AND category IS NULL AND coin_value = 0)
-);
-
--- 2. The note the dialog needs (activities has no description column today).
+-- 1. The subclass, and the sub-type within it. What `category` used to hold is
+--    now `type`; DEFAULT 'care' makes every existing row correct with no backfill.
+ALTER TABLE activities RENAME COLUMN category TO type;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'care';
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE activities ADD CONSTRAINT activities_category_type_check CHECK (
+  (category = 'care' AND type IN ('care', 'household')) OR
+  (category = 'self' AND coin_value = 0
+                     AND type IN ('sport', 'social', 'rest', 'appointment', 'other'))
+);
 
 -- 3. Absence floor. NOT VALID: existing short absences are grandfathered (§5.1).
 ALTER TABLE absences ADD CONSTRAINT absences_min_duration
@@ -312,7 +318,7 @@ New `coin_ledger` reasons: `coverage_sweetener_escrow` (−, at request),
 sweep). Migration `backend/scripts/migrate-personal-time.sql`, appended to
 `backend/scripts/init-db.js`. All statements idempotent.
 
-**Queries that must learn about `kind`:** the `explicit` sum and `unclaimed` split in
+**Queries that must learn about `category`:** the `explicit` sum and `unclaimed` split in
 `dashboard.js`, `getFamilyBudget.used_this_month`, both overlap checks in `scheduleActivity`
 and `createRecurrence`, the `categorySplit` aggregate in `stats.js`, and
 `runAutoCompleteSweep` (self activities have `coin_value = 0`, so they sweep harmlessly —
@@ -364,7 +370,7 @@ absences into one timeline; this is a third list. Blocks over ~12 h or crossing 
 render as an all-day chip.
 
 **Visual language for the subclasses.** Care and self must be legible at a glance —
-`getCardStyle` maps status to colour today; `kind` needs its own treatment (self activities
+`getCardStyle` maps status to colour today; `category` needs its own treatment (self activities
 outlined rather than filled, no coin badge).
 
 **Response card.** Dashboard, beside the existing offers strip: *"Pablo wants Friday
@@ -503,39 +509,46 @@ rounding, and the clock advanced exactly once.
 refactor is not entangled with a new feature.
 
 **Changes.**
-- `kind` column with `DEFAULT 'care'`, the compound kind/category CHECK, and the
+- `category` column with `DEFAULT 'care'`, the compound category/type CHECK, and the
   `description` column (§6).
 - The overlap matrix (§4.1) in both `scheduleActivity` and `createRecurrence` — including
   the `care × coverage` cell that must be **allowed**.
-- Make every aggregate `kind`-aware: the `explicit` sum in `distributionService`,
-  `getFamilyBudget.used_this_month`, and `categorySplit` in `stats.js`. Self activities
+- Make every aggregate `category`-aware: the `explicit` sum in `distributionService`,
+  `getFamilyBudget.used_this_month`, and `typeSplit` in `stats.js`. Self activities
   carry `coin_value = 0`, so they sweep harmlessly — but they must not appear as completed
   *work*.
-- Card treatment for `kind` in the Flutter timeline: self activities outlined rather than
-  filled, no coin badge. `getCardStyle` maps status to colour today; `kind` is a second
-  axis.
+- Card treatment for `category` in the Flutter timeline: self activities outlined rather
+  than filled, no coin badge. `getCardStyle` maps status to colour today; `category` is a
+  second axis.
 
-**Done when.** Every existing test passes unchanged, and a hand-inserted `kind='self'` row
+**Done when.** Every existing test passes unchanged, and a hand-inserted `category='self'` row
 moves no coins and appears in no budget, GDP or stats figure.
 
-**As built.** `scripts/migrate-activity-kinds.sql` adds `kind` (DEFAULT `'care'`, so every
-existing row is correct with no backfill), `description`, drops NOT NULL from `category`,
-swaps the inline category CHECK for the compound one, and indexes
-`(family_id, kind, status)` since every work aggregate now filters on it.
+**As built.** `scripts/migrate-activity-subclasses.sql` renames `category` → `type`, adds
+`category` (the subclass, DEFAULT `'care'`, so every existing row is correct with no
+backfill) and `description`, swaps the inline category CHECK for one vocabulary per
+category, and indexes `(family_id, category, status)` since every work aggregate filters
+on it. It is idempotent and converges from three starting shapes: a database built from the
+current `schema.sql`, one predating the subclasses, and one that ran the interim revision
+where the subclass was called `kind`.
 
-Eleven queries became `kind`-aware: the GDP residual in `distributionService`, the two
+Eleven queries became `category`-aware: the GDP residual in `distributionService`, the two
 budget figures (`getFamilyBudget`, the dashboard's `used_this_month`), the budget warning
 in `scheduleActivity`, and six stats aggregates (lifetime KPIs, `trendByMonth`,
-`categorySplit`, `activityFrequency`, `completionRates`, `statusDistribution`).
-`listActivities` now returns `kind` and `description` so the client can tell the subclasses
+`typeSplit`, `activityFrequency`, `completionRates`, `statusDistribution`).
+`listActivities` now returns `category`, `type` and `description` so clients can tell the subclasses
 apart. `runAutoCompleteSweep` was deliberately left alone: a self activity is worth 0, so
 it sweeps to `completed` and moves nothing.
 
 The dashboard's day-by-day calendar counts was **not** filtered — it is a schedule, not a
 work metric, and personal time genuinely occupies the day.
 
+The wire format follows the model: `POST /api/activities` takes `type`, `listActivities`
+returns `category` and `type`, the starter-task payload sends `type`, and the stats payload
+key is `typeSplit`.
+
 Flutter: `isSelfActivity` in `ui.dart` is the single predicate both renderers share; a row
-with no `kind` is care work, which keeps every pre-migration row rendering as it did.
+with no `category` is care work, which keeps every pre-migration row rendering as it did.
 Personal time never takes the filled "completed work" fill — it earns nothing, so it reads
 as a claim on the day — and `_ActivityAction` returns nothing for it, since personal time
 is nobody's to validate, delegate or take over.
@@ -543,22 +556,23 @@ is nobody's to validate, delegate or take over.
 **The overlap matrix is only half-landable here.** The `care` × `coverage` cell needs
 `personal_time_request_id` to identify a coverage row, and that column arrives with the
 requests table in Phase 4. The rest of the matrix already holds, because the `selfOverlap`
-check in `scheduleActivity` is kind-agnostic: a self activity blocks care work in the same
+check in `scheduleActivity` is subclass-agnostic: a self activity blocks care work in the same
 window and vice versa, which is correct. **Phase 4 must add the coverage exemption** — it
 remains the top risk in §10.
 
-**Verified.** 149 backend tests pass *unchanged* (plus one new guard that the residual
-query carries the `kind` filter), 35 Flutter tests, `flutter analyze` clean. Against a real
-Postgres 16 the constraint rejects all four invalid shapes — a self activity carrying a
-category, one worth coins, a care activity with no category, and an unknown kind — and a
-seeded self activity is invisible where it must be: lifetime tasks 1 rather than 2, status
-distribution 1 rather than 2, and the category split free of the `null` bucket it would
+**Verified.** 150 backend tests, 35 Flutter tests, `flutter analyze` clean. Against a real
+Postgres 16: the migration converges on the identical shape from all three starting states,
+with existing rows becoming `care/care` and `care/household`; `db:init` runs twice cleanly;
+all five self types insert; and the constraint rejects self borrowing a care type, care
+borrowing a self type, self worth coins, an unknown category and an unknown self type.
+A seeded self activity is invisible where it must be — lifetime tasks 1 rather than 2,
+status distribution 1 rather than 2, and the split free of the `null` bucket it would
 otherwise add to the chart.
 
-**Caught during that check:** the first draft of the CHECK let a care row with a null
-category through. `(kind = 'care' AND category IN (…))` evaluates to NULL rather than false
-when `category` is null, and a CHECK only rejects on false. The shipped constraint spells
-out `category IS NOT NULL`.
+**Caught during that check:** an earlier draft made `type` nullable for self activities, and
+the CHECK then let a care row with a null type through — `(category = 'care' AND type IN
+(…))` evaluates to NULL rather than false, and a CHECK rejects only on false. Giving self
+activities their own types made both columns NOT NULL and removed the hole structurally.
 
 ---
 

@@ -253,7 +253,7 @@ describe('listActivities', () => {
 
 describe('scheduleActivity', () => {
   const tmpl = {
-    id: 5, family_id: 10, created_by: 98, title: 'Dinner', category: 'meals',
+    id: 5, family_id: 10, created_by: 98, title: 'Dinner', type: 'meals',
     duration_minutes: 60, coin_value: 60, approved_by: 98, approved_at: '2030-01-01T00:00:00Z',
     is_recurrent: false,
   };

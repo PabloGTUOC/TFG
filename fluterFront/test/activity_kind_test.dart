@@ -7,22 +7,23 @@ import 'package:carecoins_flutter/widgets/ui.dart';
 /// mistaken for personal time and losing its coin treatment.
 void main() {
   group('isSelfActivity', () {
-    test('a row with kind self is personal time', () {
-      expect(isSelfActivity({'kind': 'self', 'category': null}), isTrue);
+    test('a self row is personal time, whatever its type', () {
+      expect(isSelfActivity({'category': 'self', 'type': 'sport'}), isTrue);
+      expect(isSelfActivity({'category': 'self', 'type': 'appointment'}), isTrue);
     });
 
-    test('a row with kind care is family work', () {
-      expect(isSelfActivity({'kind': 'care', 'category': 'household'}), isFalse);
+    test('a care row is family work', () {
+      expect(isSelfActivity({'category': 'care', 'type': 'household'}), isFalse);
     });
 
-    test('a legacy row with no kind at all is family work', () {
-      expect(isSelfActivity({'category': 'care', 'coin_value': 5}), isFalse);
-      expect(isSelfActivity({'kind': null}), isFalse);
+    test('a legacy row with no category at all is family work', () {
+      expect(isSelfActivity({'type': 'care', 'coin_value': 5}), isFalse);
+      expect(isSelfActivity({'category': null}), isFalse);
     });
 
-    test('an unrecognised kind is treated as family work, never as personal', () {
-      expect(isSelfActivity({'kind': 'coverage'}), isFalse);
-      expect(isSelfActivity({'kind': ''}), isFalse);
+    test('an unrecognised category is family work, never personal time', () {
+      expect(isSelfActivity({'category': 'coverage'}), isFalse);
+      expect(isSelfActivity({'category': ''}), isFalse);
     });
   });
 }

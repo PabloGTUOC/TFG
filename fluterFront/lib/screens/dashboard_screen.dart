@@ -654,7 +654,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
                             color: AppColors.bg, shape: BoxShape.circle),
-                        child: Text(offer['category'] == 'care' ? '❤️' : '🍽️',
+                        child: Text(offer['type'] == 'care' ? '❤️' : '🍽️',
                             style: const TextStyle(fontSize: 18)),
                       ),
                       const SizedBox(width: 12),
@@ -1228,7 +1228,7 @@ class _ActChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = a['status']?.toString() ?? '';
-    final isCare = a['category'] == 'care';
+    final isCare = a['type'] == 'care';
 
     Color bg, fg;
     Border? border;

@@ -285,11 +285,11 @@ class _StatsScreenState extends State<StatsScreen> {
 
   List<Widget> _buildCategoryBalance() {
     final l = AppLocalizations.of(context);
-    final split = _listOf('categorySplit');
+    final split = _listOf('typeSplit');
     if (split.isEmpty) return [];
     num sumFor(String category, [String? caregiver]) => split
         .where((x) =>
-            x['category'] == category &&
+            x['type'] == category &&
             (caregiver == null || x['caregiver'] == caregiver))
         .fold<num>(0, (acc, x) => acc + toNum(x['value']));
 

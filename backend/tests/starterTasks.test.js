@@ -21,13 +21,13 @@ function capturingClient() {
 }
 
 const task = (over = {}) =>
-  ({ title: 'Breakfast prep', category: 'household', durationMinutes: 30, isRecurrent: true, ...over });
+  ({ title: 'Breakfast prep', type: 'household', durationMinutes: 30, isRecurrent: true, ...over });
 
 // ─── validateStarterTasks ───────────────────────────────────────────────────
 
 describe('validateStarterTasks', () => {
   test('accepts a well-formed list and an empty list', () => {
-    assert.equal(validateStarterTasks([task(), task({ category: 'care' })]), null);
+    assert.equal(validateStarterTasks([task(), task({ type: 'care' })]), null);
     assert.equal(validateStarterTasks([]), null);
   });
 
@@ -45,7 +45,7 @@ describe('validateStarterTasks', () => {
   test('rejects bad titles, categories and durations', () => {
     assert.match(validateStarterTasks([task({ title: '   ' })]), /title/);
     assert.match(validateStarterTasks([task({ title: 'x'.repeat(101) })]), /title/);
-    assert.match(validateStarterTasks([task({ category: 'chores' })]), /category/);
+    assert.match(validateStarterTasks([task({ type: 'chores' })]), /type/);
     // The activities table requires duration_minutes >= 15.
     assert.match(validateStarterTasks([task({ durationMinutes: 10 })]), /durationMinutes/);
     assert.match(validateStarterTasks([task({ durationMinutes: 30.5 })]), /durationMinutes/);
@@ -53,7 +53,7 @@ describe('validateStarterTasks', () => {
   });
 
   test('reports the offending index', () => {
-    assert.match(validateStarterTasks([task(), task({ category: 'bogus' })]), /starterTasks\[1\]/);
+    assert.match(validateStarterTasks([task(), task({ type: 'bogus' })]), /starterTasks\[1\]/);
   });
 });
 
@@ -133,7 +133,7 @@ describe('createFamily starterTasks branching', () => {
   test('rejects an invalid catalogue with 400 before writing anything', async () => {
     const client = capturingClient();
     const result = await createFamily(client, user, {
-      ...base, starterTasks: [task({ category: 'bogus' })],
+      ...base, starterTasks: [task({ type: 'bogus' })],
     });
     assert.equal(result.error.code, 400);
     assert.equal(client.calls.length, 0);

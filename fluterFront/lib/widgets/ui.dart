@@ -660,10 +660,11 @@ class PageHeading extends StatelessWidget {
 
 /// Which subclass an activity row belongs to (docs/personal-time-plan.md §4).
 ///
-/// `kind` is 'care' (work for the family, which is what `category` describes) or
-/// 'self' (personal time). Rows written before the subclasses existed carry no
-/// `kind` at all, so anything that is not explicitly 'self' is care work.
-bool isSelfActivity(Map<String, dynamic> item) => item['kind'] == 'self';
+/// `category` is 'care' (work for the family, whose kinds `type` describes) or
+/// 'self' (personal time, whose own types are sport, social, rest, appointment
+/// and other). Rows written before the subclasses existed carry no `category`
+/// at all, so anything not explicitly 'self' is care work.
+bool isSelfActivity(Map<String, dynamic> item) => item['category'] == 'self';
 
 /// ── AssigneeBadge ──────────────────────────────────────────────────
 /// "Who's doing this" pill for activity chips/cards, so simultaneous

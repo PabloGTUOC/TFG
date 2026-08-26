@@ -17,17 +17,17 @@ import '../l10n/app_localizations.dart';
 class StarterTask {
   final String Function(AppLocalizations) title;
 
-  /// 'care' | 'household' — matches the activities table CHECK.
-  final String category;
+  /// 'care' | 'household' — the care subclass's types in the activities CHECK.
+  final String type;
   final int durationMinutes;
   final bool isRecurrent;
 
-  const StarterTask(this.title, this.category, this.durationMinutes,
+  const StarterTask(this.title, this.type, this.durationMinutes,
       {this.isRecurrent = false});
 
   Map<String, dynamic> toPayload(AppLocalizations l) => {
         'title': title(l),
-        'category': category,
+        'type': type,
         'durationMinutes': durationMinutes,
         'isRecurrent': isRecurrent,
       };
