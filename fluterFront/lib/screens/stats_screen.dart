@@ -398,9 +398,24 @@ class _StatsScreenState extends State<StatsScreen> {
 
   List<Widget> _buildMembers() {
     final l = AppLocalizations.of(context);
+    final loc = l.localeName;
     final balances = _listOf('memberBalances');
     final completion = _listOf('completionRates');
     final bounties = _listOf('bountyStats');
+
+    // Fairness reads the latest month there is data for, rather than "now":
+    // an empty card in the first days of a month would say nothing true.
+    final fairness = _listOf('fairnessByMonth');
+    final fairMonth = fairness
+        .map((f) => f['month'].toString())
+        .fold<String?>(null, (a, b) => a == null || b.compareTo(a) > 0 ? b : a);
+    final fair = fairness.where((f) => f['month'] == fairMonth).toList();
+    final fairScale = [
+      for (final f in fair) ...[
+        toNum(f['personal_minutes']),
+        toNum(f['coverage_minutes'])
+      ]
+    ];
 
     return [
       if (balances.isNotEmpty)
@@ -488,6 +503,47 @@ class _StatsScreenState extends State<StatsScreen> {
                     color: color,
                   ),
               ],
+            ],
+          ),
+        ),
+      // Taking time for yourself should be as visible as the care you give;
+      // otherwise the app offers a way to take without a way to see it.
+      if (fair.isNotEmpty)
+        VCard(
+          title: l.chartFairness,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  DateFormat('MMMM y', loc)
+                      .format(DateTime.parse('$fairMonth-01')),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              for (final f in fair) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 4),
+                    child: Text((f['caregiver'] ?? '').toString(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ),
+                for (final (label, key, color) in [
+                  (l.fairnessTaken, 'personal_minutes', AppColors.accentSecondary),
+                  (l.fairnessGiven, 'coverage_minutes', AppColors.success),
+                ])
+                  _BarRow(
+                    label: label,
+                    valueLabel: _hoursLabel(toNum(f[key]).toInt()),
+                    fraction: _fractionOfMax(toNum(f[key]), fairScale),
+                    color: color,
+                  ),
+              ],
+              Text(l.fairnessNoDeclines,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -616,6 +672,15 @@ class _SectionDivider extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Minutes as hours and minutes. Follows the duration picker's convention in
+/// personal_time_dialog.dart rather than inventing a second one.
+String _hoursLabel(int minutes) {
+  if (minutes < 60) return '${minutes}m';
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  return m == 0 ? '${h}h' : '${h}h ${m}m';
 }
 
 class _BarRow extends StatelessWidget {

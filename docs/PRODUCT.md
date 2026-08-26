@@ -167,6 +167,9 @@ Real-time web push via **Firebase Cloud Messaging**. Notifications are sent serv
 | Bounty offered | All family members |
 | New member joined | All family caregivers |
 | Family deletion requested | All family caregivers |
+| Someone asked you to cover | The person asked, or all caregivers when anyone may accept |
+| Your personal time is covered | The requester |
+| Personal time declined | The requester |
 
 ### 13. Platform Administration & Plans
 
@@ -185,6 +188,53 @@ CareCoins is installable as a PWA on iOS (Add to Home Screen) and Android (insta
 - Service worker via **Workbox** (auto-update mode) for offline asset caching.
 - Separate `firebase-messaging-sw.js` service worker for background push notifications.
 - App badge API support (clears on notification tap).
+
+### 15. Personal Time & Coverage
+
+The counterpart to logging care: a way to book time **for yourself** — the gym on Friday, a
+haircut, an evening out — that generates a matching care activity for the other caretaker.
+Without it the app would only ever measure what you give, and a fairness tool that cannot see
+what you take is not measuring fairness.
+
+**Activities are a base class with two subclasses.** `category` is `care` or `self`; `type`
+is the sub-type within it (`care`/`household`/`coverage`, or
+`sport`/`social`/`rest`/`appointment`/`other`). Self activities are always worth zero coins —
+you are not paid to go to the gym — and are excluded from every contribution figure.
+
+**Two settlement paths, split by duration:**
+
+| | Absence (≥ 24 h) | Personal time (< 24 h) |
+|---|---|---|
+| Settled | Month end, presence-weighted | Immediately, via an explicit counter activity |
+| Refusable | **No** — you cannot decline a work trip | **Yes** |
+| Sweetener | No | Yes, from the requester's own wallet |
+
+**The request lifecycle.** Booking personal time is an ask, not a booking: nothing is
+scheduled while it is pending. The other caretaker is notified and can accept or decline. On
+acceptance two linked activity rows appear — the requester's self activity, worth nothing,
+and the accepter's **coverage** shift, worth the family base rate plus any sweetener the
+requester put up. Coverage is the one activity type allowed to overlap: covering a dependent
+is supervision, not busy hands, so the coverer can still cook dinner inside that window.
+
+**Repeats.** "Every Friday at the same time" is a single ask covering many windows, capped at
+60. The sweetener is priced **per occurrence and escrowed up front** — ten Fridays at 5 cc
+means 50 cc leaves your wallet when you ask, and the quote shows the total so it is never a
+surprise. Accepting books what works and skips the dates the coverer is away for, refunding a
+sweetener for each skip.
+
+**Expiry.** A request goes stale 48 hours after asking, or when its window starts, whichever
+comes first. Stale requests close themselves and return the escrow, so an unanswered ask
+never quietly holds your coins.
+
+**Fairness.** The stats screen sets personal time taken against coverage given, per member
+per month, beside the existing care figures.
+
+**What is deliberately never counted: declines.** Not on the dashboard, not in stats, not
+anywhere. Declining must stay free and invisible — the moment a refusal becomes a number
+someone can point at, the sweetener stops being an offer and becomes social pressure, and the
+feature does the opposite of what it exists for.
+
+Full design and implementation log: `docs/personal-time-plan.md`.
 
 ---
 

@@ -75,7 +75,8 @@ backend/
 │   │   ├── dashboard.js           # /api/dashboard — family summary data
 │   │   ├── marketplace.js         # /api/marketplace — rewards + redemptions
 │   │   ├── stats.js               # /api/stats — charts and monthly aggregates
-│   │   └── absences.js            # /api/absences — absence management
+│   │   ├── absences.js            # /api/absences — absence management
+│   │   └── personalTime.js        # /api/personal-time — ask, accept, decline, withdraw
 │   │
 │   ├── services/
 │   │   ├── activityService.js     # Activity business logic
@@ -133,6 +134,7 @@ perUserLimiter (300 req / 15 min per UID)
 /api/marketplace → marketplaceRouter
 /api/stats       → statsRouter
 /api/absences    → absencesRouter
+/api/personal-time → personalTimeRouter
 ↓
 Global error handler (500)
 ```
@@ -413,7 +415,18 @@ No auth. Returns `{ status: 'ok', service: 'carecoins-backend' }`. Used by Docke
 
 | Method | Path | Role | Description |
 |---|---|---|---|
-| GET | `/api/stats/:familyId?month=YYYY-MM` | member | Monthly aggregate data for charts: coins per member, hours per category, task counts. `month` query param selects the target month (defaults to current month if omitted) |
+| GET | `/api/stats/:familyId` | member | Every aggregate the stats screen draws, in one payload. The route takes no month parameter: the month-grouped blocks (`trendByMonth`, `coinFlowByReason`, `fairnessByMonth`) carry a `YYYY-MM` column and the client picks from them |
+
+**Blocks returned:** `kpis`, `activeCaregivers`, `trendByMonth`, `typeSplit`,
+`activityFrequency`, `memberBalances`, `bountyStats`, `rewardsByUser`, `topRewards`,
+`completionRates`, `statusDistribution`, `coinFlowByReason`, `fairnessByMonth`.
+
+`fairnessByMonth` sets personal time taken against coverage given, per member and month —
+`personal_minutes` / `personal_count` from `category = 'self'`, `coverage_minutes` /
+`coverage_count` from `type = 'coverage'`, both over completed rows only. Every care
+aggregate filters `category = 'care'`, so personal time never inflates a contribution figure.
+There is deliberately **no declined count in this payload, and there must never be one**:
+declining has to stay free and invisible, or the sweetener becomes social pressure.
 
 ---
 
@@ -424,6 +437,32 @@ No auth. Returns `{ status: 'ok', service: 'carecoins-backend' }`. Used by Docke
 | GET | `/api/absences?familyId=` | member | List all absences for a family |
 | POST | `/api/absences` | caregiver | Create an absence record |
 | DELETE | `/api/absences/:id` | caregiver | Delete an absence |
+
+---
+
+### `/api/personal-time` — Personal Time & Coverage
+
+Booking time for yourself always carries a coverage offer to another caretaker, and is only
+real once they accept. Nothing is scheduled while a request is pending.
+
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | `/api/personal-time?familyId=` | member | List the family's requests. **Also sweeps expired ones**, refunding their escrow |
+| POST | `/api/personal-time/quote` | member | Price a window before committing: baseline, your balance, the counterparty's conflicts, the candidate list, and the occurrence count for a repeat |
+| POST | `/api/personal-time` | member | Ask. Escrows `sweetener × occurrences` up front; refuses and writes nothing if unaffordable |
+| POST | `/api/personal-time/:id/accept` | caregiver | Materialize a pair per occurrence, skipping any neither side can make and refunding those. Returns `{ created, skipped, refunded }` |
+| POST | `/api/personal-time/:id/decline` | caregiver | Refund the whole escrow, book nothing |
+| DELETE | `/api/personal-time/:id` | member | The requester withdraws; escrow refunded |
+
+**Body fields on create:** `familyId`, `title`, `type` (one of `sport`, `social`, `rest`,
+`appointment`, `other`), `description`, `startsAt`, `endsAt`, `requestedOf` (null = ask
+anyone), `coverageNeeded`, `sweetenerCoins` (per occurrence), `recurrence` (`daily`,
+`weekdays`, `weekly`), `recurrenceUntil`.
+
+The window must be 15 minutes to 24 hours — beyond a day it is an absence, which nobody gets
+to decline. A repeat is capped at 60 occurrences and **refused** rather than truncated, since
+a series quietly cut short would escrow for fewer favours than the requester believed they
+were asking.
 
 ---
 

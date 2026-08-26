@@ -83,6 +83,33 @@ statsRouter.get('/:familyId', async (req, res) => {
                 [familyId]
             );
 
+            // Fairness (docs/personal-time-plan.md Phase 7): personal time taken
+            // set against coverage given, per member and month. Both fall out of
+            // the subclass columns — self activities carry category = 'self',
+            // coverage carries type = 'coverage' — so nothing new is stored.
+            //
+            // There is deliberately no declined count here, and there must never
+            // be one anywhere: declining has to stay free and invisible, or the
+            // sweetener stops being an offer and becomes social pressure (§10).
+            const { rows: fairnessByMonth } = await client.query(
+                `SELECT
+           COALESCE(fm.alias, u.display_name, 'Unknown') as caregiver,
+           to_char(a.starts_at AT TIME ZONE 'UTC', 'YYYY-MM') as month,
+           COALESCE(SUM(a.duration_minutes) FILTER (WHERE a.category = 'self'), 0)::int as personal_minutes,
+           COUNT(*) FILTER (WHERE a.category = 'self')::int as personal_count,
+           COALESCE(SUM(a.duration_minutes) FILTER (WHERE a.type = 'coverage'), 0)::int as coverage_minutes,
+           COUNT(*) FILTER (WHERE a.type = 'coverage')::int as coverage_count
+         FROM activities a
+         JOIN family_members fm ON fm.user_id = a.assigned_to AND fm.family_id = a.family_id
+         JOIN users u ON u.id = a.assigned_to
+         WHERE a.family_id = $1 AND a.status = 'completed' AND a.is_template = false
+           AND (a.category = 'self' OR a.type = 'coverage')
+         GROUP BY caregiver, month
+         ORDER BY month ASC
+         LIMIT 100`,
+                [familyId]
+            );
+
             const { rows: memberBalances } = await client.query(
                 `SELECT COALESCE(fm.alias, u.display_name, 'Unknown') as name,
                         fm.coin_balance,
@@ -184,7 +211,8 @@ statsRouter.get('/:familyId', async (req, res) => {
                 topRewards,
                 completionRates,
                 statusDistribution,
-                coinFlowByReason
+                coinFlowByReason,
+                fairnessByMonth
             };
         });
 

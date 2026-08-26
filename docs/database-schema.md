@@ -27,6 +27,7 @@ The schema uses PostgreSQL with the `uuid-ossp` extension loaded. Most tables us
 19. [family_plans](#19-family_plans)
 20. [billing_events](#20-billing_events)
 21. [admin_grants](#21-admin_grants)
+22. [personal_time_requests](#22-personal_time_requests)
 
 ---
 
@@ -144,7 +145,12 @@ Represents individuals tracked within a family. An actor can be a registered use
 
 ## 6. `activities`
 
-The central entity of the application. Represents care or household tasks that can be assigned, completed, and rewarded with CareCoins.
+The central entity of the application. A base class with two subclasses, distinguished by
+`category`: **care** activities are work done for someone else and carry coins, **self**
+activities are personal time and are always worth zero. `type` is the sub-type within the
+subclass. Both columns are NOT NULL, which is load-bearing rather than tidiness — a CHECK
+rejects only on *false*, so a nullable column would make an unmatched branch evaluate to
+NULL and let a bad row through.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -153,7 +159,8 @@ The central entity of the application. Represents care or household tasks that c
 | `created_by` | BIGINT | NOT NULL, FK → users(id) | User who created the activity |
 | `assigned_to` | BIGINT | FK → users(id) | User assigned to perform the task (nullable = unassigned) |
 | `title` | TEXT | NOT NULL | Short description of the task |
-| `category` | TEXT | NOT NULL, CHECK IN ('care', 'household') | Whether this is a caregiving or domestic task |
+| `category` | TEXT | NOT NULL, CHECK IN ('care', 'self') | The subclass: work for someone else, or personal time |
+| `type` | TEXT | NOT NULL, compound CHECK with `category` | Sub-type: `care`/`household`/`coverage` when care, `sport`/`social`/`rest`/`appointment`/`other` when self |
 | `starts_at` | TIMESTAMPTZ | — | Scheduled start time |
 | `ends_at` | TIMESTAMPTZ | — | Scheduled end time |
 | `duration_minutes` | INTEGER | NOT NULL, CHECK >= 15 | Expected duration; minimum 15 minutes |
@@ -165,8 +172,12 @@ The central entity of the application. Represents care or household tasks that c
 | `approved_at` | TIMESTAMPTZ | — | Timestamp of the approval/rejection action |
 | `bounty_amount` | INTEGER | NOT NULL, DEFAULT 0 | Additional coin bonus offered for completing this task |
 | `bounty_offered_by` | BIGINT | FK → users(id) ON DELETE SET NULL | User who offered the bounty |
+| `personal_time_request_id` | BIGINT | FK → personal_time_requests(id) ON DELETE SET NULL | The request this row was materialized from, if any |
+| `counterpart_activity_id` | BIGINT | FK → activities(id) ON DELETE SET NULL | The row on the other side of the pair: self ↔ coverage |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Creation timestamp |
 | _(check)_ | — | CHECK (ends_at > starts_at) OR both NULL | End must be strictly after start if either is set |
+| _(check)_ | — | compound CHECK on (`category`, `type`) | Each subclass may only carry its own types |
+| _(check)_ | — | CHECK (category <> 'self' OR coin_value = 0) | Personal time never pays the person taking it |
 
 **Status lifecycle:**
 ```
@@ -179,7 +190,9 @@ pending → approved → pending_validation → completed
 - `duration_minutes >= 15` enforces a minimum meaningful task length.
 - `coin_value >= 0` allows zero-coin tasks (chores done purely for contribution).
 - The `ends_at > starts_at` check is relaxed when both are NULL (for templates with no scheduled time).
-- `bounty_amount` is additive on top of `coin_value`; set to 0 when no bounty is active.
+- `bounty_amount` is additive on top of `coin_value`; set to 0 when no bounty is active. On a coverage row it carries the requester's sweetener.
+- `type = 'coverage'` is the one type exempt from the overlap check, in both directions: covering a dependent is supervision, not busy hands, so the coverer can still cook dinner inside that window. It is written **only** by the personal-time accept flow — the activity API validator accepts just `care` and `household`, so nobody can create one by hand.
+- Self activities are excluded from every work aggregate and from presence weighting; otherwise the coverer would be paid twice.
 - Two indexes are defined: `(assigned_to, starts_at, ends_at)` for schedule queries and `(family_id, status)` for dashboard filters.
 
 ---
@@ -477,6 +490,60 @@ Comps/trials issued by platform admins — deliberately separate from `family_pl
 | `expires_at` | TIMESTAMPTZ | — | Optional expiry; NULL = open-ended |
 | `revoked_at` | TIMESTAMPTZ | — | Revocation timestamp (never hard-deleted) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Grant time |
+
+---
+
+## 22. `personal_time_requests`
+
+An ask, not a booking. Personal time always carries a coverage offer to another caretaker
+and is only real once they accept — you cannot decline your partner's work trip, but you can
+decline their gym session. Nothing is scheduled while a request is pending; on acceptance two
+ordinary `activities` rows are materialized (the requester's self activity, worth nothing,
+and the accepter's coverage shift, worth the family base rate plus any sweetener), so every
+existing query over `activities` keeps working untouched.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | BIGSERIAL | PRIMARY KEY | Internal identifier |
+| `family_id` | BIGINT | NOT NULL, FK → families(id) ON DELETE CASCADE | Family the request belongs to |
+| `requester_id` | BIGINT | NOT NULL, FK → users(id) ON DELETE CASCADE | Who wants the time |
+| `requested_of` | BIGINT | FK → users(id) ON DELETE CASCADE | Who is being asked; **NULL means "ask anyone"** — any active caregiver may accept, first one wins |
+| `parent_request_id` | BIGINT | FK → personal_time_requests(id) ON DELETE CASCADE | Reserved for per-instance renegotiation of a series; not yet written |
+| `title` | TEXT | NOT NULL | What the time is for |
+| `type` | TEXT | NOT NULL, CHECK IN ('sport', 'social', 'rest', 'appointment', 'other') | The self sub-type, mirroring `activities.type` |
+| `description` | TEXT | — | Optional note for whoever has to answer |
+| `starts_at` · `ends_at` | TIMESTAMPTZ | NOT NULL | The window asked for |
+| `coverage_needed` | BOOLEAN | NOT NULL, DEFAULT true | False = the dependent needs nobody then (gym while the kid is at daycare). The partner is still told, but there is nothing to accept and no coins move |
+| `baseline_coins` | INTEGER | NOT NULL, DEFAULT 0, CHECK >= 0 | What covering the window is worth at the family base rate |
+| `sweetener_coins` | INTEGER | NOT NULL, DEFAULT 0, CHECK >= 0 | Extra offered from the requester's own wallet, **per occurrence** |
+| `escrowed_coins` | INTEGER | NOT NULL, DEFAULT 0, CHECK >= 0 | What actually left the wallet: `sweetener_coins × occurrences` |
+| `recurrence` | TEXT | CHECK IN ('daily', 'weekdays', 'weekly') | NULL = a one-off |
+| `recurrence_until` | DATE | — | Last day a repeat may fall on, inclusive |
+| `status` | TEXT | NOT NULL, DEFAULT 'pending', CHECK IN ('pending', 'accepted', 'declined', 'expired', 'cancelled') | Lifecycle state |
+| `responded_by` | BIGINT | FK → users(id) | Who answered; NULL on a request nobody had to answer |
+| `responded_at` | TIMESTAMPTZ | — | When it was answered |
+| `expires_at` | TIMESTAMPTZ | NOT NULL | `min(asked + 48 h, starts_at)` |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Creation timestamp |
+| _(check)_ | — | CHECK (ends_at > starts_at) | |
+| _(check)_ | — | CHECK (ends_at - starts_at <= INTERVAL '24 hours') | Beyond a day it is an absence, not personal time |
+
+**Logic notes:**
+- **The sweetener is priced per occurrence and escrowed up front.** Ten Fridays at 5 cc is ten
+  favours asked, so the whole 50 leaves the wallet at creation. `escrowed_coins` records what
+  actually left, separately from the per-occurrence `sweetener_coins`, so a refund never has to
+  recompute an occurrence list to know what to give back — a refund that recomputes is a refund
+  that can drift. Refunds write the column down as they pay, which is what makes the expiry
+  sweep idempotent.
+- Accepting a series materializes a pair per occurrence and **skips** any the accepter is away
+  for or the requester has since filled, refunding `sweetener_coins × skipped`. A series nobody
+  can make at all is refused rather than accepted empty, so it stays pending for someone else.
+- Expiry runs from `listRequests`, not from the activity sweep. If nobody opens the app nothing
+  expires — acceptable, because accepting an expired request is already refused, so the sweep is
+  about the money rather than about correctness.
+- Two indexes: `(family_id, status, starts_at)` for the calendars, `(requested_of, status)` for
+  "what am I being asked".
+- **Declines are never counted anywhere** — not in stats, not on the dashboard. Declining has to
+  stay free and invisible, or the sweetener stops being an offer and becomes social pressure.
 
 ---
 

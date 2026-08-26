@@ -760,7 +760,7 @@ pending requests on the desktop grid.
 
 ---
 
-### Phase 7 — Fairness surfacing
+### Phase 7 — Fairness surfacing ✅ implemented
 
 **Goal.** Personal time taken is as visible as contribution made — otherwise the release
 adds a way to take without a way to see it (G10).
@@ -773,6 +773,35 @@ adds a way to take without a way to see it (G10).
 
 **Done when.** The docs describe the shipped behaviour, and a member can see at a glance
 how much personal time each caretaker took this month.
+
+**As built.** `routes/stats.js` gained a `fairnessByMonth` block: per member and month,
+`personal_minutes` / `personal_count` from `category = 'self'` and `coverage_minutes` /
+`coverage_count` from `type = 'coverage'`, over completed rows only — a session still to come
+is not time taken. Nothing new is stored; both figures fall out of the Phase 3 subclass
+columns. Every care aggregate already filtered `category = 'care'`, so personal time has
+never inflated a contribution figure.
+
+The stats screen shows it as a **Personal time & coverage** card in the Members section, two
+bars per member scaled against each other, labelled with the latest month there is data for
+rather than "now" — an empty card in the first days of a month would say nothing true. The
+card carries the rule as a footnote: *saying no is never counted*.
+
+**No declined count exists anywhere**, and the audit that says so is worth recording:
+`declined` appears in the codebase only as a CHECK constraint value and in the notification
+sent to the requester, who already knows. It is in no aggregate, no chart series, and no
+Flutter string. `coinFlowByReason` does surface `coverage_sweetener_refunded` in the raw
+payload, but that is a family-level monthly coin sum mixing declines, expiries, withdrawals
+and skipped occurrences — it names no one, and `flowMeta` does not draw it.
+
+Docs brought up to date: `PRODUCT.md` §15 (and the three missing push events in §12),
+the README feature and schema tables, `docs/database-schema.md` (a new §22 for
+`personal_time_requests`, and §6 `activities` corrected — it still described `category` as
+`care|household`, which Phase 3 replaced), and `docs/backend.md` (§2, §3 and a
+`/api/personal-time` route table; the documented `?month=` parameter on `/api/stats` was
+removed because the route has never taken one).
+
+Verified against Postgres 16: care work counts as neither taken nor given, an unfinished
+session is not counted as taken, templates are excluded, and months group separately.
 
 ---
 

@@ -50,10 +50,10 @@ Tokens ported 1:1 from the Vue app's `style.css` into `lib/theme/app_theme.dart`
 | `login_screen.dart` | Email/password and Google sign-in |
 | `onboarding_screen.dart` | Four-step create-family wizard + join by invite link/token (see [Part 5](#part-5-onboarding--starter-tasks)) |
 | `dashboard_screen.dart` | Family hub: member grid, KPIs, week strip, bounties, absences, activation checklist |
-| `daily_screen.dart` | Signature daily timeline: NOW divider, gap indicators, day swipe, complete/revert, bounty banners |
+| `daily_screen.dart` | Signature daily timeline: NOW divider, gap indicators, day swipe, complete/revert, bounty banners, **personal-time requests** |
 | `activities_screen.dart` | Activity template library, creation with budget-based coin suggestion, budget health |
 | `marketplace_screen.dart` | Reward store: browse, redeem, history, create |
-| `stats_screen.dart` | Charts: coin flow, hours per member and category, completion rates, ledger |
+| `stats_screen.dart` | Charts: coin flow, hours per member and category, completion rates, ledger, **personal time taken vs. coverage given** |
 | `profile_screen.dart` | Account settings, notification prefs, language picker, family circle, wallet, **Pro subscription**, **admin entry** |
 | `admin_screen.dart` | Platform admin console — family registry, plan catalog, billing & grants ([Part 4](#part-4-platform-admin--subscriptions)) |
 
@@ -172,6 +172,8 @@ Business logic is separated from HTTP routing. Each function receives a DB `clie
 | `GET /api/marketplace/rewards/:familyId` | Active rewards and redemption history |
 | `POST /api/marketplace/rewards` · `/rewards/:id/redeem` | Create reward (caregivers) · redeem atomically |
 | `GET · POST · DELETE /api/absences` | Absence management |
+| `GET · POST /api/personal-time` · `/quote` | Ask for personal time: price a window, escrow the sweetener, list requests (and sweep expired ones) |
+| `POST /api/personal-time/:id/accept` · `/decline` · `DELETE /:id` | Accept (materializes the self ↔ coverage pair), decline, or withdraw |
 | `POST /api/events` | Onboarding/telemetry events |
 | `GET /health` | Unauthenticated healthcheck used by Docker |
 
@@ -189,7 +191,8 @@ Defined in `backend/src/db/schema.sql`; incremental migrations live in `backend/
 | `family_invitations` | Email invites, unique on `(family_id, email)` |
 | `invite_links` | Shareable UUID tokens with optional expiry, max-uses and revocation |
 | `actors` | Care dependents (child, elderly, pet) and person placeholders |
-| `activities` | Templates (`is_template`) and scheduled instances; status, coin value, bounty, assignee |
+| `activities` | Templates (`is_template`) and scheduled instances; status, coin value, bounty, assignee. **`category`** (`care`/`self`) + **`type`** make it a base class with two subclasses |
+| **`personal_time_requests`** | An ask, not a booking: window, sweetener, escrow, recurrence, expiry. Materializes a self ↔ coverage activity pair on accept |
 | `coin_ledger` | Immutable transaction log of every coin movement |
 | `marketplace_rewards` · `reward_redemptions` | Reward catalogue and redemption history |
 | `absences` | Time-off periods used to avoid assigning unavailable members |
