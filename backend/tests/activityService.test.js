@@ -17,7 +17,7 @@ function mockClient(responses) {
   const calls = [];
   return {
     async query(sql, params) {
-      calls.push({ sql: sql.replace(/\s+/g, ' ').trim().slice(0, 80), params });
+      calls.push({ sql: sql.replace(/\s+/g, ' ').trim().slice(0, 300), params });
       if (idx >= responses.length) {
         throw new Error(`Unexpected extra query #${idx}: ${sql.trim().slice(0, 60)}`);
       }
@@ -268,6 +268,22 @@ describe('scheduleActivity', () => {
     const result = await scheduleActivity(client, 99, 5, futureStart);
     assert.equal(result.error.code, 409);
     assert.match(result.error.message, /Bath time/);
+  });
+
+  test('lets a task be scheduled inside a coverage window', async () => {
+    // Coverage is supervision, not busy hands: someone covering a dependent
+    // still cooks dinner inside that window, so the check must skip those rows
+    // or accepting coverage would freeze the rest of their evening.
+    const scheduled = { id: 9, family_id: 10, assigned_to: 99, title: 'Dinner' };
+    const client = mockClient([
+      ok([tmpl]),                                              // SELECT template
+      empty(),                                                 // absence overlap
+      empty(),                                                 // self overlap
+      ok([{ monthly_coin_budget: 1000, used_this_month: 0 }]), // budget
+      ok([scheduled]),                                         // INSERT
+    ]);
+    await scheduleActivity(client, 99, 5, futureStart);
+    assert.match(client._calls[2].sql, /type <> 'coverage'/);
   });
 
   test('scopes the overlap check to the scheduling user, so other caretakers can share the slot', async () => {

@@ -92,7 +92,11 @@ CREATE TABLE IF NOT EXISTS activities (
   bounty_offered_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT activities_category_type_check CHECK (
-    (category = 'care' AND type IN ('care', 'household')) OR
+    -- 'coverage' is care work created by accepting someone's personal-time
+    -- request. Only that flow writes it — the API validator still accepts only
+    -- 'care' and 'household' — and it is the one type that may overlap another
+    -- activity, because covering a dependent is supervision, not busy hands.
+    (category = 'care' AND type IN ('care', 'household', 'coverage')) OR
     (category = 'self' AND coin_value = 0
                        AND type IN ('sport', 'social', 'rest', 'appointment', 'other'))
   ),

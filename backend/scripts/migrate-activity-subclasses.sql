@@ -48,20 +48,21 @@ ALTER TABLE activities ALTER COLUMN type SET NOT NULL;
 -- 4. One vocabulary per category. Both columns are NOT NULL, which is what
 --    keeps this from evaluating to NULL: a CHECK rejects only on false, so a
 --    nullable column would let an unmatched row through instead of failing.
-DO $$
-BEGIN
-  ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_category_check;
-  ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_kind_category_check;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint
-                 WHERE conname = 'activities_category_type_check') THEN
-    ALTER TABLE activities ADD CONSTRAINT activities_category_type_check CHECK (
-      (category = 'care' AND type IN ('care', 'household')) OR
-      (category = 'self' AND coin_value = 0
-                         AND type IN ('sport', 'social', 'rest', 'appointment', 'other'))
-    );
-  END IF;
-END $$;
+--    'coverage' is care work created by accepting a personal-time request; only
+--    that flow writes it, and it is the one type allowed to overlap another
+--    activity (see activityService.scheduleActivity).
+--
+--    The constraint is dropped and rebuilt every run rather than skipped when
+--    present, so a database that ran an earlier revision of this file converges
+--    on the current vocabulary. Revalidation is cheap at family scale.
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_category_check;
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_kind_category_check;
+ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_category_type_check;
+ALTER TABLE activities ADD CONSTRAINT activities_category_type_check CHECK (
+  (category = 'care' AND type IN ('care', 'household', 'coverage')) OR
+  (category = 'self' AND coin_value = 0
+                     AND type IN ('sport', 'social', 'rest', 'appointment', 'other'))
+);
 
 -- 5. Every aggregate that counts work filters on category, so it is worth an index.
 DROP INDEX IF EXISTS idx_activities_family_kind_status;

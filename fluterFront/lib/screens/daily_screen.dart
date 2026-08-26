@@ -1007,8 +1007,7 @@ class _DailyScreenState extends State<DailyScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(isSelf ? '🧘' : (isCare ? '❤️' : '🍽️'),
-                style: const TextStyle(fontSize: 15)),
+            child: Text(_activityEmoji(a), style: const TextStyle(fontSize: 15)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1299,6 +1298,18 @@ class _ActivityAction extends StatelessWidget {
     // Assignee is shown by _AssigneeBadge on every chip/card; no action here.
     return const SizedBox.shrink();
   }
+}
+
+/// Timeline glyph for an activity, by subclass and type. Coverage is care work
+/// but reads differently — it is time held for someone else — so it gets its
+/// own mark rather than sharing the care heart.
+String _activityEmoji(Map<String, dynamic> item) {
+  if (isSelfActivity(item)) return '🧘';
+  return switch (item['type']) {
+    'coverage' => '🏠',
+    'care' => '❤️',
+    _ => '🍽️',
+  };
 }
 
 /// Desktop Task Library panel (components/daily/TaskLibrary.vue):
@@ -1660,7 +1671,7 @@ class _TimelineCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(isSelf ? '🧘' : (isCare ? '❤️' : '🍽️'),
+                      Text(_activityEmoji(item),
                           style: const TextStyle(fontSize: 20)),
                       const SizedBox(width: 10),
                       Expanded(

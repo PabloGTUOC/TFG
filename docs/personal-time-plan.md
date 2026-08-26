@@ -152,8 +152,9 @@ care activity coexist in one window.
 activity  (base: title, description, window, duration, assignee, status)
 │
 ├── category = 'care'   contribution to the family
-│                       type ∈ {care, household};  coin_value > 0;  pays the assignee
-│                       └── coverage: a care activity with personal_time_request_id set
+│                       type ∈ {care, household, coverage};  coin_value > 0
+│                       coverage is written only by accepting a request, and is
+│                       the one type allowed to overlap another activity
 │
 └── category = 'self'   personal time
                         type ∈ {sport, social, rest, appointment, other}
@@ -184,11 +185,16 @@ Different people never conflict, so my self activity and my partner's counter ca
 coexist by construction.
 
 **The `care` × `coverage` cell is the one that matters.** Coverage is supervisory: the
-coverer will still cook dinner and run bath time inside that window. Under today's rule,
-accepting coverage would lock them out of scheduling their own evening tasks. Tasks nested
-inside coverage pay normally on top — the coverage baseline pays for *being tied to the
-house*, the task pays for *the labour*, and both draw down the same residual, so it stays
-zero-sum.
+coverer will still cook dinner and run bath time inside that window. Under the old rule,
+accepting coverage would have locked them out of scheduling their own evening tasks. Tasks
+nested inside coverage pay normally on top — the coverage baseline pays for *being tied to
+the house*, the task pays for *the labour*, and both draw down the same residual, so it
+stays zero-sum.
+
+Coverage is identified by `type = 'coverage'`, not by inference: the overlap checks in
+`scheduleActivity` and `createRecurrence` carry `AND type <> 'coverage'`.
+`personal_time_request_id` still exists, but for linking a shift back to the request that
+created it — declines and refunds — not for saying what kind of row it is.
 
 ### 4.2 What each subclass does to the ledger
 
@@ -553,12 +559,11 @@ Personal time never takes the filled "completed work" fill — it earns nothing,
 as a claim on the day — and `_ActivityAction` returns nothing for it, since personal time
 is nobody's to validate, delegate or take over.
 
-**The overlap matrix is only half-landable here.** The `care` × `coverage` cell needs
-`personal_time_request_id` to identify a coverage row, and that column arrives with the
-requests table in Phase 4. The rest of the matrix already holds, because the `selfOverlap`
-check in `scheduleActivity` is subclass-agnostic: a self activity blocks care work in the same
-window and vice versa, which is correct. **Phase 4 must add the coverage exemption** — it
-remains the top risk in §10.
+**The overlap matrix is complete.** `coverage` became a care *type* rather than a property
+inferred from a foreign key, so the exemption landed here rather than waiting for the
+requests table: both overlap checks carry `AND type <> 'coverage'`. The rest of the matrix
+already held, because those checks are subclass-agnostic — a self activity blocks care work
+in the same window and vice versa, which is correct.
 
 **Verified.** 150 backend tests, 35 Flutter tests, `flutter analyze` clean. Against a real
 Postgres 16: the migration converges on the identical shape from all three starting states,
@@ -670,8 +675,9 @@ coverage pays baseline + sweetener exactly once; a declined request leaves zero
 
 ## 10. Risks
 
-1. **The overlap matrix (§4.1)** — miss the `care × coverage` cell and accepting coverage
-   locks the coverer out of their own evening.
+1. **The overlap matrix (§4.1)** — closed in Phase 3: `type = 'coverage'` is exempt from
+   both overlap checks. The remaining half is that the accept flow must not reject a
+   coverage row because the coverer already has tasks in that window.
 2. **Double-counting self-activity hours (§3.2)** — if presence weighting ever includes them,
    the coverer is paid twice for the same hour.
 3. **The distribution is a lazy sweep inside a GET route** (`dashboard.js`), holding

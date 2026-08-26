@@ -99,9 +99,13 @@ export async function scheduleActivity(client, userId, activityId, startsAt) {
     return { error: { code: 400, message: `You are marked as absent during this time ("${absenceOverlap[0].title}").` } };
   }
 
+  // Coverage is deliberately exempt: it is supervision, not busy hands. Someone
+  // covering a dependent still cooks dinner and runs bath time inside that
+  // window, so accepting coverage must not freeze the rest of their evening.
   const { rows: selfOverlap } = await client.query(
     `SELECT id, title FROM activities
      WHERE assigned_to = $1 AND family_id = $2 AND is_template = false
+       AND type <> 'coverage'
        AND status IN ('approved', 'pending_validation')
        AND (starts_at < $4 AND ends_at > $3)`,
     [userId, t.family_id, start.toISOString(), endsAtDate.toISOString()]
@@ -188,6 +192,7 @@ export async function createRecurrence(client, userId, instanceId, { frequency, 
     const { rows: selfOverlap } = await client.query(
       `SELECT id FROM activities
        WHERE assigned_to = $1 AND family_id = $2 AND is_template = false
+         AND type <> 'coverage'
          AND status IN ('approved', 'pending_validation')
          AND (starts_at < $4 AND ends_at > $3)`,
       [act.assigned_to, act.family_id, startIso, endIso]
