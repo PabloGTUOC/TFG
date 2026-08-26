@@ -60,6 +60,8 @@ class _HelpContent extends StatelessWidget {
       (l.glossTemplateTerm, l.glossTemplateDef),
       (l.glossValidationTerm, l.glossValidationDef),
       (l.glossBountyTerm, l.glossBountyDef),
+      (l.glossSelfTerm, l.glossSelfDef),
+      (l.glossCoverageTerm, l.glossCoverageDef),
       (l.glossObjectTerm, l.glossObjectDef),
       (l.glossLedgerTerm, l.glossLedgerDef),
     ];

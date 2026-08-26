@@ -61,6 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'activity_completed',
     'bounty_offered',
     'family_events',
+    'coverage_requests',
   ];
 
   String _notifPrefLabel(AppLocalizations l, String key) => switch (key) {
@@ -69,6 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'activity_completed' => l.notifActivityCompleted,
         'bounty_offered' => l.notifBountyOffered,
         'family_events' => l.notifFamilyEvents,
+        'coverage_requests' => l.notifCoverageRequests,
         _ => key,
       };
   Map<String, bool> _notifPrefs = {};
@@ -842,6 +844,17 @@ class _WalletPanel extends StatelessWidget {
         return title != null
             ? l.ledgerBountyRevertedT(title)
             : l.ledgerBountyReverted;
+      case 'coverage_earned':
+        return title ?? l.ledgerCoverageEarned;
+      case 'coverage_reverted':
+      case 'coverage_sweetener_reverted':
+        return title ?? l.ledgerCoverageReverted;
+      case 'coverage_sweetener_paid':
+        return l.ledgerSweetenerPaid;
+      case 'coverage_sweetener_escrow':
+        return l.ledgerSweetenerEscrow;
+      case 'coverage_sweetener_refunded':
+        return l.ledgerSweetenerRefunded;
       default:
         return title ?? (item['reason']?.toString() ?? l.ledgerMovement);
     }
@@ -862,7 +875,9 @@ class _WalletPanel extends StatelessWidget {
 
   static bool _isReverted(Map<String, dynamic> item) =>
       item['reason'] == 'activity_reverted' ||
-      item['reason'] == 'bounty_reverted';
+      item['reason'] == 'bounty_reverted' ||
+      item['reason'] == 'coverage_reverted' ||
+      item['reason'] == 'coverage_sweetener_reverted';
 
   ({String label, String icon}) _coinTier(AppLocalizations l) {
     if (balance >= 1000) return (label: l.tierPlatinum, icon: '🏆');

@@ -646,7 +646,7 @@ than folded in here.
 
 ---
 
-### Phase 5 — Flutter core
+### Phase 5 — Flutter core ✅ implemented
 
 **Goal.** The feature is usable by a real family.
 
@@ -665,6 +665,39 @@ than folded in here.
 
 **Done when.** A two-device run completes: create → the other device is notified → accept →
 the pair appears on both calendars → the sweep pays baseline + sweetener.
+
+**As built.** `widgets/personal_time_dialog.dart` is the create sheet: title, the five self
+types as chips, start and duration, an optional note, the coverage toggle, and a sweetener
+stepper capped at the requester's balance. It never invents a number — the baseline, the
+counterparty's name, the wallet balance and any conflicts all come from `POST /quote`, so
+the sheet cannot disagree with the API about what a window costs.
+
+Three ways in, because a double-tap nobody knows about is a feature nobody uses: the
+gesture itself on the hour grid (`onDoubleTapDown` remembers the slot, `onDoubleTap` opens
+the sheet, sharing the drag-drop maths so both land on the same times), a **Personal time**
+row at the top of the `+` sheet, and the free-time gaps in the timeline, which now read
+*"1h free · take it for yourself"* and are tappable.
+
+Pending requests show on both Daily layouts and can be answered from either the chip dialog
+or the Dashboard card. Declining is exactly as prominent as accepting, and nothing anywhere
+counts refusals.
+
+**Deviation: chips, not ghost blocks.** Pending requests render in the day strip beside
+absences rather than as positioned blocks in the timeline. A request is not an activity —
+nothing is booked until someone accepts — and the mobile list is the primary surface, where
+a positioned ghost would have meant teaching the timeline builder two row shapes. The chips
+carry the same information and are tappable. Positioned ghosts on the desktop grid remain
+worth doing.
+
+**Also not done:** the all-day chip for blocks over ~12 h. The duration picker stops at 12 h
+so nothing can exceed the grid, but a long block starting late still renders truncated at
+midnight rather than as a chip.
+
+**Verified.** 38 Flutter tests (3 new, including a widget test that pumps the sheet and
+asserts the window is seeded from the tapped slot and that coverage is requested by
+default), 181 backend tests, `flutter analyze` clean. The Daily screen's request fetch is
+deliberately defensive — `Future.wait` fails fast, and a hiccup on the newest endpoint must
+not blank out the whole day.
 
 ---
 

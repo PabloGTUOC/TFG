@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
 import '../widgets/absence_dialog.dart';
+import '../widgets/personal_time_dialog.dart';
 import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
 
@@ -79,6 +80,8 @@ Widget touchAwareDraggable({
 class _DailyScreenState extends State<DailyScreen> {
   List<Map<String, dynamic>> _activities = [];
   List<Map<String, dynamic>> _absences = [];
+  List<Map<String, dynamic>> _requests = [];
+  double? _doubleTapDy;
   bool _loading = true;
   bool _error = false;
   late DateTime _day;
@@ -135,6 +138,11 @@ class _DailyScreenState extends State<DailyScreen> {
       final results = await Future.wait([
         app.api.get('/api/activities?familyId=${app.familyId}'),
         app.api.get('/api/absences?familyId=${app.familyId}'),
+        // Defensive: Future.wait fails fast, and a hiccup on the newest
+        // endpoint should not blank out the whole day.
+        app.api
+            .get('/api/personal-time?familyId=${app.familyId}')
+            .catchError((_) => <String, dynamic>{'requests': []}),
       ]);
       final acts = results[0] is List
           ? results[0] as List
@@ -148,6 +156,10 @@ class _DailyScreenState extends State<DailyScreen> {
               acts.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
           _absences =
               abs.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
+          _requests = ((results[2]['requests'] as List?) ?? [])
+              .cast<Map>()
+              .map((m) => m.cast<String, dynamic>())
+              .toList();
           _loading = false;
           _error = false;
         });
@@ -196,7 +208,8 @@ class _DailyScreenState extends State<DailyScreen> {
       final tA = _startsAt(a)!.millisecondsSinceEpoch;
       final tB = _startsAt(b)!.millisecondsSinceEpoch;
       if (tA != tB) return tA.compareTo(tB);
-      return toNum(b['duration_minutes']).compareTo(toNum(a['duration_minutes']));
+      return toNum(b['duration_minutes'])
+          .compareTo(toNum(a['duration_minutes']));
     });
 
     final positioned = <Map<String, dynamic>>[];
@@ -211,8 +224,7 @@ class _DailyScreenState extends State<DailyScreen> {
         final durB = toNum(b['duration_minutes']).toInt();
         final endA = startA + (durA < 60 ? 60 : durA) * 60000;
         final endB = startB + (durB < 60 ? 60 : durB) * 60000;
-        if ((startA > startB ? startA : startB) <
-            (endA < endB ? endA : endB)) {
+        if ((startA > startB ? startA : startB) < (endA < endB ? endA : endB)) {
           overlapCount++;
         }
       }
@@ -254,6 +266,20 @@ class _DailyScreenState extends State<DailyScreen> {
         final dayStart = DateTime(_day.year, _day.month, _day.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
         return start.isBefore(dayEnd) && (end ?? start).isAfter(dayStart);
+      }).toList();
+
+  /// Requests still waiting on an answer that touch the day being shown. They
+  /// are not activities yet — nothing is booked until someone accepts — so they
+  /// ride alongside absences rather than in the timeline itself.
+  List<Map<String, dynamic>> get _dayRequests => _requests.where((r) {
+        if (r['status'] != 'pending') return false;
+        final start = DateTime.tryParse(r['starts_at']?.toString() ?? '');
+        final end = DateTime.tryParse(r['ends_at']?.toString() ?? '');
+        if (start == null) return false;
+        final dayStart = DateTime(_day.year, _day.month, _day.day);
+        final dayEnd = dayStart.add(const Duration(days: 1));
+        return start.toLocal().isBefore(dayEnd) &&
+            (end ?? start).toLocal().isAfter(dayStart);
       }).toList();
 
   List<Map<String, dynamic>> get _templates => _activities
@@ -299,12 +325,10 @@ class _DailyScreenState extends State<DailyScreen> {
               borderRadius: BorderRadius.circular(AppRadii.lg)),
           title: Text(l.removeRecurringTitle,
               style: const TextStyle(fontWeight: FontWeight.w800)),
-          content:
-              Text(l.removeRecurringBody((a['title'] ?? '').toString())),
+          content: Text(l.removeRecurringBody((a['title'] ?? '').toString())),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l.cancel)),
+                onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, 'single'),
                 child: Text(l.removeThisOne)),
@@ -488,8 +512,7 @@ class _DailyScreenState extends State<DailyScreen> {
         'untilDate': DateFormat('yyyy-MM-dd').format(until!),
       });
       await _load();
-      app.setSuccess(
-          l.toastCreatedInstances(toNum(res['created']).toInt()));
+      app.setSuccess(l.toastCreatedInstances(toNum(res['created']).toInt()));
     });
   }
 
@@ -514,8 +537,7 @@ class _DailyScreenState extends State<DailyScreen> {
             ' → ${DateFormat('d MMM HH:mm', loc).format(DateTime.parse(abs['end_time'].toString()).toLocal())}'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.close)),
+              onPressed: () => Navigator.pop(ctx, false), child: Text(l.close)),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(l.remove,
@@ -631,6 +653,116 @@ class _DailyScreenState extends State<DailyScreen> {
     }, l.toastScheduled);
   }
 
+  /// Double-tap an empty stretch of the grid to claim it for yourself. Uses the
+  /// same dy → 30-minute-slot maths as a drag drop, so both gestures land on the
+  /// same times.
+  Future<void> _openPersonalTime([double? localDy, DateTime? at]) async {
+    var start = at;
+    if (start == null) {
+      final pct = ((localDy ?? 0) / kGridHeight).clamp(0.0, 1.0);
+      var h = kStartHour + pct * kTotalHours;
+      h = ((h * 2).round() / 2).clamp(kStartHour.toDouble(), 23.5);
+      start = DateTime(
+          _day.year, _day.month, _day.day, h.floor(), h % 1 == 0.5 ? 30 : 0);
+    }
+    final created = await showPersonalTimeSheet(context, start: start);
+    if (created && mounted) await _load();
+  }
+
+  /// Accept, decline or withdraw a pending request.
+  Future<void> _openRequest(Map<String, dynamic> r) async {
+    final l = AppLocalizations.of(context);
+    final app = context.read<AppState>();
+    final loc = l.localeName;
+    final mine = r['requester_id']?.toString() == app.userId?.toString();
+    final start = DateTime.parse(r['starts_at'].toString()).toLocal();
+    final end = DateTime.parse(r['ends_at'].toString()).toLocal();
+    final pays = toNum(r['baseline_coins']) + toNum(r['sweetener_coins']);
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.lg)),
+        title: Text(
+            '${personalTimeTypeGlyph(r['type']?.toString() ?? '')} ${r['title']}',
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.ptCoverCardBody(
+                (r['requester_name'] ?? '').toString(),
+                '${DateFormat('EEE d MMM', loc).format(start)} '
+                '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}',
+                (r['title'] ?? '').toString())),
+            if ((r['description'] ?? '').toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(r['description'].toString(),
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.textSecondary)),
+              ),
+            if (!mine)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(l.ptCoverPays(pays),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, color: AppColors.success)),
+              ),
+          ],
+        ),
+        actions: mine
+            ? [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx), child: Text(l.close)),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'withdraw'),
+                    child: Text(l.withdrawAction,
+                        style: const TextStyle(color: AppColors.danger))),
+              ]
+            : [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'decline'),
+                    child: Text(l.declineAction)),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'accept'),
+                    child: Text(l.acceptAction,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.success))),
+              ],
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    final (path, method, toast) = switch (action) {
+      'accept' => (
+          '/api/personal-time/${r['id']}/accept',
+          'post',
+          l.toastCoverageAccepted
+        ),
+      'decline' => (
+          '/api/personal-time/${r['id']}/decline',
+          'post',
+          l.toastCoverageDeclined
+        ),
+      _ => (
+          '/api/personal-time/${r['id']}',
+          'delete',
+          l.toastPersonalTimeWithdrawn
+        ),
+    };
+    await app.runAction(() async {
+      if (method == 'post') {
+        await app.api.post(path);
+      } else {
+        await app.api.delete(path);
+      }
+      await _load();
+    }, toast);
+  }
+
   /// Drop on the hour grid: local dy → 30-min slot (mirror of dropOnTimeline).
   void _onGridDrop(Map<String, dynamic> payload, double localDy) {
     final pct = (localDy / kGridHeight).clamp(0.0, 1.0);
@@ -642,12 +774,6 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _openScheduleSheet() async {
-    if (_templates.isEmpty) {
-      context
-          .read<AppState>()
-          .setError(AppLocalizations.of(context).errNoApprovedTasks);
-      return;
-    }
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -657,6 +783,12 @@ class _DailyScreenState extends State<DailyScreen> {
       builder: (ctx) => _TaskSheet(templates: _templates),
     );
     if (picked == null || !mounted) return;
+    if (picked['__personalTime'] == true) {
+      final now = DateTime.now();
+      final hour = _isToday ? (now.hour + 1).clamp(kStartHour, 22) : 9;
+      return _openPersonalTime(
+          null, DateTime(_day.year, _day.month, _day.day, hour));
+    }
     await _openScheduleDialog(picked);
   }
 
@@ -735,37 +867,39 @@ class _DailyScreenState extends State<DailyScreen> {
                   _load();
                 })
               : Column(
-              children: [
-                // Day progress: "X / Y done · 🪙 Zcc"
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadii.pill),
-                          child: LinearProgressIndicator(
-                            value: items.isEmpty ? 0 : done / items.length,
-                            minHeight: 6,
-                            backgroundColor: AppColors.border,
+                  children: [
+                    // Day progress: "X / Y done · 🪙 Zcc"
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadii.pill),
+                              child: LinearProgressIndicator(
+                                value: items.isEmpty ? 0 : done / items.length,
+                                minHeight: 6,
+                                backgroundColor: AppColors.border,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${l.doneProgress('$done', '${items.length}')}'
+                            '${_todayCoins > 0 ? ' · 🪙 ${_todayCoins}cc' : ''}',
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${l.doneProgress('$done', '${items.length}')}'
-                        '${_todayCoins > 0 ? ' · 🪙 ${_todayCoins}cc' : ''}',
-                        style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
+                    ),
+                    Expanded(
+                        child: wide ? _buildWide(items) : _buildNarrow(items)),
+                  ],
                 ),
-                Expanded(child: wide ? _buildWide(items) : _buildNarrow(items)),
-              ],
-            ),
     );
   }
 
@@ -826,13 +960,14 @@ class _DailyScreenState extends State<DailyScreen> {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  if (_dayAbsences.isNotEmpty)
+                  if (_dayAbsences.isNotEmpty || _dayRequests.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
+                            for (final r in _dayRequests) _requestChip(r),
                             for (final abs in _dayAbsences)
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
@@ -874,78 +1009,125 @@ class _DailyScreenState extends State<DailyScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: SingleChildScrollView(
-      controller: _gridScroll,
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: DragTarget<Map<String, dynamic>>(
-        onWillAcceptWithDetails: (_) => true,
-        onAcceptWithDetails: (details) {
-          final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
-          if (box == null) return;
-          final local = box.globalToLocal(details.offset);
-          _onGridDrop(details.data, local.dy);
-        },
-        builder: (context, candidates, _) => Container(
-          key: _gridKey,
-          height: kGridHeight,
-          color: candidates.isNotEmpty
-              ? AppColors.primarySoft.withValues(alpha: 0.4)
-              : Colors.transparent,
-          child: Stack(
-            children: [
-              // Hour lines + labels
-              for (var h = 0; h <= kTotalHours; h++)
-                Positioned(
-                  top: h / kTotalHours * kGridHeight,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 62,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            _hourLabel(kStartHour + h),
-                            style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textSecondary),
+        controller: _gridScroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: DragTarget<Map<String, dynamic>>(
+          onWillAcceptWithDetails: (_) => true,
+          onAcceptWithDetails: (details) {
+            final box =
+                _gridKey.currentContext?.findRenderObject() as RenderBox?;
+            if (box == null) return;
+            final local = box.globalToLocal(details.offset);
+            _onGridDrop(details.data, local.dy);
+          },
+          builder: (context, candidates, _) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            // onDoubleTapDown lands first and carries the position; onDoubleTap
+            // fires without one, so the slot is remembered between them.
+            onDoubleTapDown: (d) => _doubleTapDy = d.localPosition.dy,
+            onDoubleTap: () => _openPersonalTime(_doubleTapDy),
+            child: Container(
+              key: _gridKey,
+              height: kGridHeight,
+              color: candidates.isNotEmpty
+                  ? AppColors.primarySoft.withValues(alpha: 0.4)
+                  : Colors.transparent,
+              child: Stack(
+                children: [
+                  // Hour lines + labels
+                  for (var h = 0; h <= kTotalHours; h++)
+                    Positioned(
+                      top: h / kTotalHours * kGridHeight,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 62,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                _hourLabel(kStartHour + h),
+                                style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary),
+                              ),
+                            ),
                           ),
+                          const Expanded(
+                              child:
+                                  Divider(height: 1, color: AppColors.border)),
+                        ],
+                      ),
+                    ),
+                  // Now line
+                  if (_isToday && _nowLineTop != null)
+                    Positioned(
+                      top: _nowLineTop! / 100 * kGridHeight,
+                      left: 60,
+                      right: 10,
+                      child: IgnorePointer(
+                        child: Row(
+                          children: [
+                            Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                    color: AppColors.danger,
+                                    shape: BoxShape.circle)),
+                            Expanded(
+                                child: Container(
+                                    height: 2, color: AppColors.danger)),
+                          ],
                         ),
                       ),
-                      const Expanded(
-                          child: Divider(height: 1, color: AppColors.border)),
-                    ],
-                  ),
-                ),
-              // Now line
-              if (_isToday && _nowLineTop != null)
-                Positioned(
-                  top: _nowLineTop! / 100 * kGridHeight,
-                  left: 60,
-                  right: 10,
-                  child: IgnorePointer(
-                    child: Row(
-                      children: [
-                        Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                                color: AppColors.danger,
-                                shape: BoxShape.circle)),
-                        Expanded(
-                            child:
-                                Container(height: 2, color: AppColors.danger)),
-                      ],
                     ),
-                  ),
-                ),
-              // Scheduled chips
-              for (final a in items) _buildChip(a),
-            ],
+                  // Scheduled chips
+                  for (final a in items) _buildChip(a),
+                ],
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// A request nobody has answered yet: dashed, muted, and tappable. Nothing is
+  /// booked until someone accepts, so it deliberately does not look like a
+  /// scheduled activity.
+  Widget _requestChip(Map<String, dynamic> r) {
+    final l = AppLocalizations.of(context);
+    final app = context.read<AppState>();
+    final mine = r['requester_id']?.toString() == app.userId?.toString();
+    final label = mine
+        ? (r['requested_of_name'] == null
+            ? l.ptAwaitingAnyone
+            : l.ptAwaiting(r['requested_of_name'].toString()))
+        : l.ptAskedYouToCover((r['requester_name'] ?? '').toString());
+    final start =
+        DateTime.tryParse(r['starts_at']?.toString() ?? '')?.toLocal();
+
+    return Tappable(
+      onTap: () => _openRequest(r),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8, bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          border: Border.all(color: AppColors.inputBorder),
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+        ),
+        child: Text(
+          '${personalTimeTypeGlyph(r['type']?.toString() ?? '')} '
+          '${r['title']} · $label'
+          '${start == null ? '' : ' · ${DateFormat('HH:mm').format(start)}'}',
+          style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textSecondary),
+        ),
       ),
     );
   }
@@ -998,8 +1180,7 @@ class _DailyScreenState extends State<DailyScreen> {
               color: Colors.black.withValues(
                   alpha: overlap > 0 ? 0.2 + 0.1 * cappedOverlap : 0.12),
               blurRadius: 15,
-              offset:
-                  overlap > 0 ? const Offset(-5, 5) : const Offset(0, 4)),
+              offset: overlap > 0 ? const Offset(-5, 5) : const Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -1007,7 +1188,8 @@ class _DailyScreenState extends State<DailyScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(_activityEmoji(a), style: const TextStyle(fontSize: 15)),
+            child:
+                Text(_activityEmoji(a), style: const TextStyle(fontSize: 15)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1029,7 +1211,8 @@ class _DailyScreenState extends State<DailyScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
-              color: filled ? Colors.black.withValues(alpha: 0.15) : AppColors.bg,
+              color:
+                  filled ? Colors.black.withValues(alpha: 0.15) : AppColors.bg,
               border: filled ? null : Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(AppRadii.pill),
             ),
@@ -1070,8 +1253,8 @@ class _DailyScreenState extends State<DailyScreen> {
               onDragEnd: (_) => setState(() => _draggingScheduled = false),
               feedback: Material(
                 color: Colors.transparent,
-                child:
-                    SizedBox(width: 320, child: Opacity(opacity: 0.85, child: chip)),
+                child: SizedBox(
+                    width: 320, child: Opacity(opacity: 0.85, child: chip)),
               ),
               childWhenDragging: Opacity(opacity: 0.3, child: chip),
               child: interactive,
@@ -1092,79 +1275,96 @@ class _DailyScreenState extends State<DailyScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-        children: [
-          for (final abs in _dayAbsences)
-            Tappable(
-              onTap: () => _absenceDetail(abs),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.dangerSoft,
-                  borderRadius: BorderRadius.circular(AppRadii.sm),
-                ),
-                child: Row(
-                  children: [
-                    const Text('✈️', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '${abs['user_alias'] ?? abs['user_name'] ?? AppLocalizations.of(context).absAway} · ${abs['title']}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: AppColors.danger),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (items.isEmpty)
-            Tappable(
-              onTap: _openScheduleSheet,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Column(
-                  children: [
-                    const Icon(Icons.calendar_today_rounded,
-                        size: 28, color: AppColors.textSecondary),
-                    const SizedBox(height: 12),
-                    Text(AppLocalizations.of(context).emptyDayTitle,
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(AppLocalizations.of(context).emptyDayAction,
-                        style: const TextStyle(color: AppColors.primary)),
-                  ],
-                ),
-              ),
-            )
-          else
-            for (final a in items) ...[
-              if (((a['_gapBeforeMinutes'] as int?) ?? 0) >= 30)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12, left: 52),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+          children: [
+            for (final abs in _dayAbsences)
+              Tappable(
+                onTap: () => _absenceDetail(abs),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerSoft,
+                    borderRadius: BorderRadius.circular(AppRadii.sm),
+                  ),
                   child: Row(
                     children: [
-                      const Expanded(child: Divider(color: AppColors.border)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      const Text('✈️', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 10),
+                      Expanded(
                         child: Text(
-                            formatGap(l, (a['_gapBeforeMinutes'] as int?) ?? 0),
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textSecondary)),
+                          '${abs['user_alias'] ?? abs['user_name'] ?? AppLocalizations.of(context).absAway} · ${abs['title']}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: AppColors.danger),
+                        ),
                       ),
-                      const Expanded(child: Divider(color: AppColors.border)),
                     ],
                   ),
                 ),
-              _buildDismissibleCard(a),
-            ],
-        ],
+              ),
+            if (_dayRequests.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Wrap(children: [
+                  for (final r in _dayRequests) _requestChip(r),
+                ]),
+              ),
+            if (items.isEmpty)
+              Tappable(
+                onTap: _openScheduleSheet,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 60),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded,
+                          size: 28, color: AppColors.textSecondary),
+                      const SizedBox(height: 12),
+                      Text(AppLocalizations.of(context).emptyDayTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(AppLocalizations.of(context).emptyDayAction,
+                          style: const TextStyle(color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+              )
+            else
+              for (final a in items) ...[
+                if (((a['_gapBeforeMinutes'] as int?) ?? 0) >= 30)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12, left: 52),
+                    child: Tappable(
+                      // Double-tap is invisible; a free gap that says what it is
+                      // for gives the gesture somewhere discoverable to live.
+                      onTap: () => _openPersonalTime(
+                          null,
+                          _startsAt(a)!.subtract(Duration(
+                              minutes: (a['_gapBeforeMinutes'] as int?) ?? 0))),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                              child: Divider(color: AppColors.border)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                                '${formatGap(l, (a['_gapBeforeMinutes'] as int?) ?? 0)} · ${l.personalTimeGapHint}',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary)),
+                          ),
+                          const Expanded(
+                              child: Divider(color: AppColors.border)),
+                        ],
+                      ),
+                    ),
+                  ),
+                _buildDismissibleCard(a),
+              ],
+          ],
         ),
       ),
     );
@@ -1259,8 +1459,7 @@ class _ActivityAction extends StatelessWidget {
         child: compact
             ? w
             : Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
                 child: w),
       );
     }
@@ -1555,6 +1754,37 @@ class _TaskSheetState extends State<_TaskSheet> {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    // Personal time is not in the task library — it is not a
+                    // family task — but this is where people look for "add".
+                    Tappable(
+                      onTap: () =>
+                          Navigator.of(context).pop({'__personalTime': true}),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🧘', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                  AppLocalizations.of(context)
+                                      .personalTimeEntry,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary)),
+                            ),
+                            const Icon(Icons.chevron_right_rounded,
+                                size: 20, color: AppColors.primary),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     SegmentedTabs(
                       tabs: [
                         AppLocalizations.of(context).filterAll,
@@ -1627,7 +1857,8 @@ class _TimelineCard extends StatelessWidget {
     final status = item['status']?.toString() ?? 'pending';
     final isCare = item['type'] == 'care';
     final isSelf = isSelfActivity(item);
-    final ts = DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
+    final ts =
+        DateTime.tryParse(item['starts_at']?.toString() ?? '')?.toLocal();
     final bounty = toNum(item['bounty_amount']);
     final isRecurrent = item['is_recurrent'] == true;
     final completed = status == 'completed';
@@ -1690,7 +1921,8 @@ class _TimelineCard extends StatelessWidget {
                                   : AppColors.textPrimary),
                         ),
                       ),
-                      if (bounty > 0 && !completed) PillBadge(text: '+${bounty}cc'),
+                      if (bounty > 0 && !completed)
+                        PillBadge(text: '+${bounty}cc'),
                     ],
                   ),
                   const SizedBox(height: 12),

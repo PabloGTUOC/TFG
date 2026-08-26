@@ -509,6 +509,7 @@ class _StatsScreenState extends State<StatsScreen> {
       ('bounty_escrow', l.flowBountiesPaid, AppColors.danger),
       ('redeemed', l.flowRewardsRedeemed, AppColors.warning),
       ('bounty_refunded', l.flowBountiesRefunded, const Color(0xFF94A3B8)),
+      ('coverage_earned', l.flowCoverage, AppColors.accentSecondary),
     ];
     final flowMonths =
         coinFlow.map((d) => d['month'].toString()).toSet().toList()..sort();

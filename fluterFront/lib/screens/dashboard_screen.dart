@@ -9,6 +9,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/json.dart';
 import '../widgets/absence_dialog.dart';
+import '../widgets/personal_time_dialog.dart';
 import '../widgets/activation_checklist.dart';
 import '../widgets/coach_marks.dart';
 import '../widgets/ui.dart';
@@ -48,6 +49,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _activities = [];
   List<Map<String, dynamic>> _claimed = [];
   List<Map<String, dynamic>> _absences = [];
+  List<Map<String, dynamic>> _requests = [];
   int _weekOffset = 0;
   bool _loading = true;
   bool _error = false;
@@ -123,7 +125,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     try {
       final data = await app.api.get('/api/dashboard/${app.familyId}');
-      final acts = await app.api.get('/api/activities?familyId=${app.familyId}');
+      final acts =
+          await app.api.get('/api/activities?familyId=${app.familyId}');
       List<Map<String, dynamic>> claimed = [];
       var rewardCount = 0;
       try {
@@ -137,9 +140,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       } catch (_) {}
       List<Map<String, dynamic>> absences = [];
+      List<Map<String, dynamic>> requests = [];
       try {
         final abs = await app.api.get('/api/absences?familyId=${app.familyId}');
         absences = _asMaps(abs['absences']);
+        final pt =
+            await app.api.get('/api/personal-time?familyId=${app.familyId}');
+        requests = _asMaps(pt['requests']);
       } catch (_) {}
       if (mounted) {
         setState(() {
@@ -148,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               acts is List ? _asMaps(acts) : _asMaps(acts['activities']);
           _claimed = claimed;
           _absences = absences;
+          _requests = requests;
           _rewardCount = rewardCount;
           _loading = false;
           _error = false;
@@ -232,8 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ChecklistStep(
               label: l.checklistStockStore,
               done: hasReward,
-              onGo: () =>
-                  go('reward', () => widget.onOpenMarketplace?.call())),
+              onGo: () => go('reward', () => widget.onOpenMarketplace?.call())),
         ],
         onDismiss: () {
           Telemetry.log('checklist_dismissed', {'progress': doneCount});
@@ -409,6 +416,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .toList();
     final bountyTotal =
         offers.fold<num>(0, (acc, o) => acc + toNum(o['bounty_amount']));
+    // Requests waiting on this user specifically — the only ones they can act
+    // on, and the reason the card is worth interrupting the dashboard for.
+    final toCover = _requests.where((r) {
+      if (r['status'] != 'pending') return false;
+      if (r['requester_id']?.toString() == app.userId?.toString()) return false;
+      final target = r['requested_of'];
+      return target == null || target.toString() == app.userId?.toString();
+    }).toList();
     final recent = _recentActivity;
     final greetName = (app.family?['alias'] ??
             app.profile?['display_name'] ??
@@ -423,15 +438,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           PageHeading(
               title: l.dashTitle,
-              subtitle:
-                  '${l.dashEarned(_greeting(l), greetName, totalCoins)} '
+              subtitle: '${l.dashEarned(_greeting(l), greetName, totalCoins)} '
                   '${l.dashPendingTasks(pendingTasks)}'),
 
           // ── Activation checklist (onboarding-help-plan Phase 3) ──
           // Caregiver-only: creating tasks, validating and stocking the
           // store are caregiver actions. Auto-hides once the loop ran.
-          if (app.isCaregiver && !_checklistDismissed)
-            ..._buildChecklist(),
+          if (app.isCaregiver && !_checklistDismissed) ..._buildChecklist(),
 
           // ── Active members ──
           _SectionTitle(l.dashActiveMembers),
@@ -618,6 +631,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           const SizedBox(height: 32),
+
+          // ── Someone asked you to cover ──
+          if (toCover.isNotEmpty) ...[
+            _SectionTitle(l.dashCoverTitle),
+            for (final r in toCover)
+              _CoverRequestCard(
+                request: r,
+                onAnswered: _load,
+              ),
+            const SizedBox(height: 20),
+          ],
 
           // ── Offers ──
           if (offers.isNotEmpty) ...[
@@ -1055,8 +1079,7 @@ class _DayHeader extends StatelessWidget {
   final bool isToday;
   final String? todayLabel;
 
-  const _DayHeader(
-      {required this.day, required this.isToday, this.todayLabel});
+  const _DayHeader({required this.day, required this.isToday, this.todayLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -1065,7 +1088,9 @@ class _DayHeader extends StatelessWidget {
     return Column(
       children: [
         Text(
-            showToday ? todayLabel! : DateFormat('EEE', l.localeName).format(day),
+            showToday
+                ? todayLabel!
+                : DateFormat('EEE', l.localeName).format(day),
             style: TextStyle(
                 fontSize: showToday ? 9 : 11,
                 fontWeight: FontWeight.w800,
@@ -1299,5 +1324,109 @@ class _ActChip extends StatelessWidget {
     // Expanded works and long titles ellipsize instead of overflowing.
     return ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 168), child: chip);
+  }
+}
+
+/// "X asked you to cover" — the one thing on the dashboard that needs an answer
+/// rather than a glance. Declining is deliberately as easy as accepting, and
+/// nothing anywhere counts how often someone says no.
+class _CoverRequestCard extends StatefulWidget {
+  final Map<String, dynamic> request;
+  final Future<void> Function() onAnswered;
+
+  const _CoverRequestCard({required this.request, required this.onAnswered});
+
+  @override
+  State<_CoverRequestCard> createState() => _CoverRequestCardState();
+}
+
+class _CoverRequestCardState extends State<_CoverRequestCard> {
+  bool _busy = false;
+
+  Future<void> _answer(bool accept) async {
+    final l = AppLocalizations.of(context);
+    final app = context.read<AppState>();
+    setState(() => _busy = true);
+    await app.runAction(() async {
+      await app.api.post(
+          '/api/personal-time/${widget.request['id']}/${accept ? 'accept' : 'decline'}');
+      await widget.onAnswered();
+    }, accept ? l.toastCoverageAccepted : l.toastCoverageDeclined);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final loc = l.localeName;
+    final r = widget.request;
+    final start = DateTime.parse(r['starts_at'].toString()).toLocal();
+    final end = DateTime.parse(r['ends_at'].toString()).toLocal();
+    final pays = toNum(r['baseline_coins']) + toNum(r['sweetener_coins']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.primary),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(personalTimeTypeGlyph(r['type']?.toString() ?? ''),
+                  style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l.ptCoverCardBody(
+                    (r['requester_name'] ?? '').toString(),
+                    '${DateFormat('EEE d MMM', loc).format(start)} '
+                    '${DateFormat('HH:mm').format(start)}\u2013${DateFormat('HH:mm').format(end)}',
+                    (r['title'] ?? '').toString(),
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          if ((r['description'] ?? '').toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 30),
+              child: Text(r['description'].toString(),
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+            ),
+          const SizedBox(height: 10),
+          Text(l.ptCoverPays(pays),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, color: AppColors.success)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: VButton(
+                  type: VButtonType.outline,
+                  disabled: _busy,
+                  onPressed: _busy ? null : () => _answer(false),
+                  child: Text(l.declineAction),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: VButton(
+                  disabled: _busy,
+                  onPressed: _busy ? null : () => _answer(true),
+                  child: Text(l.acceptAction),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
