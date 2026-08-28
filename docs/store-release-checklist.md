@@ -26,8 +26,7 @@ Cleartext HTTP is dev-only as of 2026-07-11: iOS ships
 
 - [ ] Bump `version:` in `fluterFront/pubspec.yaml` (`x.y.z+buildNumber`;
       the build number must increase on every store upload).
-      **Currently `0.1.0` with no `+build` suffix** — set something like
-      `1.0.0+1` before the first upload.
+      Currently **`1.0.0+1`** — good for the first upload, then `+2`, `+3`, …
 - [ ] `flutter analyze && flutter test` clean.
 - [ ] Smoke-test a **release-mode** build on a real device
       (`flutter run --release --dart-define=API_BASE=https://mycarecoins.app`):
@@ -62,11 +61,24 @@ notes since reviewers won't have a family invite.
 One-time setup:
 - [ ] Create an **upload keystore** (do NOT ship debug-signed):
       `keytool -genkey -v -keystore ~/carecoins-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`
-- [ ] Create `android/key.properties` (gitignored) with storeFile /
-      storePassword / keyAlias / keyPassword, and wire the
-      `signingConfigs.release` block into `android/app/build.gradle.kts`
-      (the Flutter template currently signs release with debug keys —
-      Play will reject that).
+      Back it up. Losing it before Play App Signing is enrolled means never
+      being able to update the app under the same listing.
+- [ ] Copy `fluterFront/android/key.properties.example` to
+      `android/key.properties` and fill in the four values. Use an
+      **absolute** `storeFile` path — `~` is not expanded, and a relative
+      path resolves against `fluterFront/android/`.
+
+      The `signingConfigs.release` block is already wired in
+      `android/app/build.gradle.kts`. With `key.properties` present the release
+      build uses it. Without it, **`flutter build appbundle` fails outright**
+      with instructions — an .aab exists only to be uploaded, and Play rejects
+      debug-signed uploads, so producing one is never useful. `flutter run
+      --release` and `flutter build apk` still fall back to debug signing (with
+      a warning) so local release testing keeps working.
+
+      Confirm with `cd android && ./gradlew :app:signingReport` — under
+      `Variant: release` you want `Config: release` and your keystore path,
+      not `Config: debug`.
 - [ ] Play Console: create the app, enroll in **Play App Signing**.
 - [ ] Register **two SHA-1s in Firebase** (Project settings → Android app):
       the upload keystore's SHA-1 and the **Play App Signing** SHA-1

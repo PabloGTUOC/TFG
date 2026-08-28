@@ -1,0 +1,15 @@
+# Template for android/key.properties — copy to `key.properties` and fill in.
+# key.properties, *.jks and *.keystore are gitignored: never commit the real one,
+# and keep a backup somewhere safe. Losing the upload keystore before enrolling in
+# Play App Signing means you can never update the app under the same listing.
+#
+#   keytool -genkey -v -keystore ~/carecoins-upload.jks \
+#           -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#
+# storeFile: an ABSOLUTE path is safest. `~` is NOT expanded; a relative path is
+# resolved against fluterFront/android/.
+
+storeFile=/Users/you/carecoins-upload.jks
+storePassword=CHANGE_ME
+keyAlias=upload
+keyPassword=CHANGE_ME
