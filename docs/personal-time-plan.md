@@ -665,6 +665,7 @@ than folded in here.
 
 **Done when.** A two-device run completes: create → the other device is notified → accept →
 the pair appears on both calendars → the sweep pays baseline + sweetener.
+*(Run on 2026-08-26 — see **Two-session verification** at the end of this section.)*
 
 **As built.** `widgets/personal_time_dialog.dart` is the create sheet: title, the five self
 types as chips, start and duration, an optional note, the coverage toggle, and a sweetener
@@ -698,6 +699,36 @@ asserts the window is seeded from the tapped slot and that coverage is requested
 default), 181 backend tests, `flutter analyze` clean. The Daily screen's request fetch is
 deliberately defensive — `Future.wait` fails fast, and a hiccup on the newest endpoint must
 not blank out the whole day.
+
+**Two-session verification (2026-08-26).** The exit criterion was run against a local stack
+rather than left on trust: Postgres in Docker, the **Firebase auth emulator** for identity,
+the real backend (`npm run dev:test`), and two users minted straight from the emulator's REST
+API — two genuinely independent sessions with real ID tokens, driving the real HTTP API.
+
+Twenty assertions, all passing: Ana asks → the sweetener is escrowed and leaves her wallet →
+Ben, in his own session, sees one pending request addressed to him and knows who is asking →
+Ana is refused covering her own personal time → Ben accepts → one pair materializes → her
+calendar carries the self activity worth zero and his the coverage shift, each row pointing
+at the other → the ordinary auto-complete sweep pays Ben baseline + sweetener, and does not
+charge Ana twice.
+
+**Still unproven: the push banner actually arriving.** FCM has no emulator, and registering a
+web token needs Chrome's native notification permission, which cannot be automated. The
+*send* path was verified separately against a deliberately invalid token, which surfaced
+something worth knowing:
+
+> **`npm run dev:test` cannot send a push at all, and fails silently.** With
+> `FIREBASE_AUTH_EMULATOR_HOST` set, `middleware/auth.js` passes `credential: undefined` to
+> `initializeApp`; firebase-admin falls back to Application Default Credentials, finds none,
+> and dies reaching `metadata.google.internal` (`app/invalid-credential`). Every send in
+> `utils/notify.js` sits inside a try/catch, so the symptom is no push *and* no error. Adding
+> `GOOGLE_APPLICATION_CREDENTIALS=firebase-credentials.json` makes FCM authenticate and reject
+> only the bad token. Anyone debugging silent notifications locally should check this first.
+
+One assertion in that run failed and was **my test's error, not the code's**:
+`listActivities` does not select `counterpart_activity_id`, so it read as null over HTTP
+while being correctly set in both directions in the database. The app never reads that
+column — it is a backend integrity link — so nothing needs exposing.
 
 ---
 

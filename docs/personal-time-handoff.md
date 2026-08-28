@@ -1,11 +1,13 @@
 # Personal Time & Coverage — handoff
 
-> Move this file to `docs/personal-time-handoff.md` in the repo, then continue from
-> **§3 Pick up here**. The full design lives in `docs/personal-time-plan.md` (revision 3),
-> which already carries an **As built** section for every finished phase.
+> **Status: superseded — kept as the record of why things are the way they are.**
+> Phases 6 and 7 are done (`2f7d2d0`, `7a7c7f6`, `bac1be6`), so §3 and §4 below are history
+> rather than instructions. The living document is `docs/personal-time-plan.md`, which carries
+> an **As built** section for every phase. What is still worth reading here: the model in §2,
+> the two notes on the economy, and the known issues.
 
-**Repo state at handoff:** `main` = `3948602`, pushed to `origin`. Phases 1–5 complete.
-Phases 6–7 remain.
+**Repo state at handoff:** `main` = `3948602`. **Now:** `main` = `bac1be6`, pushed to
+`origin`; all seven phases complete.
 
 ---
 
@@ -32,20 +34,17 @@ git status
 git diff
 ```
 
-If anything shows up uncommitted, discard it and start Phase 6 clean — the change is
-described properly in §3.1 below:
-
-```bash
-git checkout -- backend/
-```
+**Resolved:** nothing had half-applied — the working tree was clean and the column did not
+exist in either file. It was added properly in `2f7d2d0`, with a backfill for databases
+predating it.
 
 ---
 
 ## 2. What is done
 
-The feature works end to end today: you can ask for personal time, the other caretaker is
-notified, they accept or decline, and the coins move. What is missing is recurrence, expiry,
-and the fairness reporting.
+The feature works end to end: you can ask for personal time, the other caretaker is notified,
+they accept or decline, and the coins move. Recurrence, expiry and the fairness reporting —
+listed here as missing at the time of the handoff — have since been built.
 
 | Phase | What it did | Commit |
 |---|---|---|
@@ -55,6 +54,8 @@ and the fairness reporting.
 | **3b** | Coverage became a care type, and may overlap | `7627010` |
 | **4** | Request backend — quote, create, accept, decline, withdraw | `fceb74d` |
 | **5** | The app — create sheet, pending chips, accept/decline card | `3948602` |
+| **6** | Recurrence, per-occurrence escrow, expiry; repeat + "ask anyone" in the app | `2f7d2d0`, `7a7c7f6` |
+| **7** | Fairness surfacing, and the docs brought up to date | `bac1be6` |
 
 ### The model, in the vocabulary we settled on
 
@@ -120,16 +121,27 @@ inside that window.
   builder two row shapes. Positioned ghosts on the desktop grid are still worth doing.
 - **No all-day chip for long self activities.** The duration picker stops at 12 h so nothing
   exceeds the grid, but a long block starting late renders truncated at midnight.
-- **The two-device run was never done.** Phase 5's exit criterion — create → notified on the
-  other device → accept → both calendars → sweep pays — needs Firebase auth and two real
-  sessions. The backend half is verified against Postgres; what is unproven is the push
-  actually arriving and the round trip through the UI.
+- **The two-device run: done except the banner.** Phase 5's exit criterion was run on
+  2026-08-26 against the local stack — two real Firebase users from the auth emulator, two
+  independent sessions, driving the real HTTP API. Create → escrow debited → the other
+  session sees it addressed to them → the requester is refused covering their own → accept →
+  the pair on both calendars → the ordinary sweep pays baseline + sweetener. What remains
+  unproven is only the **push notification visibly arriving**: FCM has no emulator, and
+  registering a token needs Chrome's native notification permission, which cannot be
+  automated. See the note below before trying.
+- **`npm run dev:test` cannot send push at all, and fails silently.** With
+  `FIREBASE_AUTH_EMULATOR_HOST` set, `middleware/auth.js` passes `credential: undefined` to
+  `initializeApp`; firebase-admin falls back to Application Default Credentials, finds none,
+  and dies reaching `metadata.google.internal` with `app/invalid-credential`. Every send in
+  `utils/notify.js` is wrapped in try/catch, so you see no push *and* no error. Export
+  `GOOGLE_APPLICATION_CREDENTIALS=firebase-credentials.json` alongside it and FCM
+  authenticates properly — verified both ways against a deliberately invalid token.
 
 ### Verification baseline
 
 ```bash
-cd backend    && npm test          # 181 tests
-cd fluterFront && flutter analyze && flutter test   # 38 tests
+cd backend    && npm test          # 200 tests (181 at the time of the handoff)
+cd fluterFront && flutter analyze && flutter test   # 40 tests (38 then)
 ```
 
 The migrations were verified against a throwaway Postgres 16 rather than trusted:
@@ -143,7 +155,11 @@ Run `db:init` twice — it must stay re-runnable.
 
 ---
 
-## 3. Pick up here — Phase 6: recurrence & expiry
+## 3. ~~Pick up here~~ — Phase 6: recurrence & expiry ✅ done in `2f7d2d0`, `7a7c7f6`
+
+> Built as specified below, with one deliberate divergence: `occurrencesFor` does **not** copy
+> `createRecurrence`'s date-only parsing bug, only its `setDate` stepping. See the plan's
+> Phase 6 **As built**.
 
 **Goal.** "Every Friday at the same time", and requests that clean themselves up.
 
@@ -244,7 +260,7 @@ where the coverer has one absence should produce N−1 pairs and return one swee
 
 ---
 
-## 4. Phase 7 — fairness surfacing
+## 4. Phase 7 — fairness surfacing ✅ done in `bac1be6`
 
 **Goal.** Personal time taken is as visible as contribution made. Without this the release
 adds a way to take without a way to see it, which cuts against the whole premise.
@@ -259,7 +275,7 @@ adds a way to take without a way to see it, which cuts against the whole premise
 
 ---
 
-## 5. Suggested first commands
+## 5. ~~Suggested first commands~~ (historical)
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/TFG/TFG"
