@@ -22,3 +22,6 @@ frontend/playwright-report/
 # Retired Vue frontend: lives on the vue-frontend branch; local leftovers
 # (dist builds, .env.local) stay untracked on main.
 /frontend/
+
+# Deploy target (names your server; never committed)
+scripts/deploy.env

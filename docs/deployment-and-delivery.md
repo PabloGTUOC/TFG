@@ -91,6 +91,22 @@ that touches existing rows rather than adding to them.
 
 ### Deploy
 
+**Scripted, from your machine** — this is the normal path:
+
+```bash
+cp scripts/deploy.env.example scripts/deploy.env   # once: name your server
+./scripts/deploy.sh --dry-run                      # see every step, change nothing
+./scripts/deploy.sh                                # deploy, with one confirmation
+```
+
+`scripts/deploy.sh` refuses to run unless your tree is clean and pushed, backs up the database
+*and* the uploads directory before touching anything, copies the two gitignored secrets, then
+fast-forwards the server and rebuilds. It finishes by probing the public API and prints the
+exact rollback command for the commit it replaced. It uses your normal SSH key; `deploy.env`
+holds no passwords and is gitignored because it names your server.
+
+**By hand**, if you would rather, or to debug the script:
+
 ```bash
 git pull
 docker compose up --build -d      # rebuilds the frontend image, restarts the stack
