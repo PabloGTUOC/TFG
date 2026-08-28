@@ -140,9 +140,22 @@ ok "local secrets present (${#SECRETS[@]} files)"
 
 step "Server checks"
 
+# Separate "cannot connect" from "connected, but the path is wrong" — they have
+# completely different fixes, and one error covering both sends you hunting in
+# the wrong place.
+if ! ssh $DEPLOY_SSH_OPTS -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" true 2>/dev/null; then
+  die "cannot reach $DEPLOY_HOST over SSH.
+    Check DEPLOY_HOST in scripts/deploy.env, and that the key works:
+      ssh $DEPLOY_SSH_OPTS $DEPLOY_HOST true
+    (BatchMode is on here, so a passphrase prompt also fails — unlock the key first
+    with ssh-add, or point IdentityFile at one that needs no passphrase.)"
+fi
+ok "SSH to $DEPLOY_HOST works"
+
 remote_read "test -d '$DEPLOY_PATH/.git'" \
-  || die "$DEPLOY_PATH on $DEPLOY_HOST is not a git checkout"
-ok "reachable, and $DEPLOY_PATH is a git checkout"
+  || die "connected to $DEPLOY_HOST, but $DEPLOY_PATH is not a git checkout.
+    Check DEPLOY_PATH in scripts/deploy.env."
+ok "$DEPLOY_PATH is a git checkout"
 
 REMOTE_SHA="$(remote_read "cd '$DEPLOY_PATH' && git rev-parse HEAD" | tr -d '\r')"
 if [[ "$REMOTE_SHA" == "$LOCAL_SHA" ]]; then
