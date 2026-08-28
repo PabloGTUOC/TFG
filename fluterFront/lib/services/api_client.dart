@@ -83,7 +83,11 @@ class ApiClient {
     }
     if (res.statusCode >= 400) {
       if (data is Map && data['error'] != null) {
+        // Carry the status code even though the message came from the
+        // backend: callers need to tell "your session is gone" (401/403)
+        // apart from any other refusal.
         throw ApiException(ApiErrorKind.server,
+            statusCode: res.statusCode,
             serverMessage: data['error'].toString());
       }
       throw ApiException(ApiErrorKind.requestFailed, statusCode: res.statusCode);
@@ -116,7 +120,11 @@ class ApiClient {
     }
     if (res.statusCode >= 400) {
       if (data is Map && data['error'] != null) {
+        // Carry the status code even though the message came from the
+        // backend: callers need to tell "your session is gone" (401/403)
+        // apart from any other refusal.
         throw ApiException(ApiErrorKind.server,
+            statusCode: res.statusCode,
             serverMessage: data['error'].toString());
       }
       throw ApiException(ApiErrorKind.uploadFailed, statusCode: res.statusCode);

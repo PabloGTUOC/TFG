@@ -11,6 +11,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/shell.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
+import 'widgets/ui.dart';
 
 /// Point auth at the Firebase Auth Emulator for local testing, matching the
 /// backend's `npm run dev:test`. Example:
@@ -180,6 +181,18 @@ class _AuthGateState extends State<_AuthGate> {
             ),
           ),
         ],
+      );
+    }
+    // We are signed in but have never successfully loaded who this user is.
+    // `families` is empty because the request failed, not because there are
+    // none — routing to onboarding here would invite someone with an existing
+    // household to create a second one. Offer a retry instead. A later
+    // failure, once the profile is known, is left alone: the app keeps
+    // working on what it already has rather than blanking mid-session.
+    if (app.profileUnknown) {
+      return Scaffold(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(child: LoadErrorState(onRetry: app.fetchUserData)),
       );
     }
     if (!app.hasFamilies) return const OnboardingScreen();

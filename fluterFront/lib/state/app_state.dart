@@ -130,6 +130,25 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// True when the last `/api/me` attempt failed for a reason that is *not*
+  /// the session being invalid — the network is down, or the backend is
+  /// unwell. We therefore do not know whether this user has a family, and the
+  /// UI must not guess: an empty `families` list then means "unknown", not
+  /// "none". See `_AuthGate` in main.dart.
+  bool meLoadFailed = false;
+
+  /// True when we are signed in but have never learned who this user is.
+  /// `families` is empty because the lookup failed, not because there are
+  /// none — so the app must offer a retry, never the create-a-family wizard.
+  bool get profileUnknown => meLoadFailed && profile == null;
+
+  /// Whether an error means the session itself is no longer accepted, as
+  /// opposed to the request merely failing. Only this warrants signing
+  /// someone out; a flaky network must never do it.
+  static bool isSessionRejected(Object error) =>
+      error is ApiException &&
+      (error.statusCode == 401 || error.statusCode == 403);
+
   Future<void> fetchUserData() async {
     try {
       final data = await api.get('/api/me');
@@ -137,6 +156,7 @@ class AppState extends ChangeNotifier {
       families = (data['families'] as List?) ?? [];
       pendingRequests = (data['pendingRequests'] as List?) ?? [];
       actors = (data['actors'] as List?) ?? [];
+      meLoadFailed = false;
 
       if (loginEventId == null) {
         final loginData = await api.post('/api/me/login-event');
@@ -147,7 +167,21 @@ class AppState extends ChangeNotifier {
       // events carry it (plan Phase 4). Fire-and-forget: purchases must
       // never block login, and the service no-ops on web.
       PurchaseService.syncIdentity(profile?['id']?.toString());
+    } on ApiException catch (e) {
+      if (isSessionRejected(e)) {
+        // The backend rejected the session. Falling through would leave
+        // `families` empty, and an empty family list sends the user to the
+        // create-a-family wizard — telling someone whose session merely
+        // expired that their household is gone. Sign out instead, so they
+        // land on the login screen, which is the truthful thing to show.
+        debugPrint('Session rejected by the backend ($e); signing out.');
+        await logout();
+        return;
+      }
+      meLoadFailed = true;
+      debugPrint('Backend auth sync failed: $e');
     } catch (e) {
+      meLoadFailed = true;
       debugPrint('Backend auth sync failed: $e');
     }
     notifyListeners();
