@@ -105,6 +105,33 @@ fast-forwards the server and rebuilds. It finishes by probing the public API and
 exact rollback command for the commit it replaced. It uses your normal SSH key; `deploy.env`
 holds no passwords and is gitignored because it names your server.
 
+#### Starting from an empty database
+
+```bash
+./scripts/deploy.sh --reset-db                   # wipe, then deploy
+./scripts/deploy.sh --reset-db --reset-uploads   # also clear stored avatars
+```
+
+`--reset-db` runs `docker compose down -v` before the rebuild. The compose file declares
+exactly one named volume, `pgdata`, so that drops the Postgres data directory and nothing
+else; `db-init` then migrates a fresh, empty cluster on the next start.
+
+It is deliberately awkward, because it destroys every family, activity and coin balance and
+cannot be undone:
+
+- it forces a backup, and **refuses to run at all** with `--skip-backup`;
+- it asks you to type the host name, not `y` — and `--yes` does not bypass that;
+- it verifies the result rather than the exit code: `families` must be 0 and
+  `personal_time_requests` must exist, which together prove the volume really was dropped and
+  the migrations really did run.
+
+Two things it does **not** do, both stated at the prompt:
+
+- **Firebase accounts survive.** Everyone can still sign in, and lands on the create-a-family
+  wizard as a new user. Whoever signs in first should create the family and invite the rest.
+- **Avatars survive**, because `backend/uploads` is a bind mount rather than a volume. They
+  become orphaned files pointing at rows that no longer exist. `--reset-uploads` clears them.
+
 **By hand**, if you would rather, or to debug the script:
 
 ```bash
