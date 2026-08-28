@@ -107,7 +107,7 @@
       "coins": {}
     }
   },
-  "dashPendingTasks": "{count, plural, one{# task is waiting for attention.} other{# tasks are waiting for attention.}}",
+  "dashPendingTasks": "{count, plural, one{{count} task is waiting for attention.} other{{count} tasks are waiting for attention.}}",
   "@dashPendingTasks": {
     "description": "Second dashboard subtitle sentence: tasks pending validation/approval",
     "placeholders": { "count": { "type": "num" } }
@@ -166,7 +166,7 @@
 
   "kpiFamilyBalance": "Family Balance",
   "@kpiFamilyBalance": { "description": "KPI card label: sum of all member balances" },
-  "kpiMembersCount": "{count, plural, one{across # member} other{across # members}}",
+  "kpiMembersCount": "{count, plural, one{across {count} member} other{across {count} members}}",
   "@kpiMembersCount": {
     "description": "KPI subtitle under Family Balance",
     "placeholders": { "count": { "type": "num" } }
@@ -209,17 +209,17 @@
   "seeAllActivity": "See all activity",
   "@seeAllActivity": { "description": "Button under the feed linking to Stats" },
 
-  "timeAgoDays": "{count, plural, one{# day ago} other{# days ago}}",
+  "timeAgoDays": "{count, plural, one{{count} day ago} other{{count} days ago}}",
   "@timeAgoDays": {
     "description": "Relative time in the activity feed",
     "placeholders": { "count": { "type": "num" } }
   },
-  "timeAgoHours": "{count, plural, one{# hour ago} other{# hours ago}}",
+  "timeAgoHours": "{count, plural, one{{count} hour ago} other{{count} hours ago}}",
   "@timeAgoHours": {
     "description": "Relative time in the activity feed",
     "placeholders": { "count": { "type": "num" } }
   },
-  "timeAgoMins": "{count, plural, one{# min ago} other{# mins ago}}",
+  "timeAgoMins": "{count, plural, one{{count} min ago} other{{count} mins ago}}",
   "@timeAgoMins": {
     "description": "Relative time in the activity feed",
     "placeholders": { "count": { "type": "num" } }
@@ -272,7 +272,7 @@
   "@toastBountyAdded": { "description": "Toast after offering a bounty" },
   "toastTaskTaken": "Task taken! Coins added to your account.",
   "@toastTaskTaken": { "description": "Toast after accepting a bounty" },
-  "toastCreatedInstances": "{count, plural, one{Created # future instance!} other{Created # future instances!}}",
+  "toastCreatedInstances": "{count, plural, one{Created {count} future instance!} other{Created {count} future instances!}}",
   "@toastCreatedInstances": {
     "description": "Toast after creating recurring copies",
     "placeholders": { "count": { "type": "num" } }
@@ -691,7 +691,7 @@
   "@createRewardBtn": { "description": "Create-reward submit button" },
   "soldOut": "Sold out",
   "@soldOut": { "description": "Reward badge when max uses reached" },
-  "nLeft": "{count, plural, one{# left} other{# left}}",
+  "nLeft": "{count, plural, one{{count} left} other{{count} left}}",
   "@nLeft": {
     "description": "Reward badge: remaining redemptions",
     "placeholders": { "count": { "type": "num" } }
@@ -786,7 +786,7 @@
   "@ratePerHour": { "description": "Budget rate value", "placeholders": { "rate": {} } },
   "durMins": "{count} mins",
   "@durMins": { "description": "Duration under an hour", "placeholders": { "count": {} } },
-  "durHours": "{count, plural, one{1 hour} other{# hours}}",
+  "durHours": "{count, plural, one{1 hour} other{{count} hours}}",
   "@durHours": {
     "description": "Whole-hour duration",
     "placeholders": { "count": { "type": "num" } }

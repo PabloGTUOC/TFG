@@ -34,7 +34,7 @@
   "greetingEvening": "Buenas noches",
   "dashTitle": "Centro Familiar",
   "dashEarned": "¡{greeting}, {name}! Tu familia ha ganado {coins} cc hoy.",
-  "dashPendingTasks": "{count, plural, one{# tarea espera tu atención.} other{# tareas esperan tu atención.}}",
+  "dashPendingTasks": "{count, plural, one{{count} tarea espera tu atención.} other{{count} tareas esperan tu atención.}}",
 
   "tourMembersTitle": "La familia de un vistazo",
   "tourMembersBody": "Aquí vive el saldo de monedas de cada uno. Los saldos crecen cuando un cuidador valida una tarea completada.",
@@ -63,7 +63,7 @@
   "offersOpenCount": "{count} abiertas",
 
   "kpiFamilyBalance": "Saldo familiar",
-  "kpiMembersCount": "{count, plural, one{entre # miembro} other{entre # miembros}}",
+  "kpiMembersCount": "{count, plural, one{entre {count} miembro} other{entre {count} miembros}}",
   "kpiTasksToday": "Tareas de hoy",
   "kpiAwaitingValidation": "{count} por validar",
   "kpiOnTrack": "todo en orden",
@@ -81,9 +81,9 @@
   "feedVerbGot": "consiguió",
   "seeAllActivity": "Ver toda la actividad",
 
-  "timeAgoDays": "{count, plural, one{hace # día} other{hace # días}}",
-  "timeAgoHours": "{count, plural, one{hace # hora} other{hace # horas}}",
-  "timeAgoMins": "{count, plural, one{hace # min} other{hace # min}}",
+  "timeAgoDays": "{count, plural, one{hace {count} día} other{hace {count} días}}",
+  "timeAgoHours": "{count, plural, one{hace {count} hora} other{hace {count} horas}}",
+  "timeAgoMins": "{count, plural, one{hace {count} min} other{hace {count} min}}",
 
   "caredFor": "bajo cuidado",
   "dayToday": "HOY",
@@ -107,7 +107,7 @@
   "toastActivityRemoved": "Actividad quitada de la agenda.",
   "toastBountyAdded": "¡Incentivo añadido! Otro cuidador puede tomar esta tarea.",
   "toastTaskTaken": "¡Tarea tomada! Monedas añadidas a tu cuenta.",
-  "toastCreatedInstances": "{count, plural, one{¡Creada # copia futura!} other{¡Creadas # copias futuras!}}",
+  "toastCreatedInstances": "{count, plural, one{¡Creada {count} copia futura!} other{¡Creadas {count} copias futuras!}}",
   "toastTimeOffLogged": "¡Ausencia registrada correctamente!",
   "toastTimeOffRemoved": "Registro de ausencia eliminado.",
   "toastScheduled": "¡Actividad programada correctamente!",
@@ -284,7 +284,7 @@
   "fieldWithDate": "{label}: {date}",
   "createRewardBtn": "Crear premio",
   "soldOut": "Agotado",
-  "nLeft": "{count, plural, one{Queda #} other{Quedan #}}",
+  "nLeft": "{count, plural, one{Queda {count}} other{Quedan {count}}}",
   "expires": "⏳ Caduca el {date}",
   "buy": "Comprar",
 
@@ -329,7 +329,7 @@
   "estimatedRate": "Tarifa estimada",
   "ratePerHour": "~{rate} cc / h",
   "durMins": "{count} min",
-  "durHours": "{count, plural, one{1 hora} other{# horas}}",
+  "durHours": "{count, plural, one{1 hora} other{{count} horas}}",
   "durHoursMins": "{h} h {m} min",
 
   "notifActivityAssigned": "Actividad asignada a mí",
