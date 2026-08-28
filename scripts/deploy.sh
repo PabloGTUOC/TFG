@@ -5,6 +5,7 @@
 #   ./scripts/deploy.sh --dry-run     # print every step, change nothing
 #   ./scripts/deploy.sh               # deploy, asking before the irreversible part
 #   ./scripts/deploy.sh --yes         # deploy without the prompt (CI, or a repeat run)
+#   ./scripts/deploy.sh --reset-db    # DESTRUCTIVE: wipe the database and start empty
 #
 # Configuration lives in scripts/deploy.env (gitignored). Copy the .example and
 # fill it in. See docs/deployment-and-delivery.md §2.
@@ -21,6 +22,12 @@
 #
 # It never prints the contents of a secret, and never force-pushes or resets
 # anything on the server.
+#
+# --reset-db is the one exception, and it is deliberately awkward: it destroys
+# every family, activity and coin balance on the server, cannot be undone, and
+# is not what you want unless you mean it. It forces a backup, refuses to run
+# alongside --skip-backup, and requires you to type the host name even with
+# --yes. Wiping production is not something to automate.
 
 set -euo pipefail
 
@@ -40,9 +47,11 @@ DRY_RUN=false
 ASSUME_YES=false
 SKIP_BACKUP=false
 SKIP_SECRETS=false
+RESET_DB=false
+RESET_UPLOADS=false
 
 usage() {
-  sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^#//;s/^ //'
+  sed -n '2,34p' "${BASH_SOURCE[0]}" | sed 's/^#//;s/^ //'
   exit "${1:-0}"
 }
 
@@ -52,11 +61,19 @@ while [[ $# -gt 0 ]]; do
     --yes|-y)       ASSUME_YES=true ;;
     --skip-backup)  SKIP_BACKUP=true ;;
     --no-secrets)   SKIP_SECRETS=true ;;
+    --reset-db)     RESET_DB=true ;;
+    --reset-uploads) RESET_UPLOADS=true ;;
     -h|--help)      usage 0 ;;
     *) echo "Unknown option: $1" >&2; usage 1 ;;
   esac
   shift
 done
+
+if $RESET_DB && $SKIP_BACKUP; then
+  echo "error: --reset-db with --skip-backup would destroy the data and keep no copy." >&2
+  echo "       If you truly want that, take the backup yourself first and re-run." >&2
+  exit 1
+fi
 
 # ─── Output helpers ───────────────────────────────────────────────────────────
 
@@ -180,7 +197,22 @@ fi
 
 # ─── Confirm ──────────────────────────────────────────────────────────────────
 
-if ! $DRY_RUN && ! $ASSUME_YES; then
+if $RESET_DB && ! $DRY_RUN; then
+  # Deliberately not a y/N. --yes does not bypass this: the whole point is that
+  # a human reads it, and muscle memory must not be able to answer.
+  printf '\n%s%sDESTRUCTIVE%s\n' "$BOLD" "$RED" "$OFF"
+  printf '    Every family, member, activity, reward and coin balance on\n'
+  printf '    %s will be deleted. This cannot be undone.\n' "$DEPLOY_HOST"
+  printf '    The backup taken below is the only way back.\n\n'
+  printf '    Firebase accounts are NOT deleted — people can still sign in,\n'
+  printf '    and will land on the create-a-family wizard as new users.\n'
+  $RESET_UPLOADS \
+    && printf '    Uploaded avatars will also be deleted.\n' \
+    || printf '    Uploaded avatars are kept (orphaned); add --reset-uploads to clear them.\n'
+  printf '\n%sType the host name (%s) to confirm:%s ' "$BOLD" "$DEPLOY_HOST" "$OFF"
+  read -r reply
+  [[ "$reply" == "$DEPLOY_HOST" ]] || die "aborted — you typed '$reply'"
+elif ! $DRY_RUN && ! $ASSUME_YES; then
   printf '\n%sDeploy %s to %s?%s [y/N] ' "$BOLD" "${LOCAL_SHA:0:7}" "$DEPLOY_HOST" "$OFF"
   read -r reply
   [[ "$reply" =~ ^[Yy]$ ]] || die "aborted"
@@ -193,7 +225,11 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 if $SKIP_BACKUP; then
   warn "skipping backup at your request"
 else
-  step "Backup (before anything changes)"
+  if $RESET_DB; then
+    step "Backup (the only copy of what you are about to destroy)"
+  else
+    step "Backup (before anything changes)"
+  fi
   remote "mkdir -p '$DEPLOY_BACKUP_DIR'"
   # The database. db-init migrates on start, so this must happen first.
   remote "cd '$DEPLOY_PATH' && docker compose exec -T postgres \
@@ -234,6 +270,25 @@ step "Update and rebuild"
 
 # --ff-only: if the server has diverged, stop rather than invent a merge.
 remote "cd '$DEPLOY_PATH' && git fetch origin '$BRANCH' && git checkout '$BRANCH' && git pull --ff-only origin '$BRANCH'"
+
+if $RESET_DB; then
+  step "Wiping the database"
+  # `down -v` removes the containers and every named volume the compose file
+  # declares. It declares exactly one, pgdata, so this drops the Postgres data
+  # directory and nothing else. Bind mounts (backend/uploads, the secrets) are
+  # not volumes and are untouched.
+  remote "cd '$DEPLOY_PATH' && docker compose down -v"
+  $DRY_RUN || ok "pgdata volume removed — the next start builds an empty database"
+
+  if $RESET_UPLOADS; then
+    # Avatars are a bind mount, so the wipe above leaves them behind pointing at
+    # rows that no longer exist. Clear the contents, keep the directory: compose
+    # bind-mounts it and would otherwise recreate it root-owned.
+    remote "find '$DEPLOY_PATH/backend/uploads' -mindepth 1 -delete 2>/dev/null || true"
+    $DRY_RUN || ok "uploads cleared"
+  fi
+fi
+
 remote "cd '$DEPLOY_PATH' && docker compose up --build -d"
 remote "cd '$DEPLOY_PATH' && docker compose ps"
 
@@ -262,6 +317,22 @@ else
   printf '\n'
 
   FAILED=0
+
+  if $RESET_DB; then
+    # "It came up" is not the same as "it came up empty and migrated". Check
+    # both: a table that only exists after the migrations, and no rows in it.
+    FAMILIES="$(remote_read "cd '$DEPLOY_PATH' && docker compose exec -T postgres \
+      psql -U '$DEPLOY_PG_USER' -d '$DEPLOY_PG_DB' -tAc \
+      'SELECT COUNT(*) FROM families'" 2>/dev/null | tr -d '\r' || echo '?')"
+    REQUESTS="$(remote_read "cd '$DEPLOY_PATH' && docker compose exec -T postgres \
+      psql -U '$DEPLOY_PG_USER' -d '$DEPLOY_PG_DB' -tAc \
+      'SELECT COUNT(*) FROM personal_time_requests'" 2>/dev/null | tr -d '\r' || echo '?')"
+    if [[ "$FAMILIES" == "0" ]]; then ok "database is empty (families: 0)"
+    else warn "expected 0 families, got '$FAMILIES'"; FAILED=$((FAILED + 1)); fi
+    if [[ "$REQUESTS" == "0" ]]; then ok "migrations ran (personal_time_requests exists, empty)"
+    else warn "personal_time_requests missing or unexpected: '$REQUESTS'"; FAILED=$((FAILED + 1)); fi
+  fi
+
   # A mounted route answers 401 for a missing token; an unmounted one falls
   # through to the 404 handler. That is what tells us the new code is live.
   for path in /api/me /api/activities /api/personal-time /api/admin/families /api/billing/webhook; do
@@ -288,13 +359,22 @@ step "Done"
 if $DRY_RUN; then
   echo "    Dry run only — nothing changed."
 else
+  if $RESET_DB; then
+    cat <<EOF
+
+    ${BOLD}The database was wiped and rebuilt empty.${OFF}
+    Firebase accounts still exist, so signing in works — everyone lands on the
+    create-a-family wizard as a new user. The first person to sign in should
+    create the family and invite the others.
+EOF
+  fi
   cat <<EOF
     Deployed ${LOCAL_SHA:0:7} to $DEPLOY_HOST.
 
     Still worth doing by hand (docs/deployment-and-delivery.md §2):
       sign in on $DEPLOY_URL, load an avatar, enable push.
 
-    To roll back:
+    To roll back the code:
       ssh $DEPLOY_HOST "cd $DEPLOY_PATH && git checkout $REMOTE_SHA && docker compose up --build -d"
     Schema too, if a migration is the problem:
       ssh $DEPLOY_HOST "cd $DEPLOY_PATH && docker compose exec -T postgres \\
