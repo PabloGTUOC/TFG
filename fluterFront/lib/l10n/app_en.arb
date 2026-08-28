@@ -57,6 +57,17 @@
   "@languageTitle": {
     "description": "Section title above the language picker in Account Settings"
   },
+  "legalTitle": "Legal",
+  "@legalTitle": { "description": "Section heading above the privacy policy and terms links" },
+  "legalPrivacyPolicy": "Privacy policy",
+  "@legalPrivacyPolicy": { "description": "Link to the hosted privacy policy" },
+  "legalTerms": "Terms of use",
+  "@legalTerms": { "description": "Link to the hosted terms of use (EULA)" },
+  "legalOpenFailed": "Could not open the link. Visit {url} in your browser.",
+  "@legalOpenFailed": {
+    "description": "Shown when no browser could be launched for a legal document",
+    "placeholders": { "url": {} }
+  },
   "languageSystem": "System default",
   "@languageSystem": {
     "description": "Language picker option that follows the device language"

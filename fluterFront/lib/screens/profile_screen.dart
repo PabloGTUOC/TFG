@@ -14,6 +14,7 @@ import '../widgets/coach_marks.dart';
 import '../widgets/family_circle.dart';
 import '../widgets/help_sheet.dart';
 import '../widgets/subscription_card.dart';
+import '../utils/legal_links.dart';
 import '../widgets/ui.dart';
 
 /// Native display name per shipped language code (each shown in its own
@@ -692,6 +693,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // MyCareCoins Pro (docs/admin-family-management-plan.md Phase 4).
           // Hides itself on web, where store purchases don't exist.
           const SubscriptionCard(),
+          const Divider(height: 32),
+          // Directly under the subscription entry point on purpose: Apple
+          // requires the privacy policy and terms to be reachable in-app when
+          // the app sells subscriptions, and expects them near the purchase.
+          // Shown on web too, where the card above hides itself.
+          const LegalLinks(),
           const Divider(height: 32),
           // Language picker (docs/i18n-plan.md §2). Language names stay in
           // their own language on purpose; only "system" is translated.

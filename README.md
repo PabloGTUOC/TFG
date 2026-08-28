@@ -67,7 +67,7 @@ Tokens ported 1:1 from the Vue app's `style.css` into `lib/theme/app_theme.dart`
 - **`services/telemetry.dart`**, **`services/tour_service.dart`** — onboarding instrumentation and the guided tour.
 - **`state/app_state.dart`** — auth session, `/api/me` payload, current family, locale, toasts, `isCaregiver` / `isPlatformAdmin`.
 - **`data/starter_packs.dart`** — the localized starter-task catalogue ([Part 5](#part-5-onboarding--starter-tasks)).
-- **`l10n/app_*.arb`** — 783 keys × 4 languages, compiled by `flutter gen-l10n`. `untranslated.json` must be empty before release (see `docs/i18n-plan.md`).
+- **`l10n/app_*.arb`** — 787 keys × 4 languages, compiled by `flutter gen-l10n`. `untranslated.json` must be empty before release (see `docs/i18n-plan.md`).
 
 ### PWA (web build)
 

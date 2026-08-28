@@ -93,15 +93,26 @@ Every release:
 
 ## Store listings (both)
 
-- [ ] Privacy policy URL — **required** by both stores (the app has
-      accounts, avatars, push). Host it on mycarecoins.app.
-- [ ] **Terms of Use (EULA) + Privacy Policy reachable from inside the app.**
-      Apple requires both for auto-renewable subscriptions (Guideline 3.1.2)
-      and rejects paywalls without them. There is currently **no privacy or
-      terms link anywhere in `lib/` or the ARB files** — either add the links
-      to the RevenueCat paywall configuration (dashboard-side, which is the
-      cheap route since the paywall is RevenueCat-rendered) or put them in
-      Personal Area. Verify on a real build before submitting.
+- [x] Privacy policy and terms **pages exist and are served**:
+      `fluterFront/web/privacy.html` and `terms.html`, published with the web
+      build, with `nginx.conf` mapping `/privacy` and `/terms` to them.
+- [x] Both are **linked from inside the app**, in Personal Area directly under
+      the subscription card (`lib/utils/legal_links.dart`). Apple requires this
+      for auto-renewable subscriptions (Guideline 3.1.2).
+- [ ] **Fill in the bracketed placeholders in both pages before submitting** —
+      legal entity, contact email, hosting location, retention period,
+      jurisdiction — and have them reviewed. They are drafts: the factual
+      sections were written from the real database schema, but the legal
+      framing is not advice. For the EULA, Apple's standard one is an accepted
+      substitute if you would rather not maintain your own.
+- [ ] Confirm both URLs load in a plain browser on the live domain, then paste
+      the privacy URL into both store listings.
+- [x] **Terms of Use (EULA) + Privacy Policy reachable from inside the app** —
+      done, in Personal Area under the subscription card.
+- [ ] Optionally also set them as footer links on the **RevenueCat paywall**
+      (dashboard → paywall configuration), so they appear at the moment of
+      purchase as well as in settings. Cheap, and removes any ambiguity in
+      review.
 - [ ] Data-safety / privacy-nutrition forms: account data (email, name,
       avatar), user content (tasks, rewards), device token for push.
       No ads, no tracking SDKs.

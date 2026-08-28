@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!--
+  DRAFT — not legal advice, and not ready to publish as-is.
+
+  Apple requires a EULA reachable from inside the app when it sells
+  auto-renewable subscriptions (App Review Guideline 3.1.2). This covers the
+  points Apple checks for — price, term, renewal, cancellation route — using
+  the subscription actually implemented in the app. Fill in the bracketed
+  placeholders and have it reviewed before putting the URL on a listing.
+
+  If you would rather not maintain your own EULA, Apple's standard one is an
+  accepted substitute: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+  Link to that instead and delete this page.
+
+  Served from fluterFront/web/, published at /terms.html; nginx also maps /terms.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms of Use — CareCoins</title>
+<style>
+  :root {
+    --bg: #F7F8FA; --surface: #FFFFFF; --border: #E5E8EE;
+    --ink: #0E1726; --muted: #5B6478; --primary: #2563EB;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 720px; margin: 0 auto; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; padding: 32px;
+  }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 18px; margin: 32px 0 8px; letter-spacing: -0.01em; }
+  .updated { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  a { color: var(--primary); }
+  ul { padding-left: 20px; }
+  li { margin: 6px 0; }
+  footer { max-width: 720px; margin: 20px auto 0; color: var(--muted); font-size: 13.5px; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0F172A; --surface: #131C2E; --border: #263149; --ink: #E8ECF4; --muted: #94A3B8; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Terms of Use</h1>
+  <p class="updated">CareCoins · Last updated [DATE]</p>
+
+  <p>These terms are an agreement between you and <strong>[LEGAL ENTITY NAME]</strong> for the
+  use of CareCoins. By creating an account you accept them.</p>
+
+  <h2>The service</h2>
+  <p>CareCoins helps a household coordinate caregiving and household work, and record who
+  contributed what using an in-app points system called CareCoins (cc).</p>
+  <p><strong>CareCoins have no monetary value.</strong> They cannot be exchanged for money,
+  transferred outside your family, or redeemed for anything except the rewards your own family
+  creates. They are a way of making unpaid work visible, nothing more.</p>
+
+  <h2>Your account</h2>
+  <ul>
+    <li>You must be old enough to enter a contract where you live, and at least 16.</li>
+    <li>Keep your sign-in details to yourself; you are responsible for what happens under your account.</li>
+    <li>Only add information about other people — including the people you care for — where you are entitled to do so.</li>
+    <li>Do not use the app to harass another member, or to store content that is unlawful.</li>
+  </ul>
+
+  <h2>Subscriptions</h2>
+  <p>CareCoins is free to use. An optional paid plan, <strong>MyCareCoins Pro</strong>, unlocks
+  additional capacity and features.</p>
+  <ul>
+    <li>Price and billing period are shown in the app before you purchase, in your local currency.</li>
+    <li>The subscription <strong>renews automatically</strong> at the end of each period unless you cancel at least 24 hours before it ends.</li>
+    <li>Payment is charged to your Apple or Google account at confirmation of purchase.</li>
+    <li>Manage or cancel at any time in your App Store or Google Play account settings. We cannot cancel it for you — the payment relationship is between you and the store.</li>
+    <li>Deleting the app does not cancel the subscription.</li>
+    <li>Refunds are handled by Apple or Google under their policies, not by us.</li>
+    <li>A subscription applies to the family it was bought for; other members of that family get the benefit while it is active.</li>
+  </ul>
+
+  <h2>Availability and changes</h2>
+  <p>We aim to keep the service running but do not guarantee it will be uninterrupted or
+  error-free. We may change or discontinue features. If we make a change that materially
+  reduces what a paid subscription provides, we will tell you before it takes effect.</p>
+
+  <h2>Ending it</h2>
+  <p>You may delete your account at any time in the app. Deleting a family requires the
+  agreement of every caregiver in it. We may suspend an account that breaches these terms.
+  Inactive families are notified before removal.</p>
+
+  <h2>Liability</h2>
+  <p>CareCoins is a coordination tool, not a care provider. It does not supervise anyone and
+  must not be relied on for anything safety-critical. To the extent the law allows, our
+  liability is limited to the amount you paid us in the twelve months before the claim. Nothing
+  here limits liability that cannot lawfully be limited. This does not affect the statutory
+  rights you have as a consumer.</p>
+
+  <h2>Governing law</h2>
+  <p>These terms are governed by the law of [JURISDICTION], and the courts of [JURISDICTION]
+  have jurisdiction, without removing any protection you have under the law of the country you
+  live in.</p>
+
+  <h2>Contact</h2>
+  <p><a href="mailto:[CONTACT EMAIL]">[CONTACT EMAIL]</a></p>
+</main>
+<footer>CareCoins · <a href="/privacy">Privacy policy</a></footer>
+</body>
+</html>

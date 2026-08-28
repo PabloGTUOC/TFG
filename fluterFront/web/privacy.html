@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<!--
+  DRAFT — not legal advice, and not ready to publish as-is.
+
+  The factual sections (what is stored, which processors receive it) were
+  written from the actual database schema in backend/src/db/schema.sql and are
+  accurate as of 2026-08-28. The bracketed placeholders must be filled in, and
+  the whole document should be reviewed by someone qualified, before this URL
+  goes on a store listing.
+
+  Served from fluterFront/web/, so it is published with the web build at
+  /privacy.html; nginx also maps the extensionless /privacy to it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — CareCoins</title>
+<style>
+  :root {
+    --bg: #F7F8FA; --surface: #FFFFFF; --border: #E5E8EE;
+    --ink: #0E1726; --muted: #5B6478; --primary: #2563EB;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 720px; margin: 0 auto; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; padding: 32px;
+  }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 18px; margin: 32px 0 8px; letter-spacing: -0.01em; }
+  .updated { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 700; }
+  a { color: var(--primary); }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 5px; font-size: 13.5px; }
+  footer { max-width: 720px; margin: 20px auto 0; color: var(--muted); font-size: 13.5px; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0F172A; --surface: #131C2E; --border: #263149; --ink: #E8ECF4; --muted: #94A3B8; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="updated">CareCoins · Last updated [DATE]</p>
+
+  <p><strong>[LEGAL ENTITY NAME]</strong> (“we”) operates CareCoins, an app that helps a
+  household share caregiving work fairly. This policy explains what the app stores, why, and
+  who else sees it. Questions: <a href="mailto:[CONTACT EMAIL]">[CONTACT EMAIL]</a>.</p>
+
+  <h2>What we store</h2>
+  <table>
+    <tr><th>Data</th><th>Why</th></tr>
+    <tr><td>Email address, display name, and profile photo if you upload one</td><td>To identify you and show who did what</td></tr>
+    <tr><td>Your family, your role in it, your nickname, and your coin balance</td><td>To run the shared household</td></tr>
+    <tr><td>The people you care for: the name and type you enter (child, elderly relative, pet)</td><td>To schedule care around them</td></tr>
+    <tr><td>Activities, absences and personal-time requests: titles, notes, times, who they belong to</td><td>The core function of the app</td></tr>
+    <tr><td>Coin transactions</td><td>So the ledger is auditable</td></tr>
+    <tr><td>Rewards you create and redeem</td><td>The family store</td></tr>
+    <tr><td>Sign-in history, including IP address, device/browser description and timestamps</td><td>Account security</td></tr>
+    <tr><td>Push notification tokens for each device, and your per-category preferences</td><td>To send only the notifications you asked for</td></tr>
+    <tr><td>Onboarding and tour events</td><td>To see which explanations are not working, and fix them</td></tr>
+    <tr><td>Subscription status</td><td>To unlock paid features</td></tr>
+  </table>
+
+  <p><strong>We do not use advertising or tracking SDKs, and we do not sell or share your
+  data for advertising.</strong></p>
+
+  <h2>Children and other people you add</h2>
+  <p>CareCoins is for adults coordinating care. The people you care for are entered by you as
+  entries on your family — a name and a type. They do not have accounts and cannot sign in.
+  Only enter what you need for scheduling, and only for people you are responsible for.</p>
+
+  <h2>Who else sees it</h2>
+  <p>Everything you enter is visible to the other members of your family in the app — that is
+  the point of it. Beyond them, data is processed by:</p>
+  <table>
+    <tr><th>Service</th><th>What it handles</th></tr>
+    <tr><td>Google Firebase</td><td>Sign-in, and delivery of push notifications</td></tr>
+    <tr><td>Resend</td><td>Sending invitation and account emails</td></tr>
+    <tr><td>RevenueCat, with Apple and Google</td><td>Subscription purchases and their status. Payment details go to the app store, never to us — we never see your card</td></tr>
+    <tr><td>[HOSTING PROVIDER]</td><td>Runs the servers and the database</td></tr>
+  </table>
+
+  <h2>Where it is kept, and for how long</h2>
+  <p>Data is held [WHERE — e.g. on servers in the EU] for as long as your family is active.
+  Deleting your account removes your profile, your sign-in history and your devices' push
+  tokens. Deleting a family requires every caregiver in it to agree, and removes that family's
+  activities, rewards and ledger. Families that go inactive for a long period are notified and
+  then deleted. Backups are purged within [N] days.</p>
+
+  <h2>Your rights</h2>
+  <p>You can view and correct your details in the app under Personal Area, and delete your
+  account there. For a copy of your data, or any other request under applicable data
+  protection law, write to <a href="mailto:[CONTACT EMAIL]">[CONTACT EMAIL]</a>. You may also
+  complain to your local data protection authority [NAME IT FOR YOUR JURISDICTION].</p>
+
+  <h2>Changes</h2>
+  <p>If this policy changes materially we will say so in the app before the change takes
+  effect. The date at the top always reflects the current version.</p>
+</main>
+<footer>CareCoins · <a href="/terms">Terms of use</a></footer>
+</body>
+</html>

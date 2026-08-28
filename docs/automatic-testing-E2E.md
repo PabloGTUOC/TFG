@@ -13,7 +13,7 @@
 | Layer | Runner | Tests | Command |
 |---|---|---|---|
 | Backend unit | Node `--test` (built-in) | **200** | `cd backend && npm test` |
-| Flutter unit + widget | `flutter test` | **40** | `cd fluterFront && flutter test` |
+| Flutter unit + widget | `flutter test` | **44** | `cd fluterFront && flutter test` |
 | Static analysis | `flutter analyze` | — | `cd fluterFront && flutter analyze` |
 | End-to-end | — | **none** | — |
 

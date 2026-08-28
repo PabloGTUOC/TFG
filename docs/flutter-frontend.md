@@ -48,6 +48,7 @@ and to nothing else.
 | `purchases_flutter` / `purchases_ui_flutter` | `^9.0.0` | RevenueCat SDK and prebuilt paywall |
 | `image_picker` | `^1.2.3` | Avatar upload (gallery only — see §15) |
 | `qr_flutter` | `^4.1.0` | QR codes for invite links |
+| `url_launcher` | `^6.3.1` | Opens the hosted privacy policy and terms |
 
 There is **no** router package, no code generation, and no local database. Navigation is an
 `IndexedStack` in the shell; all persistent state lives on the server.
@@ -97,8 +98,9 @@ fluterFront/lib/
 │
 ├── data/starter_packs.dart       # Localized starter-task catalogue
 ├── theme/app_theme.dart          # Colour, radius and typography tokens
-├── utils/                        # json.dart (toNum etc.), avatar_upload.dart
-└── l10n/app_{en,es,fr,de}.arb    # 783 keys × 4 languages
+├── utils/                        # json.dart (toNum etc.), avatar_upload.dart,
+│                                 # legal_links.dart (privacy + terms)
+└── l10n/app_{en,es,fr,de}.arb    # 787 keys × 4 languages
 ```
 
 `lib/l10n/app_localizations*.dart` is **generated** by `flutter gen-l10n` and gitignored —
@@ -274,6 +276,21 @@ everywhere.
 
 ---
 
+### Legal documents
+
+`utils/legal_links.dart` holds the two hosted URLs and the `LegalLinks` block that renders
+them in Personal Area, directly beneath the subscription card. Both stores require a reachable
+privacy policy, and Apple requires the policy **and** the terms of use to be reachable inside
+the app when it sells auto-renewable subscriptions (Guideline 3.1.2).
+
+The pages themselves are plain HTML in `web/`, so the Flutter build publishes them and
+`nginx.conf` maps the extensionless `/privacy` and `/terms` onto them — the native apps and the
+web build point at the same URLs. Both are overridable at build time
+(`--dart-define=PRIVACY_URL=… --dart-define=TERMS_URL=…`), and `test/legal_links_test.dart`
+guards the two ways this breaks quietly: a malformed URL, and a language missing the labels.
+
+---
+
 ## 12. Onboarding, Tours and Telemetry
 
 Three layers, all shipped:
@@ -327,14 +344,14 @@ The web build is what the `fluterFront` Docker image serves through nginx. Store
 
 ```bash
 flutter analyze     # must be clean
-flutter test        # 40 tests
+flutter test        # 44 tests
 ```
 
 `test/` covers the pure logic and the widget contracts that are cheap to assert and expensive
 to get wrong: locale resolution and key parity across all four languages
 (`l10n_test.dart`, `locale_test.dart`), error localization, activity kinds, starter packs, the
-absence dialog's window rules, and the personal-time sheet (types, repeats, and that the sheet
-seeds its window from the tapped slot).
+absence dialog's window rules, the personal-time sheet (types, repeats, and that the sheet
+seeds its window from the tapped slot), and the legal-link contract (`legal_links_test.dart`).
 
 There is **no end-to-end layer** — see `docs/automatic-testing-E2E.md`, which names that gap
 and keeps the retired Playwright harness as a model for what a Flutter equivalent

@@ -18,6 +18,10 @@
   "back": "Atrás",
 
   "languageTitle": "Idioma",
+  "legalTitle": "Legal",
+  "legalPrivacyPolicy": "Política de privacidad",
+  "legalTerms": "Términos de uso",
+  "legalOpenFailed": "No se pudo abrir el enlace. Visita {url} en tu navegador.",
   "languageSystem": "Idioma del sistema",
 
   "welcomeTitle": "¡Bienvenido a CareCoins! 👋",
