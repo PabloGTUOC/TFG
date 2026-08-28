@@ -1,10 +1,12 @@
 # CareCoins — Automated Test Suite
 
-> **Two of the three layers described here no longer exist on `main`.** The Vitest and
-> Playwright suites belonged to the Vue 3 SPA, which was retired in `7132e6a` and lives on
-> the `vue-frontend` branch — where §3, §4 and most of §5 below still apply verbatim. On
-> `main` the frontend is Flutter and there is **no end-to-end layer at all**; that is the
-> real gap this document now records.
+> **Two of the three layers described here no longer exist.** The Vitest and Playwright
+> suites belonged to the Vue 3 SPA, which was **decommissioned** in `7132e6a`; its code is
+> archived on the `vue-frontend` branch purely so the work is not lost — that branch is not
+> maintained and is not run in CI or anywhere else. On `main` the frontend is Flutter and
+> there is **no end-to-end layer at all**; that gap is what this document now records. The
+> Playwright sections are kept as a design model for a Flutter equivalent, not as a suite
+> anyone is expected to run.
 
 ## Overview — what actually runs on `main`
 

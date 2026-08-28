@@ -1,7 +1,8 @@
 # Mobile Usability — Suggested Improvements (Vue-era review)
 
-> **Reviews `frontend/src`, which no longer exists on `main`** — the Vue SPA was retired in
-> `7132e6a` and lives on the `vue-frontend` branch. The *findings* about mobile behaviour
+> **Reviews `frontend/src`, which no longer exists on `main`** — the Vue SPA was
+> decommissioned in `7132e6a` and is archived on the `vue-frontend` branch (kept so the work
+> is not lost; not maintained, not deployable). The *findings* about mobile behaviour
 > largely carried over into the Flutter port, but every file path and code reference below
 > points at the retired app. For the Flutter equivalent see `fluterFront/MOBILE_AUDIT.md`
 > (also dated) and `docs/onboarding-help-plan.md`.

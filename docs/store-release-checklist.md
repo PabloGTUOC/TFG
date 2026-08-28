@@ -6,9 +6,15 @@ proxies `/api` and `/uploads` to the backend container. Nothing extra to
 expose; release builds just bake in the absolute URL:
 
 ```bash
-flutter build ipa       --dart-define=API_BASE=https://mycarecoins.app
-flutter build appbundle --dart-define=API_BASE=https://mycarecoins.app
+flutter build ipa       --dart-define=API_BASE=https://mycarecoins.app \
+                        --dart-define=RC_IOS_KEY=appl_…
+flutter build appbundle --dart-define=API_BASE=https://mycarecoins.app \
+                        --dart-define=RC_ANDROID_KEY=goog_…
 ```
+
+> **The RevenueCat defines are not optional.** `PurchaseService` falls back to RevenueCat's
+> **test store** key when they are absent, so a release built without them installs, runs,
+> shows a paywall — and sells nothing. Nothing in the build output warns you.
 
 Cleartext HTTP is dev-only as of 2026-07-11: iOS ships
 `NSAllowsLocalNetworking` (no `NSAllowsArbitraryLoads`), Android's
@@ -20,6 +26,8 @@ Cleartext HTTP is dev-only as of 2026-07-11: iOS ships
 
 - [ ] Bump `version:` in `fluterFront/pubspec.yaml` (`x.y.z+buildNumber`;
       the build number must increase on every store upload).
+      **Currently `0.1.0` with no `+build` suffix** — set something like
+      `1.0.0+1` before the first upload.
 - [ ] `flutter analyze && flutter test` clean.
 - [ ] Smoke-test a **release-mode** build on a real device
       (`flutter run --release --dart-define=API_BASE=https://mycarecoins.app`):
@@ -75,6 +83,13 @@ Every release:
 
 - [ ] Privacy policy URL — **required** by both stores (the app has
       accounts, avatars, push). Host it on mycarecoins.app.
+- [ ] **Terms of Use (EULA) + Privacy Policy reachable from inside the app.**
+      Apple requires both for auto-renewable subscriptions (Guideline 3.1.2)
+      and rejects paywalls without them. There is currently **no privacy or
+      terms link anywhere in `lib/` or the ARB files** — either add the links
+      to the RevenueCat paywall configuration (dashboard-side, which is the
+      cheap route since the paywall is RevenueCat-rendered) or put them in
+      Personal Area. Verify on a real build before submitting.
 - [ ] Data-safety / privacy-nutrition forms: account data (email, name,
       avatar), user content (tasks, rewards), device token for push.
       No ads, no tracking SDKs.
@@ -96,11 +111,12 @@ Every release:
 
 ---
 
-## Before shipping subscriptions (Phase 4 prep — not yet active)
+## Subscriptions — **active in the app, so these are required, not preparation**
 
-When RevenueCat / in-app purchases land
-(`docs/admin-family-management-plan.md` Phase 4), both stores add review
-requirements that are cheaper to prepare early:
+RevenueCat is wired and the paywall is reachable from Personal Area
+(`widgets/subscription_card.dart` → `services/purchase_service.dart`), so the
+app ships auto-renewable subscriptions. Everything below is a **review
+requirement for the first submission**, not future prep:
 
 - [ ] Subscription products created in App Store Connect and Play Console
       (matching product IDs), attached to a RevenueCat project with a

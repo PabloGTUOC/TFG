@@ -13,10 +13,12 @@ git push origin main ───┼─▶ 2. iOS app                  TestFlight �
 Do **1 first**: the store apps are built against the public API URL, so
 the server must already serve the new stack.
 
-State as of 2026-07-11: main serves the Flutter frontend (`fluterFront/`);
-the retired Vue app lives complete on the `vue-frontend` branch. The
-`fluterFront` Docker image is verified to build. Store network configs are
-release-safe (no cleartext HTTP outside debug builds).
+State: `main` serves the Flutter frontend (`fluterFront/`) — the only frontend.
+The Vue app is **decommissioned**; its code is archived on the `vue-frontend`
+branch purely so the work is not lost, and it is neither maintained nor
+deployable (see Rollback below). The `fluterFront` Docker image is verified
+to build. Store network configs are release-safe (no cleartext HTTP outside
+debug builds).
 
 ---
 
@@ -49,8 +51,25 @@ with email → sign in with Google → an avatar image loads (proves
 `/uploads` proxying) → enable push notifications (proves the
 `firebase-messaging-sw.js` service worker).
 
-**Rollback:** `git checkout vue-frontend && docker compose up --build -d`
-restores the Vue frontend against the same backend and data.
+**Rollback: NOT to `vue-frontend`.** That instruction was written on 2026-07-11, when the
+branch was days old and the schema still matched. It is now **unsafe** — the branch carries
+its own *backend*, which predates six migrations that have since run against production:
+`migrate-absence-floor`, `migrate-activity-subclasses`, `migrate-heartbeat`,
+`migrate-personal-time`, `migrate-plans`, `migrate-platform-admin`. Checked out today it
+would run an old `db-init` and an old API against a database where, among other things,
+`activities.category` and `activities.type` are `NOT NULL` — every activity insert it makes
+would fail. **The `vue-frontend` branch is a decommissioned archive, kept only so the work is
+not lost. It is not a deployment target and must never be deployed.**
+
+To roll back, redeploy the **previous `main` commit** instead:
+
+```bash
+git checkout <last-known-good-sha> && docker compose up --build -d
+```
+
+Migrations are additive and idempotent, so an earlier `main` runs against the current
+database — but check that the commit you pick is not older than a migration whose columns
+its code requires.
 
 ---
 

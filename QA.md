@@ -1,7 +1,8 @@
 # Tribunal Q&A Preparation — CareCoins TFG
 
 > **Written against the Vue 3 architecture, which `main` no longer uses.** The Vue SPA was
-> retired in `7132e6a` (preserved on the `vue-frontend` branch) and replaced by a Flutter
+> decommissioned in `7132e6a` (code archived on the `vue-frontend` branch, kept only so the
+> work is not lost — not maintained, not deployable) and replaced by a Flutter
 > codebase serving web, iOS and Android. Answers below that turn on Vue, Pinia, Vite,
 > `vite-plugin-pwa`, Vitest or Playwright describe a real part of the project's history, but
 > **do not describe the code as it stands** — say so if asked, rather than presenting them as

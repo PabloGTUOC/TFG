@@ -253,7 +253,8 @@ Full design and implementation log: `docs/personal-time-plan.md`.
 | Container | Docker Compose (nginx + node + postgres) |
 | Testing | Node's built-in `--test` (backend), `flutter test` + `flutter analyze` (frontend) |
 
-The Vue 3 SPA this product was first built as was retired from `main` in `7132e6a` and is
-preserved complete on the `vue-frontend` branch; `docs/frontend.md` still describes it.
+The Vue 3 SPA this product was first built as is **decommissioned**: removed from `main` in
+`7132e6a` and archived on the `vue-frontend` branch purely so the work is not lost. It is not
+maintained and not deployable. `docs/frontend.md` describes it as a design record.
 
-See `README.md` Part 1 for the Flutter structure and `docs/backend.md` for the API.
+See `docs/flutter-frontend.md` for the frontend and `docs/backend.md` for the API.

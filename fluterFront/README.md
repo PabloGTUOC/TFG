@@ -1,9 +1,9 @@
 # CareCoins — Flutter frontend (`fluterFront`)
 
 **The** CareCoins frontend, targeting **web, iOS and Android** from one codebase. It began
-as a port of the Vue 3 SPA; that app was retired from `main` in `7132e6a` and is preserved
-on the `vue-frontend` branch, so the comparisons to it below are history rather than a
-description of anything you can run here. It talks to `../backend` (port 3000 by default)
+as a port of the Vue 3 SPA; that app is **decommissioned** — removed from `main` in `7132e6a`
+and archived on the `vue-frontend` branch so the work is not lost, but not maintained and not
+deployable. The comparisons to it below are history, not a description of anything runnable. It talks to `../backend` (port 3000 by default)
 with Firebase-ID-token auth.
 
 ## What is ported

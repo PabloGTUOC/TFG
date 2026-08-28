@@ -393,7 +393,8 @@ Mobile badges and home-screen behaviour need HTTPS — deploy or tunnel. On macO
 | `docs/PRODUCT.md` | Users, purpose, brand, design principles, feature set |
 | `docs/DESIGN.md` | Design tokens and component rules |
 | `docs/backend.md` | Backend technical reference (§18 covers admin, billing and retention) |
-| `docs/frontend.md` | **Retired Vue SPA** technical reference — kept for the `vue-frontend` branch; the current frontend is described in Part 1 above |
+| `docs/flutter-frontend.md` | **Frontend technical reference** — structure, state, API client, l10n, push, purchases, build and run |
+| `docs/frontend.md` | **Decommissioned Vue SPA** technical reference — kept for the `vue-frontend` branch; the current frontend is described in Part 1 above |
 | `docs/database-schema.md` | Full column-level schema reference |
 | `docs/admin-family-management-plan.md` | Platform admin, registry and subscription design + implementation log |
 | `docs/RevenueCatSetup.md` | RevenueCat dashboard configuration record and store checklist |
