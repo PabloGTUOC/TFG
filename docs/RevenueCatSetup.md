@@ -154,6 +154,6 @@ are visible on the family's billing card.
 - [ ] `mycarecoins.app/terms` and `/privacy` live (Apple requires both
       linked from the paywall).
 - [ ] Sandbox matrix on both stores — see
-      `docs/store-release-checklist.md` ("Before shipping subscriptions").
+      `docs/deployment-and-delivery.md` §6 (store listings and paperwork).
 - [ ] Flip entitlement limits from soft warnings to hard enforcement
       (plan §5 Phase 4 decision log).

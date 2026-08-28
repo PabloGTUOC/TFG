@@ -3,7 +3,7 @@
 > **This describes the Vue 3 app, which is decommissioned.** It was removed from `main` in
 > `7132e6a`; the code is archived on the `vue-frontend` branch purely so the work is not lost.
 > That branch is **not maintained, not deployable and must not be built on** — its backend is
-> six migrations behind production (see `docs/deployment.md` → Rollback). Nothing in this file
+> six migrations behind production (see `docs/deployment-and-delivery.md` §9). Nothing in this file
 > describes code that runs anywhere today; it is kept as a design record.
 >
 > **The current frontend is Flutter** (`fluterFront/`, one codebase for web, iOS and Android).

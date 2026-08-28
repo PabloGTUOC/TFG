@@ -406,8 +406,8 @@ Mobile badges and home-screen behaviour need HTTPS — deploy or tunnel. On macO
 | `docs/automatic-testing-E2E.md` | What the test layers are, and the E2E gap left by the Vue retirement |
 | `docs/mobile-usability-improvements.md` | **Vue-era** mobile review, kept for the findings |
 | `QA.md` | Tribunal Q&A prep — **written against the Vue architecture**, see its banner |
-| `docs/store-release-checklist.md` | Per-release store steps, including IAP review prep |
-| `docs/deployment.md` · `docs/running-instructions.txt` | Server deployment and run instructions |
+| `docs/deployment-and-delivery.md` | **The runbook**: server deploy, iOS and Android delivery, and the Firebase / RevenueCat / Apple / Play configuration they depend on |
+| `docs/running-instructions.txt` | Local run instructions |
 | `docs/automatic-testing-E2E.md` | E2E suite description (`vue-frontend` branch) |
 | `docs/mobile-usability-improvements.md` | Mobile audit findings |
 | `QA.md` | Thesis defence Q&A: architecture, concurrency, security, privacy boundary, subscriptions |

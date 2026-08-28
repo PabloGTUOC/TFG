@@ -304,7 +304,7 @@ purchases inside the apps.
 - Docs: update `backend.md` (RBAC §, admin router, billing webhook),
   `database-schema.md`, `PRODUCT.md`; `QA.md` entries (403 matrix, leak-prevention,
   entitlement/suspension, webhook idempotency).
-- Store-release checklist additions (`docs/store-release-checklist.md`): IAP review
+- Store-release checklist additions (now `docs/deployment-and-delivery.md` §6): IAP review
   requirements, subscription disclosures, restore-purchases flow (Apple requires it —
   ours is trivial: entitlements come from the backend).
 
@@ -429,7 +429,7 @@ no screen that shows members, tasks or coins, mirroring the API boundary.
 |---|---|
 | Retention sweep | `src/services/retentionService.js` + `scripts/retention-sweep.js` — dry-run by default, `--apply` to delete; candidates need BOTH `last_active_at` older than `--inactive-days` (365) AND a `family.notify_inactive` audit entry older than `--notice-days` (30); the DELETE re-verifies inactivity so a returning family is skipped; audited as the admin whose notice started the process |
 | Re-auth plumbing | `req.auth.authTime` (Firebase `auth_time`) now available for future recent-login guards |
-| Docs | `backend.md` §18 (operational reference), `database-schema.md` (5 new tables, 2 new columns, 4 new indexes), `PRODUCT.md` feature §13, `QA.md` §12 (tribunal Q&A on the privacy boundary and subscriptions), `store-release-checklist.md` (Phase 4 IAP prep checklist) |
+| Docs | `backend.md` §18 (operational reference), `database-schema.md` (5 new tables, 2 new columns, 4 new indexes), `PRODUCT.md` feature §13, `QA.md` §12 (tribunal Q&A on the privacy boundary and subscriptions), `deployment-and-delivery.md` §6 (Phase 4 IAP prep checklist) |
 | Tests | `tests/retention.test.js` |
 
 Decision on **re-auth for destructive admin actions**: deferred, deliberately.
@@ -477,7 +477,7 @@ Decisions taken during implementation:
   catalog.
 
 **What remains outside the repo** (operator checklist, see also
-`docs/store-release-checklist.md`):
+`docs/deployment-and-delivery.md` §6):
 
 1. App Store Connect + Play Console: create the three subscription
    products; attach store credentials in RevenueCat.

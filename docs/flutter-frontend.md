@@ -336,7 +336,7 @@ flutter build appbundle --dart-define=API_BASE=https://mycarecoins.app --dart-de
 ```
 
 The web build is what the `fluterFront` Docker image serves through nginx. Store steps:
-`docs/store-release-checklist.md`; server deployment: `docs/deployment.md`.
+`docs/deployment-and-delivery.md`, which covers the server and both stores.
 
 ---
 
@@ -370,7 +370,17 @@ and keeps the retired Playwright harness as a model for what a Flutter equivalen
   terminate the app on first use.
 - **Android release signing** currently falls back to the debug config in
   `android/app/build.gradle.kts`. Play rejects debug-signed uploads; wire a real
-  `signingConfigs.release` before the first upload (`docs/store-release-checklist.md`).
+  `signingConfigs.release` before the first upload (`docs/deployment-and-delivery.md` §5).
 - **Google Sign-In needs the right SHA-1s in Firebase** — both the upload keystore's and the
   Play App Signing one — or production sign-in fails with error code 10 while debug works.
+- **Switching a simulator between production Firebase and the auth emulator needs
+  `xcrun simctl erase`.** Firebase persists the session in the iOS **keychain**, which
+  survives `flutter run`, an app reinstall, and `simctl uninstall`. The old session is
+  restored, the new backend rejects its token, and every call fails with
+  `Invalid or expired token`. Erasing the device is the only reliable reset:
+
+  ```bash
+  xcrun simctl shutdown <udid> && xcrun simctl erase <udid> && xcrun simctl boot <udid>
+  ```
+
 - **`ApiClient`'s doc comment says 10s; the code uses 20s.** The code is what runs.
