@@ -335,11 +335,20 @@ else
 
   # A mounted route answers 401 for a missing token; an unmounted one falls
   # through to the 404 handler. That is what tells us the new code is live.
-  for path in /api/me /api/activities /api/personal-time /api/admin/families /api/billing/webhook; do
+  for path in /api/me /api/activities /api/personal-time /api/admin/families; do
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$DEPLOY_URL$path" || echo 000)"
     if [[ "$code" == "401" ]]; then ok "$path -> 401 (mounted)"
     else warn "$path -> $code"; FAILED=$((FAILED + 1)); fi
   done
+
+  # /api/billing/webhook is POST-only, so a GET returns 404 whether or not it is
+  # mounted. Only POST distinguishes "not deployed" (404) from "deployed, and it
+  # rejected the empty body" (401).
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+          -X POST -H 'Content-Type: application/json' -d '{}' \
+          "$DEPLOY_URL/api/billing/webhook" || echo 000)"
+  if [[ "$code" == "401" ]]; then ok "/api/billing/webhook -> 401 (mounted)"
+  else warn "/api/billing/webhook -> $code (POST; 404 means billing is not deployed)"; FAILED=$((FAILED + 1)); fi
 
   for path in / /privacy /terms; do
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$DEPLOY_URL$path" || echo 000)"

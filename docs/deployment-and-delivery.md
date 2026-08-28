@@ -56,9 +56,14 @@ Repeat the probe any time you want to know what is actually deployed — an unmo
 falls through to the 404 handler, a mounted one answers 401:
 
 ```bash
-for p in /api/me /api/personal-time /api/admin/families /api/billing/webhook; do
+for p in /api/me /api/personal-time /api/admin/families; do
   printf "%-28s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' https://mycarecoins.app$p)"
 done
+# /api/billing/webhook is POST-only — a GET returns 404 either way, so it has to
+# be asked properly. 401 = mounted and it rejected the body; 404 = not deployed.
+curl -s -o /dev/null -w 'billing %{http_code}\n' -X POST \
+     -H 'Content-Type: application/json' -d '{}' \
+     https://mycarecoins.app/api/billing/webhook
 ```
 
 ---
@@ -85,9 +90,27 @@ docker compose exec -T postgres pg_dump -U <user> <db> > backup-$(date +%F).sql
 ```
 
 The one to watch is **`migrate-activity-subclasses.sql`**: it renames `category` → `type` and
-adds a new `category`, rewriting existing activity rows. It is written to be idempotent from
-three starting shapes and was verified against Postgres 16, but it is the only migration here
-that touches existing rows rather than adding to them.
+adds a new `category`, rewriting existing activity rows. It is the only migration here that
+touches existing rows rather than adding to them.
+
+**This upgrade has been rehearsed** (2026-08-28), not just reasoned about. The `vue-frontend`
+branch carries the schema production actually runs, so it was rebuilt on Postgres 16, seeded
+with representative data — twelve activities across both old categories, templates and
+instances, four statuses, plus ledger rows, balances, an absence, a reward and an actor — and
+then upgraded with the current `db:init`. Results:
+
+| | Before | After |
+|---|---|---|
+| activities | 12 (care 8, household 4) | 12 (all `category='care'`; `type` care 8 / household 4) |
+| templates | 3 | 3 |
+| ledger sum | 50 | 50 |
+| balances | Ana=320, Ben=145 | unchanged |
+| absences · rewards · actors | 1 · 1 · 1 | unchanged |
+
+Nothing was lost, the old `category` became `type` exactly as intended, a second `db:init`
+changed nothing further, and the compound CHECK then correctly rejected both `self` +
+`coverage` and a `self` activity carrying coins. The new backend starts against the upgraded
+database with no errors and every route mounted.
 
 ### Deploy
 
