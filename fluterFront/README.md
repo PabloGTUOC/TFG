@@ -1,15 +1,17 @@
 # CareCoins — Flutter frontend (`fluterFront`)
 
-Flutter port of the Vue frontend in `../frontend`, targeting **web, iOS and Android**.
-It is not the main frontend yet — it exists to start optimizing for native deployment.
-It talks to the same backend (`../backend`, port 3000) with the same Firebase-ID-token auth.
+**The** CareCoins frontend, targeting **web, iOS and Android** from one codebase. It began
+as a port of the Vue 3 SPA; that app was retired from `main` in `7132e6a` and is preserved
+on the `vue-frontend` branch, so the comparisons to it below are history rather than a
+description of anything you can run here. It talks to `../backend` (port 3000 by default)
+with Firebase-ID-token auth.
 
 ## What is ported
 
-- **Design system** (`lib/theme/app_theme.dart`): the exact tokens from `frontend/src/style.css`
-  (colors, radii, Plus Jakarta Sans via `google_fonts`), plus Flutter twins of `VCard`,
-  `VButton`, `VInput`, `KpiCard` and the pill header / bottom tab bar from `App.vue`
-  (`lib/widgets/ui.dart`, `lib/screens/shell.dart`).
+- **Design system** (`lib/theme/app_theme.dart`): the tokens documented in `docs/DESIGN.md`
+  (colors, radii, Plus Jakarta Sans via `google_fonts`), plus `VCard`, `VButton`, `VInput`,
+  `KpiCard` and the pill header / bottom tab bar (`lib/widgets/ui.dart`,
+  `lib/screens/shell.dart`).
 - **State + API** (`lib/state/app_state.dart`, `lib/services/api_client.dart`): mirrors
   `stores/auth.js` / `stores/family.js` — Firebase auth (email/password + Google), `/api/me`
   sync, login/logout events, success/error toasts with the same timings.
@@ -25,8 +27,11 @@ It talks to the same backend (`../backend`, port 3000) with the same Firebase-ID
   deletion requests). Pull-to-refresh and error/retry states on all main screens; FCM
   push notifications wired end-to-end in code.
 
-Vue parity is complete — see `MOBILE_AUDIT.md` for the remaining mobile-specific work
-(the authoritative open-points list) and `VUE_PARITY_GAPS.md` for the parity history.
+Vue parity was reached before the retirement. `MOBILE_AUDIT.md` and `VUE_PARITY_GAPS.md`
+are **dated July 2026 audits kept as history** — they predate personal time, coverage,
+subscriptions and the four-language rollout, so check them against the code before acting on
+anything they list. Features shipped since are logged in `docs/personal-time-plan.md`,
+`docs/admin-family-management-plan.md` and `docs/i18n-plan.md`.
 
 ## Running it
 

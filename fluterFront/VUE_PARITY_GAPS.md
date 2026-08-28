@@ -1,5 +1,9 @@
 # Vue → Flutter parity gaps
 
+> **Historical: closed.** Parity was reached, and the Vue frontend was retired from `main` in
+> `7132e6a` (preserved on the `vue-frontend` branch), so there is no longer a gap to track.
+> Kept as the record of how the port was driven and what was deliberately not carried over.
+
 Audit date: 2026-07-06 (after the Daily-parity + Family Circle + charts batch).
 Method: full re-scan of `frontend/src` (views, components, composables) against `fluterFront/lib`.
 

@@ -28,6 +28,7 @@ The schema uses PostgreSQL with the `uuid-ossp` extension loaded. Most tables us
 20. [billing_events](#20-billing_events)
 21. [admin_grants](#21-admin_grants)
 22. [personal_time_requests](#22-personal_time_requests)
+23. [onboarding_events](#23-onboarding_events)
 
 ---
 
@@ -544,6 +545,27 @@ existing query over `activities` keeps working untouched.
   "what am I being asked".
 - **Declines are never counted anywhere** — not in stats, not on the dashboard. Declining has to
   stay free and invisible, or the sweetener stops being an offer and becomes social pressure.
+
+---
+
+## 23. `onboarding_events`
+
+Instrumentation for the guided tour and the activation checklist — which steps a user
+reached, and where they stopped. Written by `POST /api/events`; see
+`docs/family-setup-questionnaire-plan.md` and `docs/onboarding-help-plan.md`.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | BIGSERIAL | PRIMARY KEY | Internal identifier |
+| `user_id` | BIGINT | NOT NULL, FK → users(id) ON DELETE CASCADE | Who the event belongs to |
+| `event` | TEXT | NOT NULL | Event name, e.g. a tour step or checklist item |
+| `detail` | JSONB | — | Free-form payload for the event |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When it happened |
+
+**Logic notes:**
+- Deliberately append-only and user-scoped, not family-scoped: it records what a *person*
+  did during onboarding, and cascades away with the account.
+- No index beyond the primary key — the table is written far more often than it is read.
 
 ---
 

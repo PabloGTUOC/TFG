@@ -60,14 +60,14 @@ Tokens ported 1:1 from the Vue app's `style.css` into `lib/theme/app_theme.dart`
 ### Widgets, services and data (`lib/`)
 
 - **`widgets/ui.dart`** — the design-system kit: `VCard`, `VButton`, `VInput`, `KpiCard`, `PillBadge`, `SegmentedTabs`, `Tappable`, `EmptyState`, `LoadErrorState`, `PageHeading`, `AvatarCircle`, `AssigneeBadge`.
-- **`widgets/`** — `family_circle.dart` (dependents, invites, QR), `charts.dart`, `absence_dialog.dart`, `help_sheet.dart`, `coach_marks.dart` + `activation_checklist.dart` (guided onboarding), `subscription_card.dart` (MyCareCoins Pro).
+- **`widgets/`** — `family_circle.dart` (dependents, invites, QR), `charts.dart`, `absence_dialog.dart`, `personal_time_dialog.dart` (ask for personal time: window, repeat, who to ask, sweetener), `help_sheet.dart`, `coach_marks.dart` + `activation_checklist.dart` (guided onboarding), `subscription_card.dart` (MyCareCoins Pro).
 - **`services/api_client.dart`** — thin REST client: JSON in/out, Bearer token, timeouts, and typed `ApiException`s localized at the display boundary.
 - **`services/purchase_service.dart`** — RevenueCat SDK wrapper: configure, identity sync, paywall, Customer Center, restore. No-ops on web.
 - **`services/push_service.dart`** — FCM token lifecycle (register on enable, silent refresh on startup, remove on disable) and foreground message handling.
 - **`services/telemetry.dart`**, **`services/tour_service.dart`** — onboarding instrumentation and the guided tour.
 - **`state/app_state.dart`** — auth session, `/api/me` payload, current family, locale, toasts, `isCaregiver` / `isPlatformAdmin`.
 - **`data/starter_packs.dart`** — the localized starter-task catalogue ([Part 5](#part-5-onboarding--starter-tasks)).
-- **`l10n/app_*.arb`** — 719 keys × 4 languages, compiled by `flutter gen-l10n`. `untranslated.json` must be empty before release (see `docs/i18n-plan.md`).
+- **`l10n/app_*.arb`** — 783 keys × 4 languages, compiled by `flutter gen-l10n`. `untranslated.json` must be empty before release (see `docs/i18n-plan.md`).
 
 ### PWA (web build)
 
@@ -92,6 +92,9 @@ Business logic is separated from HTTP routing. Each function receives a DB `clie
 | `entitlementService.js` | `getFamilyEntitlements` (merges default plan + subscription + grants), `limitWarning`, `assertFamilyWritable` |
 | `billingService.js` | RevenueCat webhook normalization into `family_plans`, idempotent via `billing_events.event_id` |
 | `retentionService.js` | Finds and deletes families that were noticed as inactive and stayed silent |
+| `absenceService.js` | Absence CRUD and the **24 h floor** — below a day it is personal time, not time off |
+| `personalTimeService.js` | Personal-time requests: `quoteRequest`, `createRequest`, `acceptRequest`, `declineRequest`, `cancelRequest`, `expireStaleRequests`, plus the pure rules `validateSelfWindow`, `priceCoverage`, `expiryFor`, `occurrencesFor` |
+| `distributionService.js` | The monthly GDP residual, presence-weighted so an absent caretaker's share goes to whoever was home |
 
 ### Middleware (`src/middleware/`)
 
@@ -390,13 +393,18 @@ Mobile badges and home-screen behaviour need HTTPS — deploy or tunnel. On macO
 | `docs/PRODUCT.md` | Users, purpose, brand, design principles, feature set |
 | `docs/DESIGN.md` | Design tokens and component rules |
 | `docs/backend.md` | Backend technical reference (§18 covers admin, billing and retention) |
-| `docs/frontend.md` | Frontend technical reference |
+| `docs/frontend.md` | **Retired Vue SPA** technical reference — kept for the `vue-frontend` branch; the current frontend is described in Part 1 above |
 | `docs/database-schema.md` | Full column-level schema reference |
 | `docs/admin-family-management-plan.md` | Platform admin, registry and subscription design + implementation log |
 | `docs/RevenueCatSetup.md` | RevenueCat dashboard configuration record and store checklist |
 | `docs/family-setup-questionnaire-plan.md` | Starter tasks and setup questionnaire design + log |
 | `docs/i18n-plan.md` | Localization workflow and guardrails |
-| `docs/onboarding-help-plan.md` | Guided tour, help sheet, activation checklist |
+| `docs/onboarding-help-plan.md` | Guided tour, help sheet, activation checklist (layers 1–3 shipped) |
+| `docs/personal-time-plan.md` | Personal time and coverage — the full design and per-phase implementation log |
+| `docs/personal-time-handoff.md` | Superseded handoff for that work; kept for the class model and known issues |
+| `docs/automatic-testing-E2E.md` | What the test layers are, and the E2E gap left by the Vue retirement |
+| `docs/mobile-usability-improvements.md` | **Vue-era** mobile review, kept for the findings |
+| `QA.md` | Tribunal Q&A prep — **written against the Vue architecture**, see its banner |
 | `docs/store-release-checklist.md` | Per-release store steps, including IAP review prep |
 | `docs/deployment.md` · `docs/running-instructions.txt` | Server deployment and run instructions |
 | `docs/automatic-testing-E2E.md` | E2E suite description (`vue-frontend` branch) |

@@ -1,5 +1,14 @@
 # Onboarding & In-App Help Plan
 
+> **Status: layers 1–3 are implemented and wired in.** `widgets/help_sheet.dart` (with the
+> glossary) opens from the shell and Personal Area; `widgets/coach_marks.dart` +
+> `services/tour_service.dart` drive per-tab tours on all six screens;
+> `widgets/activation_checklist.dart` sits on the dashboard. The measurement plumbing exists
+> too — `services/telemetry.dart` → `POST /api/events` → the `onboarding_events` table.
+> What remains is phase 4's *iterate* half: reading those events and acting on wherever
+> users actually abandon. The Flutter-only note below reflects the Vue retirement in
+> `7132e6a`.
+
 **Problem.** Users report they don't understand the app's mechanics. CareCoins has a
 7-step core loop (create task → approve → schedule → complete → validate → coins land →
 spend in store) spread across 5 tabs, plus invented vocabulary (cc, bounty, validation,
@@ -46,13 +55,15 @@ no idea what to do first.
 ## Technical shape
 
 - **State**: per-user flags for "seen tour X / dismissed checklist". Start with
-  `SharedPreferences` (Flutter) / `localStorage` (Vue) — device-local, zero backend work.
+  `SharedPreferences` (Flutter) — device-local, zero backend work.
   If cross-device matters later, add an `onboarding_state` JSONB column on `users`.
 - **Flutter coach marks**: hand-rolled spotlight overlay (~150 lines: dark scrim + cutout
   + pill-styled tooltip using the design system) rather than a package — matches
   DESIGN.md, no dependency risk. (`showcaseview` is the fallback package option.)
-- **Vue**: `driver.js` for the same tours. Keep the copy for both frontends in one shared
-  JSON so the two apps never drift.
+- **Copy**: keep tour and glossary strings in the ARB files with everything else, so all
+  four languages stay in step. (This bullet originally planned a `driver.js` twin for the
+  Vue app; that frontend was retired in `7132e6a`, so there is only one app to keep in sync
+  now.)
 - **Measurement**: log `tour_completed`, `tour_skipped`, `checklist_step_done` events
   (same pattern as `login_history`). Define activation as "first validated task within
   7 days" to evaluate whether this worked (useful evaluation section for the TFG).
@@ -65,5 +76,4 @@ no idea what to do first.
 3. **Activation checklist** on the dashboard.
 4. **Measurement + iterate** on whichever step users abandon.
 
-**Order of implementation**: Flutter first (active dev + user-testing track), port to Vue
-once the copy stabilizes.
+**Order of implementation**: Flutter only — there is no second frontend to port to.

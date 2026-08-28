@@ -250,7 +250,7 @@ Handles both invite-link joins (UUID token in URL) and email-invitation acceptan
 Overview of the family's current state. Coin balances per member, activity summary KPIs, recent completions. Dense but scannable — designed for a 30-second check-in.
 
 ### DailyView (signature view)
-Vertical timeline for a specific date. Scrollable, time-labelled rows. Day navigation via swipe or header arrows. This is the primary daily-use screen — every design decision prioritises speed and glanceability. Modals (`DailyModals.vue`) handle scheduling, completing, and bounty actions inline without leaving the view.
+Vertical timeline for a specific date. Scrollable, time-labelled rows. Day navigation via swipe or header arrows. This is the primary daily-use screen — every design decision prioritises speed and glanceability. Bottom sheets and dialogs (`lib/widgets/`, e.g. `personal_time_dialog.dart`, `absence_dialog.dart`) handle scheduling, completing, personal time and bounty actions inline without leaving the screen.
 
 ### ActivitiesView
 Kanban-style board with status columns. Caregivers approve and schedule from here. Members mark activities done. Filter chips allow narrowing by category or status.

@@ -1,5 +1,12 @@
 # Flutter frontend (`fluterFront`) — mobile audit
 
+> **Historical: audited 2026-07-07 at commit `e4cf875`.** Much has shipped since —
+> personal time and coverage, subscriptions and the admin console, the four-language
+> rollout, and the onboarding help layers. Treat the open-points list below as a snapshot,
+> not a to-do: check each item against the code before acting on it. Current status lives in
+> `docs/personal-time-plan.md`, `docs/admin-family-management-plan.md`,
+> `docs/i18n-plan.md` and `docs/onboarding-help-plan.md`.
+
 Audit date: **2026-07-07** (state as of commit `e4cf875 "Flutter ongoing"`).
 Scope: full read of `lib/` (~9,000 lines, 22 files), `test/`, `android/`, `ios/`, `web/`,
 `pubspec.yaml`, plus the running notes in `VUE_PARITY_GAPS.md` and `README.md`.

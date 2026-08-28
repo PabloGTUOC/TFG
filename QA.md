@@ -1,5 +1,26 @@
 # Tribunal Q&A Preparation — CareCoins TFG
 
+> **Written against the Vue 3 architecture, which `main` no longer uses.** The Vue SPA was
+> retired in `7132e6a` (preserved on the `vue-frontend` branch) and replaced by a Flutter
+> codebase serving web, iOS and Android. Answers below that turn on Vue, Pinia, Vite,
+> `vite-plugin-pwa`, Vitest or Playwright describe a real part of the project's history, but
+> **do not describe the code as it stands** — say so if asked, rather than presenting them as
+> current.
+>
+> Specifically out of date: the test inventory (§"How did you validate"), which cited 116
+> definitions across three layers. On `main` it is **200 backend tests** and **40 Flutter
+> tests**, with `flutter analyze` clean and **no E2E layer** — see
+> `docs/automatic-testing-E2E.md`. The strongest current answer on validation is that every
+> money-moving path is unit-tested against mock clients *and* verified against a real
+> Postgres 16, including a two-session run through the live HTTP API with users minted from
+> the Firebase Auth emulator (`docs/personal-time-plan.md`, Phase 5).
+>
+> The **architectural** answers about the backend — transactions, `FOR UPDATE` locking,
+> RBAC, token verification, the service/route split — all still hold; that design did not
+> change. But the backend has *grown*: personal time and coverage, the admin console,
+> billing and events were added, so any **count or list** below (routers, tables, tests) is
+> a snapshot of an earlier repo. `docs/backend.md` is the current reference.
+
 Compiled from the deep-dive session on the repository. Covers: likely tribunal questions, verified answers on concurrency, the PWA service-worker story, the Vite plugin explanation, and backend auth verification.
 
 ---
@@ -341,7 +362,7 @@ Any failure → 401. On success, verified claims become `req.auth = { uid, email
 
 **Q: "How are your routes organised? Why this structure?"**
 
-> Seven resource-oriented routers (`me`, `families`, `activities`, `dashboard`, `marketplace`, `stats`, `absences`), all mounted identically: `app.use('/api/X', requireAuth, perUserLimiter, router)`. For the complex domains (activities, families, members) routes are thin HTTP adapters: they parse params, open `withTransaction`, call a **service function**, map `{ error: { code, message } }` to an HTTP status, and fire notifications *after* the transaction commits. The core business logic lives in `src/services/` as pure functions that receive a DB client — which is exactly what makes the 44 backend unit tests possible without a database. (Simpler read-heavy routes query inline — see "Where does the SQL actually live?" in Section 8.)
+> Resource-oriented routers, nearly all mounted identically: `app.use('/api/X', requireAuth, perUserLimiter, familyHeartbeat, router)`. There are now eleven — `me`, `families`, `activities`, `dashboard`, `marketplace`, `stats`, `absences`, `personal-time`, `events`, plus two that deviate deliberately: `admin` sits behind an extra `requireAdmin` and its own rate limiter, and `billing` is mounted **before** `requireAuth` because the RevenueCat webhook authenticates by shared secret rather than a Firebase token. (This answer originally said seven; the shape is the same, the list grew.) For the complex domains (activities, families, members) routes are thin HTTP adapters: they parse params, open `withTransaction`, call a **service function**, map `{ error: { code, message } }` to an HTTP status, and fire notifications *after* the transaction commits. The core business logic lives in `src/services/` as pure functions that receive a DB client — which is exactly what makes the 44 backend unit tests possible without a database. (Simpler read-heavy routes query inline — see "Where does the SQL actually live?" in Section 8.)
 
 **Q: "Why do notifications fire after the transaction, and what if the notification fails?"**
 

@@ -1,4 +1,10 @@
-# Mobile Usability — Suggested Improvements
+# Mobile Usability — Suggested Improvements (Vue-era review)
+
+> **Reviews `frontend/src`, which no longer exists on `main`** — the Vue SPA was retired in
+> `7132e6a` and lives on the `vue-frontend` branch. The *findings* about mobile behaviour
+> largely carried over into the Flutter port, but every file path and code reference below
+> points at the retired app. For the Flutter equivalent see `fluterFront/MOBILE_AUDIT.md`
+> (also dated) and `docs/onboarding-help-plan.md`.
 
 Scope: frontend only (`frontend/src`). The database and backend business logic are out of scope.
 Findings come from a review of the Vue views, shared components, composables, global CSS, and the PWA/viewport setup, focused on the `@media (max-width: 768px)` experience.

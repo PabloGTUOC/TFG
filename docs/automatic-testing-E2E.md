@@ -1,11 +1,32 @@
 # CareCoins — Automated Test Suite
 
-> Complete reference for all three test layers.
-> All tests are deterministic, require no manual steps, and run without connecting to any external service.
+> **Two of the three layers described here no longer exist on `main`.** The Vitest and
+> Playwright suites belonged to the Vue 3 SPA, which was retired in `7132e6a` and lives on
+> the `vue-frontend` branch — where §3, §4 and most of §5 below still apply verbatim. On
+> `main` the frontend is Flutter and there is **no end-to-end layer at all**; that is the
+> real gap this document now records.
+
+## Overview — what actually runs on `main`
+
+| Layer | Runner | Tests | Command |
+|---|---|---|---|
+| Backend unit | Node `--test` (built-in) | **200** | `cd backend && npm test` |
+| Flutter unit + widget | `flutter test` | **40** | `cd fluterFront && flutter test` |
+| Static analysis | `flutter analyze` | — | `cd fluterFront && flutter analyze` |
+| End-to-end | — | **none** | — |
+
+Backend tests use mock DB clients and need no database. Migrations and the
+money-moving paths are additionally verified by hand against a throwaway Postgres 16
+container — see `docs/personal-time-plan.md` for the pattern, including a two-session run
+driving the real HTTP API with users minted from the Firebase Auth emulator.
+
+**The gap:** no automated E2E on `main`. The Playwright harness described below is a working
+model for what a Flutter equivalent (`integration_test/` + `flutter drive`) would need to do,
+which is why it is kept rather than deleted.
 
 ---
 
-## Overview
+## Overview — the retired Vue suite (`vue-frontend` branch)
 
 | Layer | Runner | Tests | Command |
 |---|---|---|---|
@@ -15,6 +36,9 @@
 | **Total** | | **116 unique / 141 executions** | |
 
 > ¹ The 47 unique E2E test definitions run as 72 Playwright executions because some spec files are assigned to multiple browser projects (e.g. `happy-paths.spec.js` runs on both Chromium and WebKit, `landing.spec.js` runs on two public projects). The "72" figure counts execution instances; "47" counts distinct test definitions.
+
+> The backend has moved on from the 44 tests counted here; everything below about
+> `frontend/` describes the retired app.
 
 ---
 

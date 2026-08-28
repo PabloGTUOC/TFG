@@ -1,5 +1,10 @@
 # Handoff — Flutter mobile bring-up (`fluterFront`)
 
+> **Historical: written 2026-07-07**, when Flutter was still a port running alongside the Vue
+> app. The bring-up it hands off is long done — Flutter is now the only frontend (`7132e6a`)
+> and ships to web, iOS and Android. Kept for the toolchain notes and the reasoning behind
+> the early setup; `README.md` in this directory has the runbooks that are still current.
+
 Written 2026-07-07 on branch `claude/flutter-frontend-audit-kxfn3i`, for resuming on a
 dev laptop (human + Claude Code). Read this first, then `MOBILE_AUDIT.md` for the full
 findings; `README.md` has the runbooks referenced below.

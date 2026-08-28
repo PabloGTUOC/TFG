@@ -59,12 +59,14 @@ backend/
 │   │   ├── schema.sql             # Full database schema (source of truth)
 │   │   ├── users.js               # upsertUserFromAuth(), assertActiveMember()
 │   │   ├── defaultActivities.js   # Seed data: default activity templates per actor type
+│   │   ├── ledgerReasons.js       # payoutReasons(): activity type → coin_ledger reason strings
 │   │   └── autoComplete.js        # runAutoCompleteSweep(): auto-award coins for expired approved activities
 │   │
 │   ├── middleware/
 │   │   ├── auth.js                # requireAuth() — Firebase ID token verification
 │   │   ├── audit.js               # logLoginHistory() — session audit logging
 │   │   ├── rbac.js                # requireRole() + assertMemberRole()
+│   │   ├── heartbeat.js           # familyHeartbeat() — touches families.last_active_at
 │   │   └── validate.js            # Request body/param validation helpers
 │   │
 │   ├── routes/
@@ -76,12 +78,22 @@ backend/
 │   │   ├── marketplace.js         # /api/marketplace — rewards + redemptions
 │   │   ├── stats.js               # /api/stats — charts and monthly aggregates
 │   │   ├── absences.js            # /api/absences — absence management
-│   │   └── personalTime.js        # /api/personal-time — ask, accept, decline, withdraw
+│   │   ├── personalTime.js        # /api/personal-time — ask, accept, decline, withdraw
+│   │   ├── admin.js               # /api/admin — platform registry, plans, grants
+│   │   ├── billing.js             # /api/billing — RevenueCat webhook (shared-secret auth)
+│   │   └── events.js              # /api/events — onboarding/telemetry events
 │   │
 │   ├── services/
 │   │   ├── activityService.js     # Activity business logic
 │   │   ├── familyService.js       # Family + deletion workflow logic
-│   │   └── memberService.js       # Member, actor, invitation logic
+│   │   ├── memberService.js       # Member, actor, invitation logic
+│   │   ├── absenceService.js      # Absences, including the 24 h floor
+│   │   ├── personalTimeService.js # Personal-time requests: quote, create, accept, expiry
+│   │   ├── distributionService.js # The monthly GDP residual, presence-weighted
+│   │   ├── adminService.js        # Platform registry and audit
+│   │   ├── entitlementService.js  # Plan + subscription + grant merge
+│   │   ├── billingService.js      # RevenueCat event handling
+│   │   └── retentionService.js    # Inactive-family retention sweep
 │   │
 │   └── utils/
 │       ├── notify.js              # FCM push notification helpers
@@ -127,14 +139,21 @@ GET /uploads/*                 ← static file serving for uploaded avatars
 requireAuth                    ← all /api/* routes below this point
 perUserLimiter (300 req / 15 min per UID)
 ↓
-/api/me          → meRouter
-/api/families    → familiesRouter
-/api/activities  → activitiesRouter
-/api/dashboard   → dashboardRouter
-/api/marketplace → marketplaceRouter
-/api/stats       → statsRouter
-/api/absences    → absencesRouter
+/api/billing       → billingRouter      ← mounted BEFORE requireAuth: the RevenueCat
+                                          webhook authenticates by shared secret, not
+                                          by Firebase token
+↓
+requireAuth + perUserLimiter, and familyHeartbeat on every family-scoped router:
+/api/admin         → adminRouter        ← additionally behind requireAdmin + adminLimiter
+/api/me            → meRouter
+/api/families      → familiesRouter
+/api/activities    → activitiesRouter
+/api/dashboard     → dashboardRouter
+/api/marketplace   → marketplaceRouter
+/api/stats         → statsRouter
+/api/absences      → absencesRouter
 /api/personal-time → personalTimeRouter
+/api/events        → eventsRouter
 ↓
 Global error handler (500)
 ```

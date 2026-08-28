@@ -1,6 +1,6 @@
 # Product — CareCoins
 
-> Note: the landing page (`LandingView.vue`) operates as a **brand** surface — design IS the product there for acquisition. All other views (DailyView, DashboardView, ActivitiesView, etc.) are **product** surfaces — design SERVES the caregiving workflow. Apply brand-register thinking to landing; product-register thinking to app views.
+> Note: the landing page (`landing_screen.dart`) operates as a **brand** surface — design IS the product there for acquisition. All other screens (`daily_screen.dart`, `dashboard_screen.dart`, `activities_screen.dart`, etc.) are **product** surfaces — design SERVES the caregiving workflow. Apply brand-register thinking to landing; product-register thinking to app screens.
 
 ---
 
@@ -242,13 +242,18 @@ Full design and implementation log: `docs/personal-time-plan.md`.
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3 + Vite, Pinia, Vue Router |
+| Frontend | Flutter (web, iOS, Android) — one codebase in `fluterFront/` |
+| Frontend state | `provider` + a single `AppState` |
 | Backend | Node.js 20, Express 4 |
 | Database | PostgreSQL 16 |
 | Auth | Firebase Authentication |
 | Push | Firebase Cloud Messaging |
 | Email | Resend |
+| Billing | RevenueCat → App Store / Google Play |
 | Container | Docker Compose (nginx + node + postgres) |
-| Testing | Vitest (unit), Playwright (E2E) |
+| Testing | Node's built-in `--test` (backend), `flutter test` + `flutter analyze` (frontend) |
 
-See `docs/frontend.md` and `docs/backend.md` for detailed technical documentation.
+The Vue 3 SPA this product was first built as was retired from `main` in `7132e6a` and is
+preserved complete on the `vue-frontend` branch; `docs/frontend.md` still describes it.
+
+See `README.md` Part 1 for the Flutter structure and `docs/backend.md` for the API.

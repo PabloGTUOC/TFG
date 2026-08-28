@@ -1,6 +1,16 @@
-# Frontend — Technical Reference
+# Frontend — Technical Reference (retired Vue SPA)
 
-CareCoins frontend is a **Vue 3 Single-Page Application** built with Vite, deployed as a Progressive Web App behind an nginx reverse proxy.
+> **This describes the Vue 3 app, which is no longer the CareCoins frontend.** It was retired
+> from `main` in `7132e6a` and is preserved complete on the `vue-frontend` branch, where
+> everything below still holds. Nothing in this file describes code you can run on `main`.
+>
+> **The current frontend is Flutter** (`fluterFront/`, one codebase for web, iOS and Android).
+> For it, see `README.md` Part 1 (structure: screens, widgets, services, state),
+> `fluterFront/README.md` (runbooks), `docs/DESIGN.md` (design system) and
+> `docs/i18n-plan.md` (localization). There is no direct Flutter equivalent of this
+> document yet.
+
+CareCoins' original frontend was a **Vue 3 Single-Page Application** built with Vite, deployed as a Progressive Web App behind an nginx reverse proxy.
 
 ---
 
