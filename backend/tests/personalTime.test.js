@@ -182,6 +182,26 @@ describe('createRequest', () => {
     assert.equal(db.writes.activities[0].category, 'self');
   });
 
+  test('a lone caregiver can still book time that needs no coverage', async () => {
+    // The only adult in a family has nobody to ask, but booking time purely
+    // for yourself asks nobody — resolving a counterparty here used to reject
+    // the whole request with "There is no one else to cover for you."
+    const db = fakeDb({ caregivers: [{ user_id: 1 }] });
+    const result = await createRequest(db, 1, body({ coverageNeeded: false }), NOW);
+
+    assert.ok(result.data, 'the booking is created');
+    assert.equal(result.data.status, 'accepted');
+    assert.equal(result.data.requested_of, null, 'nobody was asked');
+  });
+
+  test('a lone caregiver is still refused when coverage IS needed', async () => {
+    const db = fakeDb({ caregivers: [{ user_id: 1 }] });
+    const result = await createRequest(db, 1, body(), NOW);
+
+    assert.equal(result.error.code, 400);
+    assert.match(result.error.message, /no one else to cover/);
+  });
+
   test('with two caregivers it asks the other one, no picker needed', async () => {
     const db = fakeDb();
     const result = await createRequest(db, 1, body(), NOW);

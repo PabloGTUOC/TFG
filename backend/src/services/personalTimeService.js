@@ -239,9 +239,15 @@ export async function quoteRequest(client, userId, { familyId, startsAt, endsAt,
   if (repeatError) return { error: { code: 400, message: repeatError } };
 
   const minutes = (new Date(endsAt) - new Date(startsAt)) / MS_PER_MINUTE;
-  const caregivers = await activeCaregivers(client, familyId);
-  const resolved = resolveCounterparty(caregivers, userId, requestedOf);
-  if (resolved.error) return { error: { code: 400, message: resolved.error } };
+  // Only coverage needs a counterparty. Time booked with `coverageNeeded:
+  // false` asks nobody to stand in, so resolving one there would reject a lone
+  // caregiver's own booking with "There is no one else to cover for you."
+  let resolved = { requestedOf: null };
+  if (coverageNeeded) {
+    const caregivers = await activeCaregivers(client, familyId);
+    resolved = resolveCounterparty(caregivers, userId, requestedOf);
+    if (resolved.error) return { error: { code: 400, message: resolved.error } };
+  }
 
   const baseline = coverageNeeded ? priceCoverage(await baseRateFor(client, familyId), minutes) : 0;
 
@@ -341,9 +347,15 @@ export async function createRequest(client, userId, body, now = new Date()) {
     return { error: { code: 409, message: `You already have "${yourConflicts[0]}" during this time.` } };
   }
 
-  const caregivers = await activeCaregivers(client, familyId);
-  const resolved = resolveCounterparty(caregivers, userId, requestedOf);
-  if (resolved.error) return { error: { code: 400, message: resolved.error } };
+  // Only coverage needs a counterparty. Time booked with `coverageNeeded:
+  // false` asks nobody to stand in, so resolving one there would reject a lone
+  // caregiver's own booking with "There is no one else to cover for you."
+  let resolved = { requestedOf: null };
+  if (coverageNeeded) {
+    const caregivers = await activeCaregivers(client, familyId);
+    resolved = resolveCounterparty(caregivers, userId, requestedOf);
+    if (resolved.error) return { error: { code: 400, message: resolved.error } };
+  }
 
   const { occurrences, error: repeatError } = occurrencesFor(startsAt, endsAt, recurrence, recurrenceUntil);
   if (repeatError) return { error: { code: 400, message: repeatError } };

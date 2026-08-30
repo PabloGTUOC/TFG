@@ -101,6 +101,11 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
   List<String> _conflicts = const [];
   bool _submitting = false;
 
+  /// Why the last attempt failed. This sheet is a modal bottom sheet and
+  /// SnackBars render *underneath* it, so a refusal shown only as a toast is
+  /// invisible — the sheet just sits there looking like a dead button.
+  String? _error;
+
   DateTime get _end => _start.add(Duration(minutes: _minutes));
 
   /// What the whole ask costs the requester: the sweetener buys one favour per
@@ -166,9 +171,16 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
           _sweetener = _balance ~/ _occurrences;
         }
         _quoting = false;
+        _error = null;
       });
-    } catch (_) {
-      if (mounted) setState(() => _quoting = false);
+    } catch (e) {
+      // Swallowing this left the sheet showing a price the server never
+      // agreed to, with no hint anything had gone wrong.
+      if (!mounted) return;
+      setState(() {
+        _quoting = false;
+        _error = app.errorTextFor(e);
+      });
     }
   }
 
@@ -211,10 +223,13 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
     final l = AppLocalizations.of(context);
     final app = context.read<AppState>();
     if (_title.text.trim().isEmpty) {
-      app.setError(l.errNameFirst);
+      setState(() => _error = l.errNameFirst);
       return;
     }
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
     final ok = await app.runAction(() async {
       await app.api.post('/api/personal-time', {
         'familyId': app.familyId,
@@ -231,7 +246,11 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
       });
     }, _coverageNeeded ? l.toastPersonalTimeAsked : l.toastPersonalTimeBooked);
     if (!mounted) return;
-    setState(() => _submitting = false);
+    setState(() {
+      _submitting = false;
+      // runAction raises a toast that this sheet covers; mirror it here.
+      _error = ok ? null : app.error;
+    });
     if (ok) Navigator.pop(context, true);
   }
 
@@ -488,6 +507,34 @@ class _PersonalTimeSheetState extends State<_PersonalTimeSheet> {
                           fontSize: 12, color: AppColors.warning)),
                 ),
             ],
+            if (_error != null)
+              Container(
+                margin: const EdgeInsets.only(top: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.dangerSoft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppColors.danger.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 16, color: AppColors.danger),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_error!,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.danger)),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 18),
             Row(
               children: [

@@ -304,6 +304,11 @@ class AppState extends ChangeNotifier {
     return l.errAuthGeneric;
   }
 
+  /// Public wrapper on the error localizer, for surfaces that cannot rely on
+  /// the toast: a modal bottom sheet draws over the SnackBar, so those must
+  /// render the same text inline instead.
+  String errorTextFor(Object e) => _localizeError(e);
+
   /// Turns any thrown error into a display string, localizing the API client's
   /// categorized failures; backend-authored messages pass through unchanged.
   String _localizeError(Object e) {
