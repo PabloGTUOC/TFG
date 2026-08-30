@@ -35,7 +35,17 @@ class PurchaseService {
   /// RevenueCat entitlement identifier (dashboard: Project → Entitlements).
   static const entitlementId = 'MyCareCoins Pro';
 
-  static bool get supported => !kIsWeb && (Platform.isIOS || Platform.isAndroid);
+  /// Master switch for the whole RevenueCat path:
+  ///   --dart-define=PURCHASES_ENABLED=false
+  /// The SDK refuses to run the *test store* key in a release build — it
+  /// deliberately terminates the app rather than let test purchases ship — so
+  /// any device build that is not exercising purchases must turn this off.
+  /// Defaults to on, so store builds and web behave exactly as before.
+  static const bool _enabled =
+      bool.fromEnvironment('PURCHASES_ENABLED', defaultValue: true);
+
+  static bool get supported =>
+      _enabled && !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 
   static bool _configured = false;
 
