@@ -25,3 +25,7 @@ frontend/playwright-report/
 
 # Deploy target (names your server; never committed)
 scripts/deploy.env
+
+# Backups deploy.sh writes on the server before it changes anything. Untracked
+# there, they made the next run's "server checkout is clean" gate fail.
+/backups/
