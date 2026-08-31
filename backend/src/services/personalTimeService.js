@@ -239,12 +239,14 @@ export async function quoteRequest(client, userId, { familyId, startsAt, endsAt,
   if (repeatError) return { error: { code: 400, message: repeatError } };
 
   const minutes = (new Date(endsAt) - new Date(startsAt)) / MS_PER_MINUTE;
+  // The sheet lists candidates whether or not coverage is wanted, so this is
+  // needed either way — see `candidates` below.
+  const caregivers = await activeCaregivers(client, familyId);
   // Only coverage needs a counterparty. Time booked with `coverageNeeded:
   // false` asks nobody to stand in, so resolving one there would reject a lone
   // caregiver's own booking with "There is no one else to cover for you."
   let resolved = { requestedOf: null };
   if (coverageNeeded) {
-    const caregivers = await activeCaregivers(client, familyId);
     resolved = resolveCounterparty(caregivers, userId, requestedOf);
     if (resolved.error) return { error: { code: 400, message: resolved.error } };
   }

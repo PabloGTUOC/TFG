@@ -2,7 +2,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateSelfWindow, priceCoverage, expiryFor, occurrencesFor, MAX_OCCURRENCES,
-  createRequest, acceptRequest, declineRequest, cancelRequest, expireStaleRequests,
+  quoteRequest, createRequest, acceptRequest, declineRequest, cancelRequest,
+  expireStaleRequests,
 } from '../src/services/personalTimeService.js';
 
 const NOW = new Date('2026-09-01T09:00:00Z');
@@ -137,6 +138,50 @@ describe('expiryFor', () => {
 });
 
 // ─── Creating ─────────────────────────────────────────────────────────────────
+
+describe('quoteRequest', () => {
+  const quoteBody = (over = {}) => ({
+    familyId: 10, startsAt: FRI_18, endsAt: FRI_1930, ...over,
+  });
+
+  test('prices coverage and lists the other caregivers as candidates', async () => {
+    const db = fakeDb();
+    const result = await quoteRequest(db, 1, quoteBody(), NOW);
+
+    assert.ok(result.data, result.error && result.error.message);
+    assert.equal(result.data.requestedOf, 2, 'the only other caregiver');
+    assert.deepEqual(result.data.candidates.map((c) => c.user_id), [2]);
+    assert.equal(result.data.minutes, 90);
+  });
+
+  test('still lists candidates when no coverage is wanted', async () => {
+    // The picker is drawn either way, so the candidate list is not optional —
+    // fetching it only inside the coverage branch threw a ReferenceError here.
+    const db = fakeDb();
+    const result = await quoteRequest(db, 1, quoteBody({ coverageNeeded: false }), NOW);
+
+    assert.ok(result.data, result.error && result.error.message);
+    assert.equal(result.data.baselineCoins, 0, 'nothing to pay for');
+    assert.equal(result.data.requestedOf, null, 'nobody is being asked');
+    assert.deepEqual(result.data.candidates.map((c) => c.user_id), [2]);
+  });
+
+  test('a lone caregiver gets a quote when no coverage is wanted', async () => {
+    const db = fakeDb({ caregivers: [{ user_id: 1, name: 'Ana' }] });
+    const result = await quoteRequest(db, 1, quoteBody({ coverageNeeded: false }), NOW);
+
+    assert.ok(result.data, result.error && result.error.message);
+    assert.deepEqual(result.data.candidates, [], 'there is nobody else');
+  });
+
+  test('a lone caregiver asking for coverage is refused', async () => {
+    const db = fakeDb({ caregivers: [{ user_id: 1, name: 'Ana' }] });
+    const result = await quoteRequest(db, 1, quoteBody(), NOW);
+
+    assert.equal(result.error.code, 400);
+    assert.match(result.error.message, /no one else to cover/);
+  });
+});
 
 describe('createRequest', () => {
   test('escrows the sweetener and leaves the request pending', async () => {
