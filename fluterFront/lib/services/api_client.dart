@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 /// Categorizes a client-side request failure so the message can be localized
 /// at the display boundary (AppState holds the current AppLocalizations).
@@ -97,14 +98,20 @@ class ApiClient {
 
   /// Multipart upload (avatar endpoints). Mirrors the Vue FormData calls:
   /// auth header only, no JSON content type.
+  /// [contentType] must be given for anything the server type-checks: without
+  /// it the http package labels the part `application/octet-stream`, and a
+  /// multer `fileFilter` reading `file.mimetype` rejects the upload outright.
   Future<dynamic> uploadFile(String path,
       {required String field,
       required List<int> bytes,
-      required String filename}) async {
+      required String filename,
+      String? contentType}) async {
     final req = http.MultipartRequest('POST', Uri.parse('$apiBase$path'))
       ..headers['Authorization'] = 'Bearer $token'
       ..files.add(http.MultipartFile.fromBytes(field, bytes,
-          filename: filename.isEmpty ? 'avatar.jpg' : filename));
+          filename: filename.isEmpty ? 'avatar.jpg' : filename,
+          contentType:
+              contentType == null ? null : MediaType.parse(contentType)));
     http.Response res;
     try {
       final streamed = await req.send().timeout(const Duration(seconds: 30));

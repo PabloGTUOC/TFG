@@ -293,6 +293,7 @@
   "tourCatTitle": "Soin vs ménage",
   "tourCatBody": "Chaque tâche est de l'un de ces deux types. Cette répartition alimente les graphiques d'équité dans Stats.",
   "errNameFirst": "Donnez d'abord un nom à l'activité.",
+  "errAvatarType": "L'image doit être au format JPEG, PNG ou WebP.",
   "toastTemplateCreated": "Modèle d'activité créé — en attente d'approbation.",
   "toastTemplateApproved": "Activité approuvée ! Elle peut maintenant être programmée depuis le planning du jour.",
   "toastTemplateDeleted": "Modèle d'activité supprimé.",

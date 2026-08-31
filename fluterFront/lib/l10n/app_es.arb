@@ -293,6 +293,7 @@
   "tourCatTitle": "Cuidado vs. hogar",
   "tourCatBody": "Cada tarea es de uno de estos dos tipos. Esta división alimenta los gráficos de equidad en Datos.",
   "errNameFirst": "Ponle un nombre a la actividad primero.",
+  "errAvatarType": "La imagen debe ser JPEG, PNG o WebP.",
   "toastTemplateCreated": "Plantilla de actividad creada: pendiente de aprobación.",
   "toastTemplateApproved": "¡Actividad aprobada! Ya se puede programar desde la agenda diaria.",
   "toastTemplateDeleted": "Plantilla de actividad eliminada.",

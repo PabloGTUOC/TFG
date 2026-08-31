@@ -714,6 +714,8 @@
   "@tourCatBody": { "description": "Activities coach-mark body on the category filter" },
   "errNameFirst": "Give the activity a name first.",
   "@errNameFirst": { "description": "Validation error creating a template without a title" },
+  "errAvatarType": "That image must be a JPEG, PNG or WebP.",
+  "@errAvatarType": { "description": "Rejected an avatar whose bytes are not an accepted image type" },
   "toastTemplateCreated": "Activity template created — pending approval.",
   "@toastTemplateCreated": { "description": "Toast after creating a template" },
   "toastTemplateApproved": "Activity approved! It can now be scheduled from the Daily view.",

@@ -293,6 +293,7 @@
   "tourCatTitle": "Fürsorge vs. Haushalt",
   "tourCatBody": "Jede Aufgabe gehört zu einer der beiden Arten. Diese Aufteilung speist die Fairness-Diagramme in der Statistik.",
   "errNameFirst": "Gib der Aufgabe zuerst einen Namen.",
+  "errAvatarType": "Das Bild muss JPEG, PNG oder WebP sein.",
   "toastTemplateCreated": "Aufgabenvorlage erstellt — wartet auf Freigabe.",
   "toastTemplateApproved": "Aufgabe freigegeben! Sie kann jetzt im Tagesplan eingeplant werden.",
   "toastTemplateDeleted": "Aufgabenvorlage gelöscht.",
